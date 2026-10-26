@@ -382,6 +382,53 @@ func (m *Manager) ListBackups(ctx context.Context, id string) ([]BackupInfo, err
 // backupDirPattern matches the directory names createBackupLocked generates.
 var backupDirPattern = regexp.MustCompile(`^\d{8}-\d{6}-[0-9a-f]{8}$`)
 
+// interruptedRestore starts the error of a project whose restore was cut short. It stays
+// while the project runs (the reconciler clears other errors then) until a restore
+// succeeds.
+const interruptedRestore = "restoring the backup of "
+
+// restoreMark records a restore under way (see restoreBackup).
+type restoreMark struct {
+	ProjectID     string    `json:"projectId"`
+	BackupID      string    `json:"backupId"`
+	BackupCreated time.Time `json:"backupCreated"`
+}
+
+// restoreMarker is the file that marks a restore of project id under way, next to the
+// projects' backup directories under a name no slug can take.
+func restoreMarker(p Paths, id string) string {
+	return filepath.Join(p.BackupsRoot(), ".restore-"+id+".json")
+}
+
+// SweepInterruptedRestores tells the projects whose restore a crash or kill cut short:
+// they hold part of the backup and look fine otherwise. It runs at start-up, before
+// anything can restore.
+func (m *Manager) SweepInterruptedRestores(ctx context.Context) {
+	paths, err := m.paths()
+	if err != nil {
+		return
+	}
+	files, _ := filepath.Glob(filepath.Join(paths.BackupsRoot(), ".restore-*.json"))
+	for _, f := range files {
+		raw, err := os.ReadFile(f)
+		_ = os.Remove(f)
+		var mark restoreMark
+		if err != nil || json.Unmarshal(raw, &mark) != nil {
+			continue
+		}
+		p, err := m.store.Projects.Get(ctx, mark.ProjectID)
+		if err != nil {
+			continue
+		}
+		msg := fmt.Sprintf(interruptedRestore+"%s was interrupted by an Envoryx restart, so the project holds only part of it; restore the backup again", mark.BackupCreated.UTC().Format("2006-01-02 15:04 UTC"))
+		if err := m.store.Projects.UpdateState(ctx, p.ID, p.DesiredState, p.Lifecycle, msg); err != nil {
+			continue
+		}
+		m.log.Warn("a restore was interrupted", "project", p.Slug, "backup", mark.BackupID)
+		m.notify(ctx, notify.Event{Kind: "backup.failed", Level: notify.Error, Project: p.Name, Title: p.Name + ": restore interrupted", Message: msg})
+	}
+}
+
 // SweepBackups tidies up after backups that a crash or kill interrupted. A directory
 // without backup.json never completed (the metadata is written last) and is removed.
 // One that completed but wasn't recorded, because the process died between writing and
@@ -1045,6 +1092,13 @@ func (m *Manager) restoreBackup(ctx context.Context, id, backupID string, opts R
 	if err != nil {
 		return BackupInfo{}, fmt.Errorf("%w: %v", ErrNotConfigured, err)
 	}
+	// A restore cut short (Envoryx killed) leaves a project with part of the backup;
+	// the marker lets the next start say so (SweepInterruptedRestores).
+	marker := restoreMarker(paths, id)
+	if raw, err := json.Marshal(restoreMark{ProjectID: id, BackupID: backupID, BackupCreated: b.CreatedAt}); err == nil {
+		_ = os.WriteFile(marker, raw, 0o600)
+	}
+	defer os.Remove(marker)
 	restored := map[string]any{"name": p.Name, "backup": backupID}
 
 	if opts.Database {
@@ -1113,6 +1167,9 @@ func (m *Manager) restoreBackup(ctx context.Context, id, backupID string, opts R
 		}
 	}
 	m.audit.Log(ctx, audit.ActionBackupRestored, "project", id, restored)
+	if strings.HasPrefix(p.LastError, interruptedRestore) {
+		_ = m.store.Projects.ClearError(ctx, id, p.LastError)
+	}
 	return BackupInfo{ID: b.ID, Dir: b.Filename, Kind: b.Kind, SizeBytes: b.SizeBytes, CreatedAt: b.CreatedAt, Meta: meta}, nil
 }
 

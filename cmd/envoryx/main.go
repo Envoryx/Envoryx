@@ -409,6 +409,7 @@ func serve() error {
 	// actual state and keep doing so in the background.
 	backups.Sweep()
 	manager.SweepBackups(ctx)
+	manager.SweepInterruptedRestores(ctx)
 	background := func(name string, fn func(context.Context)) { go supervise(ctx, log, notifier, name, fn) }
 	background("reconciler", func(ctx context.Context) {
 		// With "projects follow Envoryx" on, the projects that were running before the

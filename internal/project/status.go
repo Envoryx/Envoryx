@@ -354,7 +354,7 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 				continue
 			}
 			p = cur
-			if p.LastError != "" && p.DesiredState == store.DesiredRunning && st.State == StateRunning {
+			if p.LastError != "" && !strings.HasPrefix(p.LastError, interruptedRestore) && p.DesiredState == store.DesiredRunning && st.State == StateRunning {
 				// The project runs as it should again (its containers came back without a
 				// start through Envoryx, say, once the instance ID was put right): the
 				// error of the operation that failed before is history. A stopped project

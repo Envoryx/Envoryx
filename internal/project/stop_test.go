@@ -2,6 +2,8 @@ package project
 
 import (
 	"context"
+	"encoding/json"
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -64,5 +66,44 @@ func TestReconcileReportsALostNetwork(t *testing.T) {
 	report := e.m.Reconcile(ctx)
 	if !slices.ContainsFunc(report.Issues, func(i ReconcileIssue) bool { return strings.Contains(i.Message, "project network is gone") }) {
 		t.Fatalf("issues: %+v", report.Issues)
+	}
+}
+
+// A restore cut short by a crash leaves a marker; the next start puts an error on the
+// project that stays while it runs, until a restore succeeds.
+func TestInterruptedRestoreIsReported(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	v, err := e.m.Create(ctx, phpRequest("Half", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := v.Project.ID
+	b, err := e.m.CreateBackup(ctx, id, BackupOptions{Files: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	paths, _ := e.m.paths()
+	raw, _ := json.Marshal(restoreMark{ProjectID: id, BackupID: b.ID, BackupCreated: b.CreatedAt})
+	if err := os.WriteFile(restoreMarker(paths, id), raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	e.m.SweepInterruptedRestores(ctx)
+	e.m.Reconcile(ctx)
+	got, _ := e.m.Get(ctx, id)
+	if !strings.HasPrefix(got.Project.LastError, interruptedRestore) {
+		t.Fatalf("error after the sweep and a reconcile: %q", got.Project.LastError)
+	}
+	if _, err := os.Stat(restoreMarker(paths, id)); !os.IsNotExist(err) {
+		t.Fatal("the marker stays")
+	}
+	if _, err := e.m.RestoreBackup(ctx, id, b.ID, RestoreOptions{Files: true, Confirm: "half"}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := e.m.Get(ctx, id); got.Project.LastError != "" {
+		t.Fatalf("error after a restore: %q", got.Project.LastError)
+	}
+	if _, err := os.Stat(restoreMarker(paths, id)); !os.IsNotExist(err) {
+		t.Fatal("a finished restore leaves its marker")
 	}
 }
