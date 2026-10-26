@@ -3768,5 +3768,6 @@
   "paused by the plan": "in pausa per il piano",
   "the server refused access or the repository doesn't exist; check the URL and the access token": "il server nega l'accesso o il repository non esiste; controlla l'URL e il token di accesso",
   "the server's HTTPS certificate isn't trusted (signed by a private CA?); clone over SSH with the deploy key or over plain HTTP": "il certificato HTTPS del server non è attendibile (firmato da una CA privata?); clona via SSH con la chiave di deploy o via HTTP semplice",
-  "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "il server rifiuta la chiave di deploy; aggiungila al repository (Impostazioni, chiave di deploy Git)"
+  "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "il server rifiuta la chiave di deploy; aggiungila al repository (Impostazioni, chiave di deploy Git)",
+  "Domains you added keep their names, also one that contains the old identifier.": "I domini che hai aggiunto mantengono il loro nome, anche uno che contiene il vecchio identificatore."
 }

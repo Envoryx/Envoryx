@@ -3768,5 +3768,6 @@
   "paused by the plan": "gepauzeerd door het abonnement",
   "the server refused access or the repository doesn't exist; check the URL and the access token": "de server weigert toegang of de repository bestaat niet; controleer de URL en het toegangstoken",
   "the server's HTTPS certificate isn't trusted (signed by a private CA?); clone over SSH with the deploy key or over plain HTTP": "het HTTPS-certificaat van de server wordt niet vertrouwd (ondertekend door een privé-CA?); clone via SSH met de deploy key of via gewoon HTTP",
-  "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "de server weigert de deploy key; voeg hem toe aan de repository (Instellingen, Git-deploy key)"
+  "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "de server weigert de deploy key; voeg hem toe aan de repository (Instellingen, Git-deploy key)",
+  "Domains you added keep their names, also one that contains the old identifier.": "Domeinen die je hebt toegevoegd houden hun naam, ook een die de oude identifier bevat."
 }

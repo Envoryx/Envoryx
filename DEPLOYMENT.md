@@ -3419,7 +3419,7 @@ envoryx project create "Shop" --php 8.4 --database mariadb --template laravel --
 envoryx project duplicate shop "Shop Test"            # config, files and database
 envoryx import ./old-site "Old Site" --db dump.sql    # an existing website as a project
 envoryx import shop-20261010-084321-4ed7a89e.tar      # a downloaded backup as a new project
-envoryx project rename shop "Acme Blog" --yes         # identifier, URL and data follow
+envoryx project rename shop "Acme Blog" --yes         # identifier, URL and data follow; added domains stay
 envoryx project start|stop|restart shop
 envoryx project delete shop --yes [--delete-files]
 envoryx project logs shop --service php --tail 200 --follow

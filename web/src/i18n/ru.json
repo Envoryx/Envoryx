@@ -3834,5 +3834,6 @@
   "paused by the plan": "приостановлено тарифом",
   "the server refused access or the repository doesn't exist; check the URL and the access token": "сервер отказывает в доступе или репозитория нет; проверьте URL и токен доступа",
   "the server's HTTPS certificate isn't trusted (signed by a private CA?); clone over SSH with the deploy key or over plain HTTP": "HTTPS-сертификату сервера нет доверия (подписан частным ЦС?); клонируйте по SSH с ключом развёртывания или по обычному HTTP",
-  "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "сервер отклоняет ключ развёртывания; добавьте его в репозиторий (Настройки, ключ развёртывания Git)"
+  "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "сервер отклоняет ключ развёртывания; добавьте его в репозиторий (Настройки, ключ развёртывания Git)",
+  "Domains you added keep their names, also one that contains the old identifier.": "Добавленные вами домены сохраняют свои имена, даже если содержат старый идентификатор."
 }

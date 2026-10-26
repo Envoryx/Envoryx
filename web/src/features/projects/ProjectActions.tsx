@@ -339,7 +339,7 @@ export function RenameProjectDialog({ project, open, onClose }: { project: Proje
       open={open}
       onClose={close}
       title={t("Rename “{{name}}”?", { name: project.name })}
-      description={t("The identifier is derived from the name, and everything built on it moves along: URL and host names, containers, network, volumes, the SSH users, the project directory and the backups. The containers are recreated, so the project is briefly unavailable.")}
+      description={`${t("The identifier is derived from the name, and everything built on it moves along: URL and host names, containers, network, volumes, the SSH users, the project directory and the backups. The containers are recreated, so the project is briefly unavailable.")} ${t("Domains you added keep their names, also one that contains the old identifier.")}`}
       footer={
         <>
           <Button onClick={close} disabled={rename.isPending}>
