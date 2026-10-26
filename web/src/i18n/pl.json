@@ -3830,5 +3830,6 @@
   "Logical dumps of the project's {{number}} databases": "Logiczne zrzuty baz danych projektu ({{number}})",
   "the database of {{project}} refuses Envoryx's login; was the password changed inside the database?": "baza danych {{project}} odrzuca logowanie Envoryx; czy hasło zostało zmienione w bazie danych?",
   "database + object storage": "baza danych + magazyn obiektów",
-  "files + object storage": "pliki + magazyn obiektów"
+  "files + object storage": "pliki + magazyn obiektów",
+  "paused by the plan": "wstrzymane przez plan"
 }

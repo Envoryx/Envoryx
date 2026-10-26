@@ -28,6 +28,18 @@ describe("OffsiteTargetsCard", () => {
     expect(screen.queryByRole("button", { name: "Delete Hoster" })).not.toBeInTheDocument();
   });
 
+  it("marks the own targets paused while the plan leaves offsite copies out", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /plan": () => ({ body: { plan: { name: "Starter", limits: {}, runtimes: [], disabled: ["offsite"], lockedSettings: [] }, usage: { projects: 0, users: 1, diskBytes: 0 } } }),
+      "GET /offsite": () => ({ body: { targets: [stored] } }),
+    });
+    renderApp(<OffsiteTargetsCard />);
+    expect(await screen.findByText("paused by the plan")).toBeInTheDocument();
+    expect(screen.queryByText("scheduled project backups")).not.toBeInTheDocument();
+    expect(screen.queryByText("instance daily 03:00")).not.toBeInTheDocument();
+  });
+
   it("adds an SFTP target after a test that records the server key", async () => {
     const api = mockApi({
       ...authedRoutes,

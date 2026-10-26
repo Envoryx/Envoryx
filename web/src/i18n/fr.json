@@ -3764,5 +3764,6 @@
   "Logical dumps of the project's {{number}} databases": "Dumps logiques des {{number}} bases de données du projet",
   "the database of {{project}} refuses Envoryx's login; was the password changed inside the database?": "la base de données de {{project}} refuse la connexion d'Envoryx ; le mot de passe a-t-il été changé dans la base ?",
   "database + object storage": "base de données + stockage d'objets",
-  "files + object storage": "fichiers + stockage d'objets"
+  "files + object storage": "fichiers + stockage d'objets",
+  "paused by the plan": "suspendu par l'offre"
 }

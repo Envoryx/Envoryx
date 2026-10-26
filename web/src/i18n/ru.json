@@ -3830,5 +3830,6 @@
   "Logical dumps of the project's {{number}} databases": "Логические дампы баз данных проекта ({{number}})",
   "the database of {{project}} refuses Envoryx's login; was the password changed inside the database?": "база данных {{project}} отклоняет вход Envoryx; был ли изменён пароль внутри базы данных?",
   "database + object storage": "база данных + объектное хранилище",
-  "files + object storage": "файлы + объектное хранилище"
+  "files + object storage": "файлы + объектное хранилище",
+  "paused by the plan": "приостановлено тарифом"
 }

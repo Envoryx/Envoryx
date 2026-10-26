@@ -112,8 +112,10 @@ export function OffsiteTargetsCard() {
                     <Badge>{typeLabel[x.type]}</Badge>
                     {x.managed && <Badge tone="blue">{t("from your hoster")}</Badge>}
                     {!x.enabled && <Badge tone="gray">{t("off")}</Badge>}
-                    {x.enabled && x.auto && <Badge tone="blue">{t("scheduled project backups")}</Badge>}
-                    {x.enabled && x.instance && <Badge tone="blue">{t("instance daily {{hour}}:00", { hour: String(x.instanceHour).padStart(2, "0") })}</Badge>}
+                    {/* The plan leaves offsite copies out: nothing goes to an own target until it is back. */}
+                    {x.enabled && !allowed && !x.managed && <Badge tone="gray">{t("paused by the plan")}</Badge>}
+                    {x.enabled && (allowed || x.managed) && x.auto && <Badge tone="blue">{t("scheduled project backups")}</Badge>}
+                    {x.enabled && (allowed || x.managed) && x.instance && <Badge tone="blue">{t("instance daily {{hour}}:00", { hour: String(x.instanceHour).padStart(2, "0") })}</Badge>}
                     {x.encrypt ? <Badge tone="green">{t("encrypted")}</Badge> : <Badge tone="amber">{t("not encrypted")}</Badge>}
                   </p>
                   <p className="truncate font-mono text-[11px] text-subtle">{x.location}</p>
