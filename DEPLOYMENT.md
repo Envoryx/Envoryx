@@ -1773,6 +1773,13 @@ project's Git section) into your repository as a read-only deploy key. Private
 HTTPS repositories use an access token per project instead (GitHub:
 fine-grained PAT with *Contents: read*; GitLab: username `oauth2` + token).
 
+Over HTTPS git trusts the public CAs and Envoryx's local CA, so a Git server that
+runs as an Envoryx project (Gitea behind the proxy) works. A company Git server whose
+certificate comes from a private CA doesn't: the clone fails with "the server's HTTPS
+certificate isn't trusted"; use its SSH URL with the deploy key instead. A wrong token
+and a repository that doesn't exist look the same to git, and both end with "the
+server refused access or the repository doesn't exist".
+
 A public repository (HTTPS without a token) is cloned with `--filter=blob:none`: the
 whole history and every branch, but the file contents of older commits only when
 something asks for them (`git log -p`, `git blame`, switching to an old commit). On

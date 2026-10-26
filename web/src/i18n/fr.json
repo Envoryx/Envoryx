@@ -1226,8 +1226,8 @@
   "downgrading {{service}} from {{from}} to {{to}} is not supported by the data format": "La rétrogradation de {{service}} de {{from}} vers {{to}} n'est pas prise en charge par le format des données",
   "{{service}} cannot upgrade an existing data directory from {{from}} to {{to}} in place; export, remove and re-add the database": "{{service}} ne peut pas mettre à niveau sur place un répertoire de données existant de {{from}} vers {{to}} ; exportez, retirez et ajoutez à nouveau la base de données",
   "expected a multipart upload": "Téléversement multipart attendu",
-  "git clone failed: {{error}}": "git clone a échoué : {{error}}",
-  "git {{command}} failed: {{error}}": "git {{command}} a échoué : {{error}}",
+  "git clone failed: {{reason}}": "git clone a échoué : {{reason}}",
+  "git {{command}} failed: {{reason}}": "git {{command}} a échoué : {{reason}}",
   "host must be a host name or IP address without scheme or port": "L'hôte doit être un nom d'hôte ou une adresse IP sans schéma ni port",
   "host name or IP expected": "Nom d'hôte ou IP attendu",
   "host paths for /projects and /config are unknown": "Les chemins sur l'hôte pour /projects et /config sont inconnus",
@@ -3765,5 +3765,8 @@
   "the database of {{project}} refuses Envoryx's login; was the password changed inside the database?": "la base de données de {{project}} refuse la connexion d'Envoryx ; le mot de passe a-t-il été changé dans la base ?",
   "database + object storage": "base de données + stockage d'objets",
   "files + object storage": "fichiers + stockage d'objets",
-  "paused by the plan": "suspendu par l'offre"
+  "paused by the plan": "suspendu par l'offre",
+  "the server refused access or the repository doesn't exist; check the URL and the access token": "le serveur refuse l'accès ou le dépôt n'existe pas ; vérifiez l'URL et le jeton d'accès",
+  "the server's HTTPS certificate isn't trusted (signed by a private CA?); clone over SSH with the deploy key or over plain HTTP": "le certificat HTTPS du serveur n'est pas reconnu (signé par une AC privée ?) ; clonez par SSH avec la clé de déploiement ou en HTTP simple",
+  "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "le serveur refuse la clé de déploiement ; ajoutez-la au dépôt (Paramètres, clé de déploiement Git)"
 }

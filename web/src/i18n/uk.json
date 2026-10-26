@@ -1262,8 +1262,8 @@
   "downgrading {{service}} from {{from}} to {{to}} is not supported by the data format": "Зниження {{service}} з {{from}} до {{to}} не підтримується форматом даних",
   "{{service}} cannot upgrade an existing data directory from {{from}} to {{to}} in place; export, remove and re-add the database": "{{service}} не може оновити наявний каталог даних з {{from}} до {{to}} на місці; експортуйте, видаліть і додайте базу даних заново",
   "expected a multipart upload": "Очікувалося завантаження multipart",
-  "git clone failed: {{error}}": "git clone не вдався: {{error}}",
-  "git {{command}} failed: {{error}}": "git {{command}} не вдався: {{error}}",
+  "git clone failed: {{reason}}": "git clone не вдався: {{reason}}",
+  "git {{command}} failed: {{reason}}": "git {{command}} не вдався: {{reason}}",
   "host must be a host name or IP address without scheme or port": "Хост має бути іменем хоста або IP-адресою без схеми та порту",
   "host name or IP expected": "Очікується ім'я хоста або IP",
   "host paths for /projects and /config are unknown": "Шляхи на хості для /projects і /config невідомі",
@@ -3831,5 +3831,8 @@
   "the database of {{project}} refuses Envoryx's login; was the password changed inside the database?": "база даних {{project}} відхиляє вхід Envoryx; чи було змінено пароль у базі даних?",
   "database + object storage": "база даних + об'єктне сховище",
   "files + object storage": "файли + об'єктне сховище",
-  "paused by the plan": "призупинено тарифом"
+  "paused by the plan": "призупинено тарифом",
+  "the server refused access or the repository doesn't exist; check the URL and the access token": "сервер відмовляє в доступі або репозиторію немає; перевірте URL і токен доступу",
+  "the server's HTTPS certificate isn't trusted (signed by a private CA?); clone over SSH with the deploy key or over plain HTTP": "HTTPS-сертифікату сервера немає довіри (підписаний приватним ЦС?); клонуйте через SSH із ключем розгортання або через звичайний HTTP",
+  "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "сервер відхиляє ключ розгортання; додайте його до репозиторію (Налаштування, ключ розгортання Git)"
 }

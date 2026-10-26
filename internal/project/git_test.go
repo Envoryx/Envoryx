@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -135,7 +136,7 @@ func TestCloneFailureRollsBackProject(t *testing.T) {
 	req := phpRequest("Broken", true)
 	req.Git = &GitRequest{URL: "https://github.com/x/y.git", Token: "ghp_bad"}
 	_, err := e.m.Create(context.Background(), req)
-	if err == nil || !strings.Contains(err.Error(), "Authentication failed") || strings.Contains(err.Error(), "ghp_bad") {
+	if err == nil || !strings.Contains(err.Error(), "refused access or the repository doesn't exist; check the URL and the access token") || strings.Contains(err.Error(), "ghp_bad") {
 		t.Fatalf("expected redacted clone failure, got %v", err)
 	}
 	if n, _ := e.store.Projects.Count(context.Background()); n != 0 {
@@ -143,6 +144,41 @@ func TestCloneFailureRollsBackProject(t *testing.T) {
 	}
 	if len(e.engine.ContainerNames()) != 0 {
 		t.Fatalf("containers left behind: %v", e.engine.ContainerNames())
+	}
+}
+
+// git's messages for a wrong token, a missing repository and an untrusted certificate
+// are said plainly; anything else is git's last line.
+func TestGitFailureSaysWhatWentWrong(t *testing.T) {
+	for out, want := range map[string]string{
+		"Cloning into '.'...\nfatal: could not read Username for 'https://github.com': terminal prompts disabled":                              "refused access or the repository doesn't exist",
+		"remote: Repository not found.\nfatal: repository 'https://git.example/x.git/' not found":                                              "refused access or the repository doesn't exist",
+		"fatal: unable to access 'https://172.17.0.1:21398/git/site.git/': server certificate verification failed. CAfile: none CRLfile: none": "HTTPS certificate isn't trusted",
+		"git@github.com: Permission denied (publickey).\nfatal: Could not read from remote repository.":                                        "refused the deploy key",
+		"error: Your local changes would be overwritten by merge\nAborting":                                                                    "Aborting",
+	} {
+		if got := gitFailure(out); !strings.Contains(got, want) {
+			t.Errorf("%q: %q, want %q", out, got, want)
+		}
+	}
+}
+
+// git runs with the bundle of the system CAs and Envoryx's local CA, so a Git server
+// behind Envoryx's proxy is trusted.
+func TestGitTrustsTheLocalCA(t *testing.T) {
+	e := newEnv(t)
+	e.m.SetCATrust(true)
+	req := phpRequest("Trusting", false)
+	req.Git = &GitRequest{URL: "https://gitea.test/acme/site.git"}
+	if _, err := e.m.Create(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+	if len(e.engine.OneShots) == 0 {
+		t.Fatal("no git container")
+	}
+	spec := e.engine.OneShots[0]
+	if !slices.Contains(spec.Env, "GIT_SSL_CAINFO="+caTrustBundle) || !slices.ContainsFunc(spec.Mounts, func(m docker.MountSpec) bool { return m.Target == caTrustTarget }) {
+		t.Fatalf("git container: env %v mounts %+v", spec.Env, spec.Mounts)
 	}
 }
 

@@ -253,6 +253,7 @@ func (m *Manager) runGit(ctx context.Context, proj store.Project, args ...string
 	if err != nil {
 		return docker.ExecResult{}, fmt.Errorf("%w: %v", ErrNotConfigured, err)
 	}
+	paths.CATrust = m.caTrust
 	planner := NewPlanner(paths, m.catalog)
 	if _, err := m.DeployKey(ctx); err != nil {
 		return docker.ExecResult{}, err
@@ -273,8 +274,32 @@ func (m *Manager) runGit(ctx context.Context, proj store.Project, args ...string
 		},
 		RestartPolicy: "no",
 	}
+	// A Git server behind Envoryx's own proxy (a Gitea project) answers with the local
+	// CA's certificate: git trusts the same bundle as the project containers.
+	planner.withCATrust(&spec)
+	if paths.CATrust {
+		spec.Env = append(spec.Env, "GIT_SSL_CAINFO="+caTrustBundle)
+	}
 	runAsProjectUser(&spec, paths.PUID, paths.PGID)
 	return m.engine.RunOneShot(ctx, spec)
+}
+
+// gitFailure is what a failed git command reports: the meaning of the messages that
+// otherwise mislead (a wrong token and a missing repository both end in "could not read
+// Username ... terminal prompts disabled"), else git's last line.
+func gitFailure(out string) string {
+	lower := strings.ToLower(out)
+	switch {
+	case strings.Contains(lower, "terminal prompts disabled"), strings.Contains(lower, "authentication failed"),
+		strings.Contains(lower, "repository not found"), strings.Contains(lower, "the requested url returned error: 401"),
+		strings.Contains(lower, "the requested url returned error: 403"), strings.Contains(lower, "the requested url returned error: 404"):
+		return "the server refused access or the repository doesn't exist; check the URL and the access token"
+	case strings.Contains(lower, "server certificate verification failed"), strings.Contains(lower, "ssl certificate problem"):
+		return "the server's HTTPS certificate isn't trusted (signed by a private CA?); clone over SSH with the deploy key or over plain HTTP"
+	case strings.Contains(lower, "permission denied (publickey)"):
+		return "the server refused the deploy key; add it to the repository (Settings, Git deploy key)"
+	}
+	return lastLine(out)
 }
 
 // GitStatus returns the repository state of a project.
@@ -451,7 +476,7 @@ func (m *Manager) clone(ctx context.Context, proj store.Project) (GitResult, err
 	out := redactOutput(res, proj.Git)
 	m.audit.Log(ctx, audit.ActionGitClone, "project", proj.ID, map[string]any{"name": proj.Name, "url": redactURL(proj.Git.URL), "exitCode": res.ExitCode})
 	if res.ExitCode != 0 {
-		return GitResult{Output: out, ExitCode: res.ExitCode, Status: m.gitStatus(ctx, proj)}, fmt.Errorf("%w: git clone failed: %s", ErrConflict, lastLine(out))
+		return GitResult{Output: out, ExitCode: res.ExitCode, Status: m.gitStatus(ctx, proj)}, fmt.Errorf("%w: git clone failed: %s", ErrConflict, gitFailure(out))
 	}
 	return GitResult{Output: out, ExitCode: 0, Status: m.gitStatus(ctx, proj)}, nil
 }
@@ -505,7 +530,7 @@ func (m *Manager) gitOp(ctx context.Context, id, action string, args ...string) 
 	m.audit.Log(ctx, action, "project", id, map[string]any{"name": proj.Name, "exitCode": res.ExitCode})
 	status := m.gitStatus(ctx, proj)
 	if res.ExitCode != 0 {
-		return GitResult{Output: out, ExitCode: res.ExitCode, Status: status}, fmt.Errorf("%w: git %s failed: %s", ErrConflict, args[0], lastLine(out))
+		return GitResult{Output: out, ExitCode: res.ExitCode, Status: status}, fmt.Errorf("%w: git %s failed: %s", ErrConflict, args[0], gitFailure(out))
 	}
 	return GitResult{Output: out, ExitCode: 0, Status: status}, nil
 }

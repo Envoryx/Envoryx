@@ -1226,8 +1226,8 @@
   "downgrading {{service}} from {{from}} to {{to}} is not supported by the data format": "Fazer downgrade de {{service}} de {{from}} para {{to}} não é suportado pelo formato dos dados",
   "{{service}} cannot upgrade an existing data directory from {{from}} to {{to}} in place; export, remove and re-add the database": "{{service}} não pode atualizar no local um diretório de dados existente de {{from}} para {{to}}; exporte, remova e adicione o banco de dados novamente",
   "expected a multipart upload": "Esperado um upload multipart",
-  "git clone failed: {{error}}": "git clone falhou: {{error}}",
-  "git {{command}} failed: {{error}}": "git {{command}} falhou: {{error}}",
+  "git clone failed: {{reason}}": "git clone falhou: {{reason}}",
+  "git {{command}} failed: {{reason}}": "git {{command}} falhou: {{reason}}",
   "host must be a host name or IP address without scheme or port": "O host deve ser um nome de host ou endereço IP sem esquema nem porta",
   "host name or IP expected": "Esperado nome de host ou IP",
   "host paths for /projects and /config are unknown": "Os caminhos no host para /projects e /config são desconhecidos",
@@ -3765,5 +3765,8 @@
   "the database of {{project}} refuses Envoryx's login; was the password changed inside the database?": "a base de dados de {{project}} recusa o login do Envoryx; a palavra-passe foi alterada dentro da base de dados?",
   "database + object storage": "base de dados + armazenamento de objetos",
   "files + object storage": "ficheiros + armazenamento de objetos",
-  "paused by the plan": "em pausa pelo plano"
+  "paused by the plan": "em pausa pelo plano",
+  "the server refused access or the repository doesn't exist; check the URL and the access token": "o servidor recusa o acesso ou o repositório não existe; verifique o URL e o token de acesso",
+  "the server's HTTPS certificate isn't trusted (signed by a private CA?); clone over SSH with the deploy key or over plain HTTP": "o certificado HTTPS do servidor não é de confiança (assinado por uma CA privada?); clone por SSH com a chave de deploy ou por HTTP simples",
+  "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "o servidor recusa a chave de deploy; adicione-a ao repositório (Definições, chave de deploy Git)"
 }

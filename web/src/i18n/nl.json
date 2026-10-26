@@ -1226,8 +1226,8 @@
   "downgrading {{service}} from {{from}} to {{to}} is not supported by the data format": "Een downgrade van {{service}} van {{from}} naar {{to}} wordt niet ondersteund door het gegevensformaat",
   "{{service}} cannot upgrade an existing data directory from {{from}} to {{to}} in place; export, remove and re-add the database": "{{service}} kan een bestaande datamap niet ter plekke van {{from}} naar {{to}} upgraden; exporteer, verwijder en voeg de database opnieuw toe",
   "expected a multipart upload": "Multipart-upload verwacht",
-  "git clone failed: {{error}}": "git clone mislukt: {{error}}",
-  "git {{command}} failed: {{error}}": "git {{command}} mislukt: {{error}}",
+  "git clone failed: {{reason}}": "git clone mislukt: {{reason}}",
+  "git {{command}} failed: {{reason}}": "git {{command}} mislukt: {{reason}}",
   "host must be a host name or IP address without scheme or port": "De host moet een hostnaam of IP-adres zijn zonder schema of poort",
   "host name or IP expected": "Hostnaam of IP verwacht",
   "host paths for /projects and /config are unknown": "De hostpaden voor /projects en /config zijn onbekend",
@@ -3765,5 +3765,8 @@
   "the database of {{project}} refuses Envoryx's login; was the password changed inside the database?": "de database van {{project}} weigert de aanmelding van Envoryx; is het wachtwoord in de database gewijzigd?",
   "database + object storage": "database + objectopslag",
   "files + object storage": "bestanden + objectopslag",
-  "paused by the plan": "gepauzeerd door het abonnement"
+  "paused by the plan": "gepauzeerd door het abonnement",
+  "the server refused access or the repository doesn't exist; check the URL and the access token": "de server weigert toegang of de repository bestaat niet; controleer de URL en het toegangstoken",
+  "the server's HTTPS certificate isn't trusted (signed by a private CA?); clone over SSH with the deploy key or over plain HTTP": "het HTTPS-certificaat van de server wordt niet vertrouwd (ondertekend door een privé-CA?); clone via SSH met de deploy key of via gewoon HTTP",
+  "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "de server weigert de deploy key; voeg hem toe aan de repository (Instellingen, Git-deploy key)"
 }

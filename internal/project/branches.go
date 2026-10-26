@@ -224,7 +224,7 @@ func (m *Manager) lsRemote(ctx context.Context, p store.Project) (map[string]str
 		return nil, err
 	}
 	if res.ExitCode != 0 {
-		return nil, fmt.Errorf("%w: git ls-remote failed: %s", ErrConflict, lastLine(redactOutput(res, p.Git)))
+		return nil, fmt.Errorf("%w: git ls-remote failed: %s", ErrConflict, gitFailure(redactOutput(res, p.Git)))
 	}
 	out := map[string]string{}
 	for _, line := range strings.Split(res.Stdout, "\n") {
@@ -347,7 +347,7 @@ func (m *Manager) checkoutBranch(ctx context.Context, p store.Project, branch st
 			return err
 		}
 		if res.ExitCode != 0 {
-			return fmt.Errorf("%w: git %s failed: %s", ErrConflict, args[0], lastLine(redactOutput(res, p.Git)))
+			return fmt.Errorf("%w: git %s failed: %s", ErrConflict, args[0], gitFailure(redactOutput(res, p.Git)))
 		}
 	}
 	return nil

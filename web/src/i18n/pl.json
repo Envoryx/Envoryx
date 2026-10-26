@@ -1262,8 +1262,8 @@
   "downgrading {{service}} from {{from}} to {{to}} is not supported by the data format": "Obniżenie wersji {{service}} z {{from}} do {{to}} nie jest obsługiwane przez format danych",
   "{{service}} cannot upgrade an existing data directory from {{from}} to {{to}} in place; export, remove and re-add the database": "{{service}} nie może zaktualizować istniejącego katalogu danych z {{from}} do {{to}} w miejscu; wyeksportuj, usuń i dodaj bazę danych ponownie",
   "expected a multipart upload": "Oczekiwano przesłania multipart",
-  "git clone failed: {{error}}": "git clone nie powiódł się: {{error}}",
-  "git {{command}} failed: {{error}}": "git {{command}} nie powiódł się: {{error}}",
+  "git clone failed: {{reason}}": "git clone nie powiódł się: {{reason}}",
+  "git {{command}} failed: {{reason}}": "git {{command}} nie powiódł się: {{reason}}",
   "host must be a host name or IP address without scheme or port": "Host musi być nazwą hosta lub adresem IP bez schematu i portu",
   "host name or IP expected": "Oczekiwano nazwy hosta lub IP",
   "host paths for /projects and /config are unknown": "Ścieżki na hoście dla /projects i /config są nieznane",
@@ -3831,5 +3831,8 @@
   "the database of {{project}} refuses Envoryx's login; was the password changed inside the database?": "baza danych {{project}} odrzuca logowanie Envoryx; czy hasło zostało zmienione w bazie danych?",
   "database + object storage": "baza danych + magazyn obiektów",
   "files + object storage": "pliki + magazyn obiektów",
-  "paused by the plan": "wstrzymane przez plan"
+  "paused by the plan": "wstrzymane przez plan",
+  "the server refused access or the repository doesn't exist; check the URL and the access token": "serwer odmawia dostępu albo repozytorium nie istnieje; sprawdź URL i token dostępu",
+  "the server's HTTPS certificate isn't trusted (signed by a private CA?); clone over SSH with the deploy key or over plain HTTP": "certyfikat HTTPS serwera nie jest zaufany (podpisany przez prywatne CA?); klonuj przez SSH kluczem wdrożeniowym albo przez zwykłe HTTP",
+  "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "serwer odrzuca klucz wdrożeniowy; dodaj go do repozytorium (Ustawienia, klucz wdrożeniowy Git)"
 }

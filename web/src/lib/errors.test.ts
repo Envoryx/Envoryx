@@ -7,6 +7,13 @@ describe("translateMessage", () => {
   afterAll(() => i18n.changeLanguage("en"));
   const t = i18n.t.bind(i18n);
 
+  it("translates the reason a git command failed, and keeps git's own words", () => {
+    expect(translateMessage("git clone failed: the server refused access or the repository doesn't exist; check the URL and the access token", t)).toBe(
+      "git clone fehlgeschlagen: der Server verweigert den Zugriff oder das Repository gibt es nicht; prüfe die URL und das Zugriffstoken",
+    );
+    expect(translateMessage("git pull failed: Aborting", t)).toBe("git pull fehlgeschlagen: Aborting");
+  });
+
   it("translates fixed backend messages", () => {
     expect(translateMessage("the Docker engine is not reachable", t)).toBe("Die Docker-Engine ist nicht erreichbar");
   });
