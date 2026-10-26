@@ -3195,9 +3195,19 @@ Use `http://<host>:8787/mcp` if the proxy/HTTPS is not set up.
 Available tools: list/get projects, list runtimes, create project (PHP
 version + extensions, database, Redis, Memcached, Mailpit, RabbitMQ,
 Meilisearch, Typesense, OpenSearch, Ollama, object storage, Node, Python, Go,
-Ruby, Java, .NET, git clone, env),
-start/stop/restart, get logs, list/run actions (composer, artisan, npm …),
-list/create databases, list/create backups, add domain. Deleting projects,
+Ruby, Java, .NET, git clone, env), duplicate and rename a project,
+start/stop/restart, get logs and their statistics (lines, warnings and errors
+over time), list/run actions (composer, artisan, npm …), list/create
+databases, list/create backups, list/create database snapshots, add domain,
+and the branch environment tools below. The scope each needs:
+
+| Scope     | Tools |
+|-----------|-------|
+| `read`    | `list_projects`, `get_project`, `list_runtimes`, `get_logs`, `get_log_stats`, `list_actions`, `list_databases`, `list_backups`, `list_snapshots`, `list_branch_environments` |
+| `operate` | `start_project`, `stop_project`, `restart_project`, `run_action`, `create_database`, `create_backup`, `create_snapshot`, `add_domain`, `deploy_branch_environment` |
+| `admin`   | `create_project`, `duplicate_project`, `rename_project`, `create_branch_environment` |
+
+A token only gets offered the tools it can call. Deleting projects,
 dropping databases and restoring backups are intentionally not exposed -
 do those in the UI. Example prompt: *"Create a Laravel project called
 test-api with PHP 8.4, MariaDB and Redis, then run composer install."*
@@ -3268,6 +3278,10 @@ ones below it:
 | `operate` | Working with existing projects: start/stop/restart, image rollback, actions (composer, artisan …), creating backups and databases, git, domains, SSH/SFTP, terminal, database browser, adding installed addons. Default for new tokens. |
 | `admin`   | Everything an admin may do: creating and deleting projects, settings, TLS, notifications, instance backups, image clean-up, restores, dropping databases, installing addons. |
 
+The dashboard (`GET /api/v1/dashboard`) and the settings (`GET /api/v1/settings`)
+need an `admin` token even for reading: they show the whole instance. A `read` or
+`operate` token gets `403` there.
+
 A token can additionally be **limited to particular projects**. It then sees
 only those in listings, every other project answers `403` (REST) or "no project
 matches" (MCP), instance-wide endpoints (dashboard, settings, Docker overview)
@@ -3302,6 +3316,10 @@ container's own binary does the job:
 docker exec -it envoryx envoryx project list
 docker exec -it envoryx envoryx project exec shop -- php artisan migrate --force
 ```
+
+`envoryx help` lists every command; `--help` after a command or a group
+(`envoryx project logs --help`, `envoryx backup --help`, or `envoryx help
+project logs`) shows only that one with its flags.
 
 Inside the container the address is known (`ENVORYX_LISTEN`); only the token is
 needed. From a workstation or a build agent, name the server once:
@@ -3396,8 +3414,8 @@ and keep the rest. A cron job runs in the project's application runtime unless
 (default 10 minutes), and `cron run --wait` exits with the command's exit code.
 
 `envoryx settings set` changes several settings in one go: `public-host`,
-`base-domain`, `force-https`, `projects-follow-envoryx`, `shared-ide-backends`,
-`shared-package-cache`, `xdebug-client-host`, `folderview-folder`,
+`base-domain`, `force-https`, `projects-follow-envoryx`, `new-projects-private`,
+`shared-ide-backends`, `shared-package-cache`, `xdebug-client-host`, `folderview-folder`,
 `log-history`, `log-history-days`, `log-history-max-mb` and `metrics-days`.
 On/off settings take `on` or `off`; an empty value clears a text setting. What
 a hoster's plan fixes is marked and refused, as in the web interface. The
@@ -3543,7 +3561,8 @@ envoryx login --url https://envoryx.example.com --ca-cert ~/envoryx-ca.crt
 ```
 
 The file is the one from *Settings → Domains & HTTPS → Download envoryx-ca.crt*
-(`ENVORYX_CA_CERT` does the same). `--insecure` skips verification for a quick
+(`ENVORYX_CA_CERT` does the same). `login` stores its full path, so commands
+run from other directories find it too. `--insecure` skips verification for a quick
 look on a trusted network; with a Let's Encrypt certificate neither is needed.
 
 ## Audit log
