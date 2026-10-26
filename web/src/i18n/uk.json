@@ -3724,7 +3724,6 @@
   "Create a project to get an isolated environment with its own web server and Docker network. Your plan includes {{runtimes}}.": "Створіть проєкт, щоб отримати ізольоване середовище з власним вебсервером і мережею Docker. Ваш тариф містить {{runtimes}}.",
   "Your plan doesn't include {{name}}, so it isn't preselected.": "{{name}} не входить у ваш тариф, тому не вибраний заздалегідь.",
   "Forgot the password? An admin of this instance can send you a reset link; if you are the only admin, ask your hoster.": "Забули пароль? Адміністратор цього екземпляра може надіслати вам посилання для скидання; якщо ви єдиний адміністратор, зверніться до свого хостера.",
-  "Another Envoryx made this backup: its project settings are encrypted with key {{id}}, not with this instance's. Enter that key (Settings → Secret key on the Envoryx that made it); afterwards the backup is encrypted with this instance's key, and the key you enter isn't stored.": "Цю резервну копію створив інший Envoryx: її налаштування проєкту зашифровані ключем {{id}}, а не ключем цього екземпляра. Введіть цей ключ (Налаштування → Секретний ключ в Envoryx, який її створив); після цього копія буде зашифрована ключем цього екземпляра, а введений ключ ніде не зберігається.",
   "Another Envoryx made it, so restoring it asks for that Envoryx's secret key.": "Її створив інший Envoryx, тому для відновлення потрібен секретний ключ того Envoryx.",
   "Single sign-on failed.": "Єдиний вхід не вдався.",
   "Remove the volume {{name}} and the data in it? This can't be undone.": "Видалити том {{name}} разом із даними? Це не можна скасувати.",
@@ -3782,5 +3781,6 @@
   "{{count}} projects consistent with Docker (checked {{time}})_one": "Проєктів, узгоджених із Docker: {{count}} (перевірено {{time}})",
   "{{count}} projects consistent with Docker (checked {{time}})_few": "Проєктів, узгоджених із Docker: {{count}} (перевірено {{time}})",
   "{{count}} projects consistent with Docker (checked {{time}})_many": "Проєктів, узгоджених із Docker: {{count}} (перевірено {{time}})",
-  "{{count}} projects consistent with Docker (checked {{time}})_other": "Проєктів, узгоджених із Docker: {{count}} (перевірено {{time}})"
+  "{{count}} projects consistent with Docker (checked {{time}})_other": "Проєктів, узгоджених із Docker: {{count}} (перевірено {{time}})",
+  "This backup's project settings are encrypted with key {{id}}, which this instance doesn't have: another Envoryx's, or this one's from before its key was replaced. Enter that key (Settings → Secret key on the Envoryx that made it); afterwards the backup is encrypted with this instance's key, and the key you enter isn't stored.": "Налаштування проєкту в цій копії зашифровані ключем {{id}}, якого цей екземпляр не має: ключем іншого Envoryx або цього до заміни ключа. Введіть цей ключ (Налаштування → Секретний ключ в Envoryx, який її створив); після цього копія буде зашифрована ключем цього екземпляра, а введений ключ ніде не зберігається."
 }

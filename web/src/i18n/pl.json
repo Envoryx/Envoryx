@@ -3724,7 +3724,6 @@
   "Create a project to get an isolated environment with its own web server and Docker network. Your plan includes {{runtimes}}.": "Utwórz projekt, aby otrzymać izolowane środowisko z własnym serwerem WWW i siecią Docker. Twój plan obejmuje {{runtimes}}.",
   "Your plan doesn't include {{name}}, so it isn't preselected.": "{{name}} nie wchodzi w skład twojego planu, więc nie jest wstępnie wybrany.",
   "Forgot the password? An admin of this instance can send you a reset link; if you are the only admin, ask your hoster.": "Nie pamiętasz hasła? Administrator tej instancji może wysłać ci link do zresetowania; jeśli jesteś jedynym administratorem, zwróć się do swojego dostawcy hostingu.",
-  "Another Envoryx made this backup: its project settings are encrypted with key {{id}}, not with this instance's. Enter that key (Settings → Secret key on the Envoryx that made it); afterwards the backup is encrypted with this instance's key, and the key you enter isn't stored.": "Tę kopię utworzył inny Envoryx: jej ustawienia projektu są zaszyfrowane kluczem {{id}}, a nie kluczem tej instancji. Podaj ten klucz (Ustawienia → Klucz tajny w Envoryx, który ją utworzył); potem kopia jest zaszyfrowana kluczem tej instancji, a podany klucz nie jest nigdzie zapisywany.",
   "Another Envoryx made it, so restoring it asks for that Envoryx's secret key.": "Utworzył ją inny Envoryx, więc przywracanie wymaga klucza tajnego tamtego Envoryx.",
   "Single sign-on failed.": "Logowanie jednokrotne nie powiodło się.",
   "Remove the volume {{name}} and the data in it? This can't be undone.": "Usunąć wolumen {{name}} razem z danymi? Tego nie da się cofnąć.",
@@ -3782,5 +3781,6 @@
   "{{count}} projects consistent with Docker (checked {{time}})_one": "Projekty zgodne z Dockerem: {{count}} (sprawdzono {{time}})",
   "{{count}} projects consistent with Docker (checked {{time}})_few": "Projekty zgodne z Dockerem: {{count}} (sprawdzono {{time}})",
   "{{count}} projects consistent with Docker (checked {{time}})_many": "Projekty zgodne z Dockerem: {{count}} (sprawdzono {{time}})",
-  "{{count}} projects consistent with Docker (checked {{time}})_other": "Projekty zgodne z Dockerem: {{count}} (sprawdzono {{time}})"
+  "{{count}} projects consistent with Docker (checked {{time}})_other": "Projekty zgodne z Dockerem: {{count}} (sprawdzono {{time}})",
+  "This backup's project settings are encrypted with key {{id}}, which this instance doesn't have: another Envoryx's, or this one's from before its key was replaced. Enter that key (Settings → Secret key on the Envoryx that made it); afterwards the backup is encrypted with this instance's key, and the key you enter isn't stored.": "Ustawienia projektu w tej kopii są zaszyfrowane kluczem {{id}}, którego ta instancja nie ma: kluczem innego Envoryx albo tego sprzed wymiany klucza. Podaj ten klucz (Ustawienia → Klucz tajny w Envoryx, który ją utworzył); potem kopia jest zaszyfrowana kluczem tej instancji, a podany klucz nie jest nigdzie zapisywany."
 }

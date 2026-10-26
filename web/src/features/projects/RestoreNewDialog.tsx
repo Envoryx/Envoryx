@@ -105,7 +105,7 @@ export function RestoreNewDialog({ projectId, projectName, backup, onClose }: { 
             <Field
               label={t("Secret key of the backup")}
               htmlFor="restore-new-key"
-              hint={t("Another Envoryx made this backup: its project settings are encrypted with key {{id}}, not with this instance's. Enter that key (Settings → Secret key on the Envoryx that made it); afterwards the backup is encrypted with this instance's key, and the key you enter isn't stored.", { id: backup.sealedWith })}
+              hint={t("This backup's project settings are encrypted with key {{id}}, which this instance doesn't have: another Envoryx's, or this one's from before its key was replaced. Enter that key (Settings → Secret key on the Envoryx that made it); afterwards the backup is encrypted with this instance's key, and the key you enter isn't stored.", { id: backup.sealedWith })}
             >
               <Input id="restore-new-key" type="password" value={key} onChange={(e) => setKey(e.target.value)} autoComplete="off" spellCheck={false} />
             </Field>
