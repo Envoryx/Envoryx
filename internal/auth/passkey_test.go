@@ -210,4 +210,9 @@ func TestPasskeyRegistrationAndSignIn(t *testing.T) {
 	if f, _ := st.MFA.Factors(ctx, u.ID); f.Any() || f.RecoveryCodes != 0 {
 		t.Fatalf("after removing: %+v", f)
 	}
+	// The removed passkey gets a plain sentence, not the library's wording.
+	id, assertion, _ = svc.BeginPasskeyLogin(ctx, rp, "")
+	if _, _, err := svc.FinishPasskeyLogin(ctx, id, k.get(assertion, rp.ID, rp.Origin), "1.2.3.5", "test"); !errors.Is(err, ErrUnknownPasskey) || !errors.Is(err, ErrPasskey) {
+		t.Fatalf("a removed passkey: %v", err)
+	}
 }

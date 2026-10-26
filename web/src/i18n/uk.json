@@ -3794,5 +3794,6 @@
   "Remove addon {{name}}?": "Видалити аддон {{name}}?",
   "Its file is deleted from /config/addons. Projects can't add it any more until it is installed again.": "Його файл видаляється з /config/addons. Проєкти не зможуть його додати, доки його не буде встановлено знову.",
   "Remove the custom certificate?": "Видалити власний сертифікат?",
-  "The names it covers get certificates from the local CA again. The private key isn't shown anywhere, so to use the certificate again you need its files.": "Імена, які він покриває, знову отримають сертифікати локального CA. Закритий ключ ніде не показується, тож щоб знову використати сертифікат, знадобляться його файли."
+  "The names it covers get certificates from the local CA again. The private key isn't shown anywhere, so to use the certificate again you need its files.": "Імена, які він покриває, знову отримають сертифікати локального CA. Закритий ключ ніде не показується, тож щоб знову використати сертифікат, знадобляться його файли.",
+  "this passkey is not registered here (any more)": "Цей ключ доступу тут не зареєстровано (або вже видалено)"
 }

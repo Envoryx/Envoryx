@@ -3728,5 +3728,6 @@
   "Remove addon {{name}}?": "Remover o addon {{name}}?",
   "Its file is deleted from /config/addons. Projects can't add it any more until it is installed again.": "O arquivo é apagado de /config/addons. Os projetos não poderão adicioná-lo até que seja instalado de novo.",
   "Remove the custom certificate?": "Remover o certificado próprio?",
-  "The names it covers get certificates from the local CA again. The private key isn't shown anywhere, so to use the certificate again you need its files.": "Os nomes que ele cobre voltam a receber certificados da CA local. A chave privada não é mostrada em lugar nenhum; para usar o certificado de novo, você precisa dos arquivos."
+  "The names it covers get certificates from the local CA again. The private key isn't shown anywhere, so to use the certificate again you need its files.": "Os nomes que ele cobre voltam a receber certificados da CA local. A chave privada não é mostrada em lugar nenhum; para usar o certificado de novo, você precisa dos arquivos.",
+  "this passkey is not registered here (any more)": "Esta chave de acesso não está (mais) registrada aqui"
 }

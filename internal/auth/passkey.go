@@ -39,9 +39,18 @@ var (
 	ErrPasskeyContext = fmt.Errorf("%w: passkeys need the web interface at an https address with a host name (or at localhost)", validate.ErrInvalid)
 	// ErrPasskey is returned when a passkey doesn't sign in.
 	ErrPasskey = errors.New("the passkey was not accepted")
+	// ErrUnknownPasskey is an ErrPasskey for a passkey no account has (any more): one
+	// removed on the account page, or one from another Envoryx.
+	ErrUnknownPasskey error = unknownPasskey{}
 	// ErrCeremony is returned for an unknown or expired ceremony.
 	ErrCeremony = fmt.Errorf("%w: the passkey request expired; try again", validate.ErrInvalid)
 )
+
+// unknownPasskey is one plain sentence, but still an ErrPasskey for the callers.
+type unknownPasskey struct{}
+
+func (unknownPasskey) Error() string { return "this passkey is not registered here (any more)" }
+func (unknownPasskey) Unwrap() error { return ErrPasskey }
 
 // RelyingParty is where a passkey ceremony runs: the host name (ID) and the origin the
 // browser reports.
@@ -347,10 +356,16 @@ func (s *Service) FinishPasskeyLogin(ctx context.Context, id string, response []
 	if !s.limiter.allow(ip, limitKey, s.now()) {
 		return "", store.User{}, ErrTooManyAttempts
 	}
+	// unknown is set when the passkey belongs to no account: the library's wording of it
+	// ("Failed to lookup Client-side Discoverable Credential") means nothing to a user.
+	unknown := false
 	fail := func(err error) (string, store.User, error) {
 		s.limiter.fail(ip, limitKey, s.now())
 		if cer.ticket != "" {
 			s.ticketFailed(cer.ticket)
+		}
+		if unknown {
+			return "", store.User{}, ErrUnknownPasskey
 		}
 		return "", store.User{}, fmt.Errorf("%w: %v", ErrPasskey, err)
 	}
@@ -372,10 +387,14 @@ func (s *Service) FinishPasskeyLogin(ctx context.Context, id string, response []
 	} else {
 		cred, err = wa.ValidateDiscoverableLogin(func(rawID, userHandle []byte) (webauthn.User, error) {
 			found, err := s.loadWAUser(ctx, string(userHandle), cer.rp)
+			if errors.Is(err, store.ErrNotFound) {
+				unknown = true
+			}
 			if err != nil {
 				return nil, err
 			}
 			if _, ok := found.rows[base64.RawURLEncoding.EncodeToString(rawID)]; !ok {
+				unknown = true
 				return nil, errors.New("unknown passkey")
 			}
 			u = found
@@ -391,6 +410,7 @@ func (s *Service) FinishPasskeyLogin(ctx context.Context, id string, response []
 	keyID := base64.RawURLEncoding.EncodeToString(cred.ID)
 	row, ok := u.rows[keyID]
 	if !ok || !bytes.Equal([]byte(row.UserID), []byte(u.user.ID)) {
+		unknown = true
 		return fail(errors.New("unknown passkey"))
 	}
 	if u.user.Disabled {
