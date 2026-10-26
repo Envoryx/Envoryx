@@ -1172,8 +1172,10 @@ without the password. Duplicating a project copies them.
 ## Project variables and .env files
 
 A project's variables (*Environment* section, or *Advanced settings → Environment* in the wizard)
-reach every container of the project and win over what Envoryx sets for the
-services. **Import .env** reads a `.env` file (pasted or chosen) in the form
+reach the project's application containers (PHP, Node.js, Python, Go, Ruby,
+Java, .NET), its workers and its cron jobs, and win over what Envoryx sets for
+the services there. The web server, the database and the other services don't
+get them; Envoryx configures those itself. **Import .env** reads a `.env` file (pasted or chosen) in the form
 Laravel, Symfony and docker compose write (`export`, comments, single and
 double quotes, `${OTHER}` references to keys above) and lists what it found:
 

@@ -1431,7 +1431,7 @@ export function NewProjectPage() {
                     </div>
                     <div id="wizard-env" className="scroll-mt-6 space-y-4">
                       <h3 className="text-sm font-semibold text-fg">{t("Environment")}</h3>
-                      <p className="text-sm text-muted">{t("Variables are available to all containers of this project (e.g. getenv() in PHP, os.environ in Python, process.env in Node). Mark secrets to mask them in the UI.")}</p>
+                      <p className="text-sm text-muted">{t("Variables are available to the project's application containers and workers (e.g. getenv() in PHP, os.environ in Python, process.env in Node), not to the web server or the services. Mark secrets to mask them in the UI.")}</p>
                       <EnvEditor value={form.env} onChange={(env) => set({ env })} services={wizardServices} exportName={slugify(form.name) || "project"} />
                     </div>
                   </div>

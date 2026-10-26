@@ -1273,7 +1273,7 @@ function EnvTab({ project: p }: { project: Project }) {
     <Card>
       <CardHeader
         title={t("Environment variables")}
-        description={t("Injected into every container of this project. Saving recreates the containers.")}
+        description={t("Injected into the project's application containers (PHP, Node.js, Python, Go, Ruby, Java, .NET) and its workers, not into the web server or the services. Saving recreates the containers.")}
         actions={
           projectAccess(p).admin && (
             <Button variant="primary" onClick={save} loading={update.isPending} disabled={!dirty} icon={<Save className="size-4" />}>
