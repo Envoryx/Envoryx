@@ -144,6 +144,14 @@ func (r *Resolver) Resolve(containerPath string) (string, error) {
 	return "", fmt.Errorf("%w for %s: no matching bind mount on the Envoryx container", ErrUnresolved, containerPath)
 }
 
+// Detected returns where the bind mounts of the Envoryx container put containerPath on
+// the host, whatever an override says; false without such a mount.
+func (r *Resolver) Detected(containerPath string) (string, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return lookup(r.detected, filepath.Clean(containerPath))
+}
+
 // lookup finds the longest mount point that is a prefix of p and rewrites it.
 func lookup(m map[string]string, p string) (string, bool) {
 	best := ""

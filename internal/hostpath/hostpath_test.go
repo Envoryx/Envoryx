@@ -59,6 +59,13 @@ func TestDetectFromOwnContainer(t *testing.T) {
 	if got, _ := r2.Resolve("/projects/x"); got != "/srv/dev/x" {
 		t.Fatalf("override ignored: %q", got)
 	}
+	// What the bind mount says stays visible, so diagnostics can tell a contradiction.
+	if got, ok := r2.Detected("/projects"); !ok || got != "/mnt/user/development" {
+		t.Fatalf("detected under an override: %q %v", got, ok)
+	}
+	if got, ok := r2.Detected("/srv/elsewhere"); ok {
+		t.Fatalf("no mount covers it: %q", got)
+	}
 }
 
 func TestBareMetalUsesIdentityMapping(t *testing.T) {

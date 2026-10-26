@@ -145,24 +145,38 @@ func (a *API) checkHostPaths(context.Context) []Check {
 		c.Status, c.Detail = checkOK, "Envoryx runs directly on the host; container paths are host paths."
 		return []Check{c}
 	}
-	resolve := func(dir string) string {
-		if v, ok := st.Overrides[dir]; ok {
-			return v
-		}
-		return st.Detected[dir]
-	}
-	projects, cfgDir := resolve(a.d.Config.ProjectsDir), resolve(a.d.Config.ConfigDir)
-	switch {
-	case projects == "" || cfgDir == "":
+	// Resolved as the projects' mounts are: an override, else the longest bind mount
+	// above the directory (/data/proj below a mount of /data counts).
+	projects, perr := a.d.HostPath.Resolve(a.d.Config.ProjectsDir)
+	cfgDir, cerr := a.d.HostPath.Resolve(a.d.Config.ConfigDir)
+	if perr != nil || cerr != nil {
 		c.Status = checkError
-		c.Detail = "Could not determine where /projects or /config live on the host."
+		c.Detail = fmt.Sprintf("Could not determine where %s or %s live on the host.", a.d.Config.ProjectsDir, a.d.Config.ConfigDir)
 		if st.Error != "" {
 			c.Detail += " " + st.Error
 		}
 		c.Hint = "Project containers mount these directories from the host, so Envoryx must know the host paths. Set ENVORYX_PROJECTS_HOST_PATH and ENVORYX_CONFIG_HOST_PATH to the paths you mapped (e.g. /mnt/user/development, /mnt/user/appdata/envoryx)."
-	default:
-		c.Status = checkOK
-		c.Detail = fmt.Sprintf("%s → %s, %s → %s", a.d.Config.ProjectsDir, projects, a.d.Config.ConfigDir, cfgDir)
+		return []Check{c}
+	}
+	c.Status = checkOK
+	c.Detail = fmt.Sprintf("%s → %s, %s → %s", a.d.Config.ProjectsDir, projects, a.d.Config.ConfigDir, cfgDir)
+	// An override that contradicts the bind mount sends the projects' containers to an
+	// empty directory Docker creates on the host.
+	var wrong []string
+	for dir, env := range map[string]string{a.d.Config.ProjectsDir: "ENVORYX_PROJECTS_HOST_PATH", a.d.Config.ConfigDir: "ENVORYX_CONFIG_HOST_PATH"} {
+		override, set := st.Overrides[dir]
+		if !set {
+			continue
+		}
+		if mounted, ok := a.d.HostPath.Detected(dir); ok && filepath.Clean(mounted) != filepath.Clean(override) {
+			wrong = append(wrong, fmt.Sprintf("%s says %s, but %s is mounted from %s", env, override, dir, mounted))
+		}
+	}
+	if len(wrong) > 0 {
+		sort.Strings(wrong)
+		c.Status = checkError
+		c.Detail = strings.Join(wrong, "; ") + "."
+		c.Hint = "Project containers would mount an empty directory from the wrong host path. Remove the variable or set it to the path the bind mount uses."
 	}
 	return []Check{c}
 }
