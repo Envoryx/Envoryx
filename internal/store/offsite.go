@@ -149,12 +149,18 @@ func (r *OffsiteUploads) MarkFailed(ctx context.Context, id, message string, nex
 	return err
 }
 
-// Record stores a copy that is known to exist (fetched from the target).
+// Record stores a copy that is known to exist (fetched from the target). It is dated
+// u.UpdatedAt, when the copy was made, not now: a fetch is no upload, and the target's
+// "last upload" must not show it. A copy recorded as uploaded keeps its time.
 func (r *OffsiteUploads) Record(ctx context.Context, u OffsiteUpload) error {
 	t := formatTime(now())
+	if !u.UpdatedAt.IsZero() {
+		t = formatTime(u.UpdatedAt)
+	}
 	_, err := r.db.ExecContext(ctx, `INSERT INTO offsite_uploads (id, target_id, scope, project_id, backup_id, source, status, remote_key, size_bytes, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, 'done', ?, ?, ?, ?)
-		ON CONFLICT(target_id, scope, backup_id) DO UPDATE SET status = 'done', remote_key = excluded.remote_key, size_bytes = excluded.size_bytes, error = '', updated_at = excluded.updated_at`,
+		ON CONFLICT(target_id, scope, backup_id) DO UPDATE SET status = 'done', remote_key = excluded.remote_key, size_bytes = excluded.size_bytes, error = '',
+			updated_at = CASE WHEN offsite_uploads.status = 'done' THEN offsite_uploads.updated_at ELSE excluded.updated_at END`,
 		NewID(), u.TargetID, u.Scope, u.ProjectID, u.BackupID, u.Source, u.RemoteKey, u.SizeBytes, t, t)
 	return err
 }

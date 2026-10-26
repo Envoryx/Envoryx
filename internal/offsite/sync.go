@@ -625,7 +625,7 @@ func (s *Syncer) FetchProject(ctx context.Context, targetID, projectID, key stri
 		return project.BackupInfo{}, err
 	}
 	m := projectKeyRe.FindStringSubmatch(name)
-	_ = s.Store.Offsite.Record(ctx, store.OffsiteUpload{TargetID: t.ID, Scope: store.OffsiteProject, ProjectID: projectID, BackupID: info.ID, Source: m[3], RemoteKey: key, SizeBytes: size})
+	_ = s.Store.Offsite.Record(ctx, store.OffsiteUpload{TargetID: t.ID, Scope: store.OffsiteProject, ProjectID: projectID, BackupID: info.ID, Source: m[3], RemoteKey: key, SizeBytes: size, UpdatedAt: info.CreatedAt})
 	return info, nil
 }
 
@@ -656,7 +656,7 @@ func (s *Syncer) FetchAnyProject(ctx context.Context, targetID, key string) (pro
 		return project.UploadedBackup{}, err
 	}
 	m := projectKeyRe.FindStringSubmatch(name)
-	_ = s.Store.Offsite.Record(ctx, store.OffsiteUpload{TargetID: t.ID, Scope: store.OffsiteProject, ProjectID: up.ProjectID, BackupID: up.Backup.ID, Source: m[3], RemoteKey: key, SizeBytes: size})
+	_ = s.Store.Offsite.Record(ctx, store.OffsiteUpload{TargetID: t.ID, Scope: store.OffsiteProject, ProjectID: up.ProjectID, BackupID: up.Backup.ID, Source: m[3], RemoteKey: key, SizeBytes: size, UpdatedAt: up.Backup.CreatedAt})
 	return up, nil
 }
 
@@ -679,7 +679,7 @@ func (s *Syncer) FetchInstance(ctx context.Context, targetID, key string) (insta
 	if err != nil {
 		return instance.Info{}, err
 	}
-	_ = s.Store.Offsite.Record(ctx, store.OffsiteUpload{TargetID: t.ID, Scope: store.OffsiteInstance, BackupID: info.ID, Source: "manual", RemoteKey: key, SizeBytes: size})
+	_ = s.Store.Offsite.Record(ctx, store.OffsiteUpload{TargetID: t.ID, Scope: store.OffsiteInstance, BackupID: info.ID, Source: "manual", RemoteKey: key, SizeBytes: size, UpdatedAt: info.Meta.CreatedAt})
 	return info, nil
 }
 

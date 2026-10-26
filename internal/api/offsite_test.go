@@ -193,9 +193,15 @@ func TestOffsiteEndpoints(t *testing.T) {
 	if r.status != http.StatusCreated || r.body["backup"].(map[string]any)["kind"] != "upload" {
 		t.Fatalf("instance fetch: %d %s", r.status, r.raw)
 	}
+	fetchedInst := r.body["backup"].(map[string]any)["id"].(string)
 	r = a.do(http.MethodGet, "/api/v1/offsite", nil, false)
-	if last := r.body["targets"].([]any)[0].(map[string]any)["last"]; last == nil {
+	last, _ := r.body["targets"].([]any)[0].(map[string]any)["last"].(map[string]any)
+	if last == nil {
 		t.Fatalf("overview: %s", r.raw)
+	}
+	// A fetch is no upload: the last upload stays the instance backup that went up.
+	if last["backupId"] != instID || last["backupId"] == fetchedInst {
+		t.Fatalf("last upload after a fetch: %v", last)
 	}
 
 	// Keys outside the layout are refused; removing a target keeps its copies.
