@@ -509,7 +509,14 @@ func (a *Agent) connect(ctx context.Context, st *state) error {
 		s := a.status(ctx)
 		wctx, c := context.WithTimeout(ctx, 30*time.Second)
 		defer c()
-		return wsjson.Write(wctx, conn, message{Type: "status", Status: &s})
+		if err := wsjson.Write(wctx, conn, message{Type: "status", Status: &s}); err != nil {
+			return err
+		}
+		// A report that went through is contact too: the manager rarely writes on its own.
+		a.mu.Lock()
+		a.contact = time.Now()
+		a.mu.Unlock()
+		return nil
 	}
 	if err := sendStatus(); err != nil {
 		return closeErr(err, "")
