@@ -3,10 +3,12 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -339,5 +341,37 @@ func TestAPITokenExpiry(t *testing.T) {
 	now = now.Add(5 * 365 * 24 * time.Hour)
 	if _, err := svc.ValidateAPIToken(ctx, forever); err != nil {
 		t.Fatalf("token without expiry: %v", err)
+	}
+}
+
+// Concurrent setup requests create one admin; the others are told setup is done.
+func TestConcurrentSetupCreatesOneAdmin(t *testing.T) {
+	svc, st := testService(t)
+	ctx := context.Background()
+	var wg sync.WaitGroup
+	errs := make([]error, 8)
+	for i := range errs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, errs[i] = svc.CreateInitialAdmin(ctx, fmt.Sprintf("admin%d", i), "supersecret123")
+		}()
+	}
+	wg.Wait()
+	created := 0
+	for _, err := range errs {
+		switch {
+		case err == nil:
+			created++
+		case !errors.Is(err, store.ErrConflict):
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+	users, err := st.Users.List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created != 1 || len(users) != 1 {
+		t.Fatalf("created %d, users %d", created, len(users))
 	}
 }
