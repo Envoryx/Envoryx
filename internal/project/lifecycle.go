@@ -883,7 +883,7 @@ func (m *Manager) stopPlan(ctx context.Context, proj store.Project, plan Plan) e
 	var errs []error
 	for i := len(plan.Containers) - 1; i >= 0; i-- {
 		c, ok := byKind[string(plan.Containers[i].Kind)]
-		if !ok || c.State != "running" {
+		if !ok || !stoppable(c.State) {
 			continue
 		}
 		step(ctx, "Stopping the container {{name}}", "name", c.Name)
@@ -894,13 +894,20 @@ func (m *Manager) stopPlan(ctx context.Context, proj store.Project, plan Plan) e
 	// Stop containers of kinds no longer in the plan as well (e.g. a removed service). A
 	// share's tunnel stays through a restart; stopping the project ends it (Stop).
 	for kind, c := range byKind {
-		if kind != shareService && !transientServices[kind] && plan.Container(store.ServiceKind(kind)) == nil && c.State == "running" {
+		if kind != shareService && !transientServices[kind] && plan.Container(store.ServiceKind(kind)) == nil && stoppable(c.State) {
 			if err := m.engine.StopContainer(ctx, c.ID, m.cfg.StopTimeout); err != nil {
 				errs = append(errs, fmt.Errorf("stop container %s: %w", c.Name, err))
 			}
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// stoppable reports whether a container in this state has to be stopped: a running one,
+// and one that keeps restarting after a crash, which Docker's restart policy would
+// otherwise bring back again and again.
+func stoppable(state string) bool {
+	return state == "running" || state == "restarting" || state == "paused"
 }
 
 // Update changes project settings and, if the project is running, recreates the containers
