@@ -297,6 +297,22 @@ func (m *Manager) failInterrupted(ctx context.Context, p *store.Project) (string
 	return msg, true
 }
 
+// otherInstanceOf returns the instance ID another Envoryx stamped on containers of the
+// project id, "" when there are none.
+func (m *Manager) otherInstanceOf(ctx context.Context, id string) string {
+	all, err := m.engine.ListContainers(ctx, false, "")
+	if err != nil {
+		return ""
+	}
+	own := m.engine.InstanceID()
+	for _, c := range all {
+		if inst := c.Labels[docker.LabelInstance]; c.ProjectID() == id && inst != "" && inst != own {
+			return inst
+		}
+	}
+	return ""
+}
+
 // Reconcile compares the database with Docker, records inconsistencies and orphaned
 // resources, and repairs interrupted lifecycles. The only thing it removes are orphaned
 // containers and networks (see cleanOrphans); volumes and project data are never touched.
@@ -376,8 +392,13 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 				Message: "the project network is gone, so the proxy and the services can't reach the containers; restart the project to recreate it"})
 		}
 		if st.State == StateMissing && p.Lifecycle == store.LifecycleReady {
-			report.Issues = append(report.Issues, ReconcileIssue{ProjectID: p.ID, ProjectName: p.Name, Severity: "error",
-				Message: "no containers exist for this project; start it to recreate them"})
+			msg := "no containers exist for this project; start it to recreate them"
+			if other := m.otherInstanceOf(ctx, p.ID); other != "" {
+				// After a lost /config: the containers are there, labelled by the instance
+				// ID this one had before, and a start fails on their names.
+				msg = fmt.Sprintf("the containers of this project carry the instance ID %s, not this instance's; if this Envoryx lost its /config, write that ID into /config/instance-id and restart Envoryx", other)
+			}
+			report.Issues = append(report.Issues, ReconcileIssue{ProjectID: p.ID, ProjectName: p.Name, Severity: "error", Message: msg})
 		}
 		if planErr == nil && p.DesiredState == store.DesiredRunning && p.Lifecycle == store.LifecycleReady {
 			for _, kind := range outdatedContainers(planner, p, containers) {

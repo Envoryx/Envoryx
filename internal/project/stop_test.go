@@ -107,3 +107,22 @@ func TestInterruptedRestoreIsReported(t *testing.T) {
 		t.Fatal("a finished restore leaves its marker")
 	}
 }
+
+// After a lost /config the project's containers carry the old instance ID: the reconciler
+// names it instead of claiming there are no containers.
+func TestReconcileNamesTheOldInstanceID(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	e.engine.Instance = "old"
+	v, err := e.m.Create(ctx, phpRequest("Lost", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.engine.Instance = "new"
+	report := e.m.Reconcile(ctx)
+	if !slices.ContainsFunc(report.Issues, func(i ReconcileIssue) bool {
+		return i.ProjectID == v.Project.ID && strings.Contains(i.Message, "instance ID old")
+	}) {
+		t.Fatalf("issues: %+v", report.Issues)
+	}
+}
