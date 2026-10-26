@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/envoryx/envoryx/internal/validate"
@@ -86,6 +87,28 @@ func TestParseRejects(t *testing.T) {
 	} {
 		if _, err := Parse([]byte(src)); !errors.Is(err, validate.ErrInvalid) {
 			t.Errorf("%s: %v", name, err)
+		}
+	}
+}
+
+// A saved addon file and its folder belong to the project user, who may edit them.
+func TestRegistrySavesFilesForTheOwner(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("needs root to hand files to another user")
+	}
+	dir := filepath.Join(t.TempDir(), "addons")
+	r := NewRegistry(func() (string, error) { return dir, nil })
+	r.SetOwner(func() (int, int, bool) { return 4321, 4321, true })
+	if _, err := r.Save([]byte(minimal)); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{dir, filepath.Join(dir, "widget.yml")} {
+		fi, err := os.Stat(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if st, ok := fi.Sys().(*syscall.Stat_t); !ok || st.Uid != 4321 || st.Gid != 4321 {
+			t.Fatalf("%s is not the owner's", p)
 		}
 	}
 }

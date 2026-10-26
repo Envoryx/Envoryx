@@ -300,7 +300,15 @@ package run `docker login ghcr.io` on the Unraid server instead (add it to
 
 Files created by PHP inside a project are owned by `PUID:PGID` (Unraid default
 `nobody:users` = `99:100`), so they are editable via SMB shares. Directories
-created by Envoryx itself are chowned to the same ids.
+created by Envoryx itself in the projects directory are chowned to the same ids,
+and so are the addon files under `/config/addons` (and the folder itself), which
+you may edit by hand.
+
+Everything else under `/config` and the backups directory stays `root`'s: the
+database, the keys and certificates, and the backups (`<backups dir>/<project>/`
+and `_instance/` are `0700`), which hold database dumps and the instance's
+settings. Copy them as root (an Unraid plugin, a root rsync job) or use the
+download in the UI or the CLI.
 
 ## Domains and HTTPS
 

@@ -72,6 +72,22 @@ type Registry struct {
 	client         *http.Client
 	allow          func(netip.Addr) bool
 	privateAllowed func() bool
+	// owner is who the files belong to (PUID:PGID), so the host user can edit them as
+	// the docs suggest; ok is false while it isn't known.
+	owner func() (uid, gid int, ok bool)
+}
+
+// SetOwner sets who the addon files and their directory are handed to.
+func (r *Registry) SetOwner(owner func() (uid, gid int, ok bool)) { r.owner = owner }
+
+// chown hands path to the owner when Envoryx runs as root.
+func (r *Registry) chown(path string) {
+	if r.owner == nil || os.Geteuid() != 0 {
+		return
+	}
+	if uid, gid, ok := r.owner(); ok {
+		_ = os.Lchown(path, uid, gid)
+	}
 }
 
 // NewRegistry returns the registry of the directory dir returns (it may change with the
@@ -173,6 +189,8 @@ func (r *Registry) Save(raw []byte) (Definition, error) {
 		_ = os.Remove(tmp)
 		return Definition{}, err
 	}
+	r.chown(filepath.Dir(p))
+	r.chown(p)
 	return d, nil
 }
 

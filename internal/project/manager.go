@@ -194,6 +194,10 @@ func NewManager(st *store.Store, engine docker.Engine, catalog *runtime.Catalog,
 	m := &Manager{store: st, engine: engine, catalog: catalog, paths: paths, audit: auditLog, log: log, cfg: cfg, ops: newOps(), progress: newProgress(), suspendKick: make(chan struct{}, 1)}
 	engine.SetRegistryCredentials(m.registryCredentials)
 	m.addons = addon.NewRegistry(m.addonsDir)
+	m.addons.SetOwner(func() (int, int, bool) {
+		p, err := m.paths()
+		return p.PUID, p.PGID, err == nil
+	})
 	return m
 }
 
