@@ -1927,7 +1927,8 @@ one Docker host*); a restore keeps the current key and ID.
 
 - **Create** a backup any time (e.g. before an update); **download** it and
   **import** it on another host to move an installation.
-- **Automatic**: before every schema migration (`pre-migrate-…`) and before
+- **Automatic**: before every schema migration (`pre-migrate-…`, listed with
+  the Envoryx version that wrote the data, the one to go back to) and before
   every restore (`pre-restore-…`). The last 5 of each kind are kept; manual and
   imported ones stay until deleted. The same archive imported or fetched again is
   kept only once.

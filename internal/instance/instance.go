@@ -67,6 +67,11 @@ const (
 	maxNote = 500
 )
 
+// SettingVersion is the settings key under which every start records the Envoryx
+// version that runs on the database, so a backup taken before the next version
+// migrates it can say which release wrote that data.
+const SettingVersion = "envoryx_version"
+
 // ErrNotFound is returned for unknown backup IDs.
 var ErrNotFound = errors.New("instance backup not found")
 
@@ -182,6 +187,16 @@ func (s *Store) Create(ctx context.Context, sqlDB *sql.DB, kind, note string) (I
 	}
 
 	meta := Meta{Format: format, Envoryx: s.Version, Schema: schema, CreatedAt: time.Now().UTC(), Kind: kind, Note: note, InstanceID: readID(s.ConfigDir)}
+	if kind == KindPreMigrate {
+		// The data is the previous release's, not the one about to migrate it: that is
+		// what someone rolling back needs to know.
+		var prev string
+		if sqlDB.QueryRowContext(ctx, `SELECT value FROM settings WHERE key = ?`, SettingVersion).Scan(&prev) == nil && prev != "" {
+			meta.Envoryx = prev
+		} else {
+			meta.Envoryx = "before " + s.Version
+		}
+	}
 	var check string
 	if sqlDB.QueryRowContext(ctx, `SELECT value FROM settings WHERE key = 'secret_check'`).Scan(&check) == nil {
 		meta.KeyID = secrets.KeyIDOf(check)

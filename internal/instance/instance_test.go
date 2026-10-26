@@ -184,6 +184,26 @@ func TestCreateListRestoreRoundTrip(t *testing.T) {
 	}
 }
 
+// The backup before a migration carries the version that wrote the data, not the one
+// about to migrate it.
+func TestPreMigrateBackupNamesThePreviousVersion(t *testing.T) {
+	s, sqlDB := newStore(t)
+	ctx := context.Background()
+	info, err := s.Create(ctx, sqlDB, KindPreMigrate, "")
+	if err != nil || info.Meta.Envoryx != "before test" {
+		t.Fatalf("unknown previous version: %+v %v", info.Meta, err)
+	}
+	if _, err := sqlDB.Exec(`INSERT INTO settings(key, value, updated_at) VALUES (?, 'v0.39.1', '2026-01-01')`, SettingVersion); err != nil {
+		t.Fatal(err)
+	}
+	if info, err = s.Create(ctx, sqlDB, KindPreMigrate, ""); err != nil || info.Meta.Envoryx != "v0.39.1" {
+		t.Fatalf("pre-migrate: %+v %v", info.Meta, err)
+	}
+	if info, err = s.Create(ctx, sqlDB, KindManual, ""); err != nil || info.Meta.Envoryx != "test" {
+		t.Fatalf("manual: %+v %v", info.Meta, err)
+	}
+}
+
 func TestImportValidatesArchives(t *testing.T) {
 	s, sqlDB := newStore(t)
 	ctx := context.Background()

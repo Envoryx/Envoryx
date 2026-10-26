@@ -215,7 +215,7 @@ func serve() error {
 		log.Info("instance backup restored", "id", restored.ID, "preRestore", restored.PreRestoreID, "requestedBy", restored.RequestedBy)
 	}
 	sqlDB, err := db.OpenWith(ctx, cfg.DatabasePath, log, db.Options{BeforeMigrate: func(ctx context.Context, raw *sql.DB, from, to int) error {
-		b, err := backups.Create(ctx, raw, instance.KindPreMigrate, fmt.Sprintf("before schema %d → %d (Envoryx %s)", from, to, version))
+		b, err := backups.Create(ctx, raw, instance.KindPreMigrate, fmt.Sprintf("before schema %d → %d, the update to Envoryx %s", from, to, version))
 		if err != nil {
 			return err
 		}
@@ -233,6 +233,9 @@ func serve() error {
 	}
 	defer sqlDB.Close()
 	st := store.New(sqlDB)
+	if err := st.Settings.Set(ctx, instance.SettingVersion, version); err != nil {
+		log.Warn("recording the running version", "err", err)
+	}
 	if err := st.CheckSecretKey(ctx); err != nil {
 		return fmt.Errorf("secret key: %w", err)
 	}
