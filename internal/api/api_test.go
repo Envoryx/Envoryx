@@ -2121,3 +2121,29 @@ func TestRuntimePatchOverHTTP(t *testing.T) {
 		t.Fatalf("unknown field: %d %s", r.status, r.raw)
 	}
 }
+
+// PATCH env replaces the list, but a secret listed without its value keeps the one it
+// has; an empty value is still an empty value.
+func TestPatchKeepsASecretSentWithoutItsValue(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": "Shop", "php": map[string]any{"version": "8.4"},
+		"env": []map[string]any{{"key": "APP_ENV", "value": "local"}, {"key": "API_KEY", "value": "s3cr3t", "isSecret": true}, {"key": "OTHER", "value": "x", "isSecret": true}}}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+	r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"env": []map[string]any{
+		{"key": "APP_ENV", "value": "dev"}, {"key": "API_KEY", "isSecret": true}, {"key": "OTHER", "value": "", "isSecret": true}}}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("patch: %d %s", r.status, r.raw)
+	}
+	got := map[string]string{}
+	for _, e := range r.body["project"].(map[string]any)["env"].([]any) {
+		m := e.(map[string]any)
+		got[m["key"].(string)] = m["value"].(string)
+	}
+	if got["APP_ENV"] != "dev" || got["API_KEY"] != "s3cr3t" || got["OTHER"] != "" {
+		t.Fatalf("env after patch: %v", got)
+	}
+}

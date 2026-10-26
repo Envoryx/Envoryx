@@ -552,7 +552,9 @@ over MCP/REST), and the dev server *is* the project:
   PATCH, what the request leaves out stays as it is: `{"php": {"version":
   "8.3"}}` keeps the PHP settings and extensions, `{"php": {"config":
   {"memoryLimit": "1G"}}}` only changes the memory limit, and a runtime
-  or database object without `enabled` keeps the service.
+  or database object without `enabled` keeps the service. `env` is the
+  whole list of variables; a secret listed without `value`
+  (`{"key": "API_KEY", "isSecret": true}`) keeps the value it has.
 - **Existing Node-only dev-server projects** (created before this feature
   via the unticked "Enable PHP" box or MCP `"none"`): the node and web
   containers are recreated once at the next start (new command wrapper,

@@ -1019,7 +1019,18 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 		}
 	}
 	if req.Env != nil {
-		env, err := buildEnv(*req.Env)
+		in := slices.Clone(*req.Env)
+		for i, e := range in {
+			if !e.KeepValue {
+				continue
+			}
+			for _, cur := range proj.Env {
+				if cur.Key == strings.TrimSpace(e.Key) {
+					in[i].Value = cur.Value
+				}
+			}
+		}
+		env, err := buildEnv(in)
 		if err != nil {
 			return View{}, err
 		}

@@ -36,6 +36,15 @@ type envDTO struct {
 	IsSecret bool   `json:"isSecret"`
 }
 
+// envUpdateDTO is a variable in a PATCH: a secret listed without its value keeps the
+// one it has, so a caller that can't read secrets (they come back empty) doesn't wipe
+// them by sending the list back.
+type envUpdateDTO struct {
+	Key      string  `json:"key"`
+	Value    *string `json:"value"`
+	IsSecret bool    `json:"isSecret"`
+}
+
 type serviceStatusDTO struct {
 	Kind          string    `json:"kind"`
 	Variant       string    `json:"variant"`
@@ -756,7 +765,7 @@ type updateProjectRequest struct {
 	Ollama      *extraUpdateDTO              `json:"ollama"`
 	OpenSearch  *extraUpdateDTO              `json:"opensearch"`
 	Storage     *storageUpdateDTO            `json:"storage"`
-	Env         *[]envDTO                    `json:"env"`
+	Env         *[]envUpdateDTO              `json:"env"`
 	IDEGateway  *bool                        `json:"ideGateway"`
 }
 
@@ -1082,7 +1091,11 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 	if req.Env != nil {
 		env := make([]project.EnvVarRequest, 0, len(*req.Env))
 		for _, e := range *req.Env {
-			env = append(env, project.EnvVarRequest{Key: e.Key, Value: e.Value, IsSecret: e.IsSecret})
+			v := project.EnvVarRequest{Key: e.Key, IsSecret: e.IsSecret, KeepValue: e.IsSecret && e.Value == nil}
+			if e.Value != nil {
+				v.Value = *e.Value
+			}
+			env = append(env, v)
 		}
 		upd.Env = &env
 	}
