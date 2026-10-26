@@ -21,10 +21,12 @@ export function LoginPage({ mode }: { mode: "login" | "setup" }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  // A failed single sign-on comes back here with its reason.
+  // A failed single sign-on comes back here with ?sso_error=1; the reason is in a cookie
+  // the server set, so a link can't put text of its choosing on this page.
   const [error, setError] = useState<string | null>(() => {
-    const reason = new URLSearchParams(location.search).get("sso_error");
-    return reason ? translateMessage(reason, t) : null;
+    if (!new URLSearchParams(location.search).has("sso_error")) return null;
+    const reason = takeSsoError();
+    return reason ? translateMessage(reason, t) : t("Single sign-on failed.");
   });
   const [busy, setBusy] = useState(false);
   const [sso, setSso] = useState<{ enabled: boolean; name?: string } | null>(null);
@@ -323,4 +325,24 @@ function usePasskeyOptions(enabled: boolean, ticket?: string) {
     return r && Date.now() - r.at < 4 * 60_000 ? r.value : null;
   }, [req]);
   return { take };
+}
+
+/** Reads and clears the reason of a failed single sign-on the server left in a cookie. */
+function takeSsoError(): string | null {
+  for (const name of ["__Host-envoryx_sso_error", "envoryx_sso_error"]) {
+    const raw = document.cookie
+      .split("; ")
+      .find((c) => c.startsWith(name + "="))
+      ?.slice(name.length + 1);
+    if (!raw) continue;
+    document.cookie = `${name}=; Path=/; Max-Age=0${name.startsWith("__Host-") ? "; Secure" : ""}`;
+    try {
+      const b64 = raw.replace(/-/g, "+").replace(/_/g, "/");
+      const bytes = Uint8Array.from(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)), (c) => c.charCodeAt(0));
+      return new TextDecoder().decode(bytes);
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
