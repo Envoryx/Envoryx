@@ -3730,5 +3730,7 @@
   "Remove the custom certificate?": "Eigen certificaat verwijderen?",
   "The names it covers get certificates from the local CA again. The private key isn't shown anywhere, so to use the certificate again you need its files.": "De namen die het dekt krijgen weer certificaten van de lokale CA. De privésleutel wordt nergens getoond: om het certificaat opnieuw te gebruiken heb je de bestanden nodig.",
   "this passkey is not registered here (any more)": "Deze passkey is hier niet (meer) geregistreerd",
-  "The link expired {{when}}. Send a new one with “{{action}}”.": "De link is verlopen op {{when}}. Stuur een nieuwe met „{{action}}”."
+  "The link expired {{when}}. Send a new one with “{{action}}”.": "De link is verlopen op {{when}}. Stuur een nieuwe met „{{action}}”.",
+  "No projects for you yet": "Nog geen projecten voor jou",
+  "You have no access to any project yet. An admin of this instance can give you a role in one.": "Je hebt nog geen toegang tot een project. Een beheerder van deze instantie kan je een rol in een project geven."
 }

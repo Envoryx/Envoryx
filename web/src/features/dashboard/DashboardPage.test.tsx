@@ -62,4 +62,17 @@ describe("DashboardPage", () => {
     expect(screen.queryByText(/Set-up check/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New project" })).not.toBeInTheDocument();
   });
+
+  it("tells a user without projects to ask an admin, not to create one", async () => {
+    mockApi({
+      ...authedRoutes,
+      ...viewerMe,
+      "GET /dashboard": () => ({ body: { ...dashboard, projects: { total: 0, running: 0, stopped: 0, attention: 0 }, recent: [], update: undefined, issues: [] } }),
+      "GET /settings": () => ({ body: { publicHost: "", baseDomain: "test", forceHttps: false, proxy: dashboard.proxy } }),
+    });
+    renderApp(<DashboardPage />);
+    expect(await screen.findByText("No projects for you yet")).toBeInTheDocument();
+    expect(screen.getByText(/An admin of this instance can give you a role/)).toBeInTheDocument();
+    expect(screen.queryByText(/Create your first/)).not.toBeInTheDocument();
+  });
 });

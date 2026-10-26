@@ -3796,5 +3796,7 @@
   "Remove the custom certificate?": "Usunąć własny certyfikat?",
   "The names it covers get certificates from the local CA again. The private key isn't shown anywhere, so to use the certificate again you need its files.": "Nazwy, które obejmuje, znów dostaną certyfikaty z lokalnego CA. Klucz prywatny nie jest nigdzie pokazywany, więc aby ponownie użyć certyfikatu, potrzebujesz jego plików.",
   "this passkey is not registered here (any more)": "Ten klucz dostępu nie jest (już) tu zarejestrowany",
-  "The link expired {{when}}. Send a new one with “{{action}}”.": "Link wygasł {{when}}. Wyślij nowy przyciskiem „{{action}}”."
+  "The link expired {{when}}. Send a new one with “{{action}}”.": "Link wygasł {{when}}. Wyślij nowy przyciskiem „{{action}}”.",
+  "No projects for you yet": "Nie masz jeszcze projektów",
+  "You have no access to any project yet. An admin of this instance can give you a role in one.": "Nie masz jeszcze dostępu do żadnego projektu. Administrator tej instancji może nadać ci rolę w jednym z nich."
 }

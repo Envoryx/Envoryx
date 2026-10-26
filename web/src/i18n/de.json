@@ -3730,5 +3730,7 @@
   "Remove the custom certificate?": "Eigenes Zertifikat entfernen?",
   "The names it covers get certificates from the local CA again. The private key isn't shown anywhere, so to use the certificate again you need its files.": "Die Namen, die es abdeckt, bekommen wieder Zertifikate der lokalen CA. Der private Schlüssel wird nirgends angezeigt: Um das Zertifikat wieder zu nutzen, brauchst du seine Dateien.",
   "this passkey is not registered here (any more)": "Dieser Passkey ist hier nicht (mehr) registriert",
-  "The link expired {{when}}. Send a new one with “{{action}}”.": "Der Link ist am {{when}} abgelaufen. Schicke mit „{{action}}“ einen neuen."
+  "The link expired {{when}}. Send a new one with “{{action}}”.": "Der Link ist am {{when}} abgelaufen. Schicke mit „{{action}}“ einen neuen.",
+  "No projects for you yet": "Noch keine Projekte für dich",
+  "You have no access to any project yet. An admin of this instance can give you a role in one.": "Du hast noch auf kein Projekt Zugriff. Ein Admin dieser Instanz kann dir in einem eine Rolle geben."
 }

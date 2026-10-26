@@ -142,11 +142,13 @@ export function ProjectsPage() {
         <ErrorState message={errorText(q.error, t)} action={<Button onClick={() => void q.refetch()}>{t("Retry")}</Button>} />
       ) : q.data.length === 0 ? (
         <EmptyState
-          title={t("No projects yet")}
+          title={admin ? t("No projects yet") : t("No projects for you yet")}
           message={
-            planRuntimes
-              ? t("Create a project to get an isolated environment with its own web server and Docker network. Your plan includes {{runtimes}}.", { runtimes: planRuntimes })
-              : t("Create a project to get an isolated PHP, Python, Go, Ruby, Java, .NET or Node.js environment with its own web server and Docker network.")
+            !admin
+              ? t("You have no access to any project yet. An admin of this instance can give you a role in one.")
+              : planRuntimes
+                ? t("Create a project to get an isolated environment with its own web server and Docker network. Your plan includes {{runtimes}}.", { runtimes: planRuntimes })
+                : t("Create a project to get an isolated PHP, Python, Go, Ruby, Java, .NET or Node.js environment with its own web server and Docker network.")
           }
           action={
             admin ? (

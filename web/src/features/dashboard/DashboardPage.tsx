@@ -185,11 +185,14 @@ export function DashboardPage() {
           {d.recent.length === 0 ? (
             <div className="p-2">
               <EmptyState
-                title={t("No projects yet")}
+                title={admin ? t("No projects yet") : t("No projects for you yet")}
                 message={
-                  planRuntimes
-                    ? t("Create your first development environment with a web server in under a minute. Your plan includes {{runtimes}}.", { runtimes: planRuntimes })
-                    : t("Create your first development environment - PHP, Python, Go, Ruby, Java, .NET or Node.js with a web server - in under a minute.")
+                  // Only an admin creates projects; anyone else gets them shared.
+                  !admin
+                    ? t("You have no access to any project yet. An admin of this instance can give you a role in one.")
+                    : planRuntimes
+                      ? t("Create your first development environment with a web server in under a minute. Your plan includes {{runtimes}}.", { runtimes: planRuntimes })
+                      : t("Create your first development environment - PHP, Python, Go, Ruby, Java, .NET or Node.js with a web server - in under a minute.")
                 }
                 action={
                   admin ? (

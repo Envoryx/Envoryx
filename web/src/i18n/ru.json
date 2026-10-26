@@ -3796,5 +3796,7 @@
   "Remove the custom certificate?": "Удалить собственный сертификат?",
   "The names it covers get certificates from the local CA again. The private key isn't shown anywhere, so to use the certificate again you need its files.": "Имена, которые он покрывает, снова получат сертификаты локального CA. Закрытый ключ нигде не показывается, поэтому чтобы снова использовать сертификат, понадобятся его файлы.",
   "this passkey is not registered here (any more)": "Этот ключ доступа здесь не зарегистрирован (или уже удалён)",
-  "The link expired {{when}}. Send a new one with “{{action}}”.": "Ссылка истекла {{when}}. Отправьте новую кнопкой «{{action}}»."
+  "The link expired {{when}}. Send a new one with “{{action}}”.": "Ссылка истекла {{when}}. Отправьте новую кнопкой «{{action}}».",
+  "No projects for you yet": "У вас пока нет проектов",
+  "You have no access to any project yet. An admin of this instance can give you a role in one.": "У вас пока нет доступа ни к одному проекту. Администратор этого экземпляра может выдать вам роль в одном из них."
 }
