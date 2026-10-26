@@ -31,7 +31,7 @@ type logLine struct {
 // file" keeps the two apart the way a shell pipeline expects.
 func (c *cli) projectLogs(ctx context.Context, args []string) error {
 	fs := c.newFlags("project logs")
-	service := fs.String("service", "", "service: php, node, python, go, ruby, java, dotnet, web, database, redis, memcached, mailpit, rabbitmq, meilisearch, typesense, opensearch, opensearch-dashboards, ollama, storage or worker:<id>")
+	service := fs.String("service", "", "service: php, node, python, go, ruby, java, dotnet, web, database, redis, memcached, mailpit, rabbitmq, meilisearch, typesense, opensearch, opensearch-dashboards, ollama, storage or worker:<name>")
 	tail := fs.Int("tail", 200, "how many lines of history")
 	follow := fs.Bool("follow", false, "keep reading")
 	fs.BoolVar(follow, "f", false, "keep reading")
@@ -59,7 +59,7 @@ func (c *cli) projectLogs(ctx context.Context, args []string) error {
 	if kind == "" {
 		kind = p.appService()
 	}
-	if err := c.requireService(p, kind); err != nil {
+	if kind, err = c.resolveService(ctx, p, kind); err != nil {
 		return err
 	}
 	api, err := c.connect()

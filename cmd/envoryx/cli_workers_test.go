@@ -300,3 +300,32 @@ func TestCronRunsAndRemove(t *testing.T) {
 		t.Fatalf("requests: %v", srv.requests)
 	}
 }
+
+// A worker's logs are reached by its name, as worker:<name>, plain <name> or "worker"
+// when there is only one.
+func TestLogsOfAWorkerByName(t *testing.T) {
+	routes := workerRoutes()
+	var asked []string
+	routes["GET /api/v1/projects/{id}/services/{kind}/logs"] = func(w http.ResponseWriter, r *http.Request) {
+		asked = append(asked, r.PathValue("kind"))
+		writeJSON(w, map[string]any{"lines": []any{}})
+	}
+	srv := newFakeServer(t, routes)
+	c, _, _ := newTestCLI(t, srv, "")
+	for _, svc := range []string{"worker:queue", "queue", "worker", "worker:" + queueID} {
+		if err := c.run(context.Background(), []string{"project", "logs", "acme-shop", "--service", svc}); err != nil {
+			t.Fatalf("%s: %v", svc, err)
+		}
+	}
+	for _, got := range asked {
+		if got != "worker:"+queueID {
+			t.Fatalf("asked for %v", asked)
+		}
+	}
+	// A name that is no worker's goes to the server as it is (the listing knows no
+	// services of this project to check it against).
+	asked = nil
+	if err := c.run(context.Background(), []string{"project", "logs", "acme-shop", "--service", "nope"}); err != nil || len(asked) != 1 || asked[0] != "nope" {
+		t.Fatalf("unknown: %v %v", asked, err)
+	}
+}

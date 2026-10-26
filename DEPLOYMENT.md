@@ -3365,7 +3365,7 @@ own answer to `jq` instead of a table; `--service` picks a container other
 than the project's application container (`php`, `python`, `go`, `ruby`,
 `java`, `dotnet`, `node`, `web`, `database`, `redis`, `memcached`, `mailpit`, `rabbitmq`,
 `meilisearch`, `typesense`, `opensearch`, `opensearch-dashboards`, `ollama`,
-`storage`, `worker:<id>`). `envoryx project create --from-json file.json`
+`storage`, a worker by name: `worker:<name>`, its name alone, or `worker` when there is one). `envoryx project create --from-json file.json`
 sends a create request the flags don't cover (everything the wizard offers),
 and flags given alongside it win.
 

@@ -56,7 +56,7 @@ func (c *cli) projectExec(ctx context.Context, args []string) error {
 	if kind == "" {
 		kind = p.appService()
 	}
-	if err := c.requireService(p, kind); err != nil {
+	if kind, err = c.resolveService(ctx, p, kind); err != nil {
 		return err
 	}
 	body := map[string]any{"cmd": command}

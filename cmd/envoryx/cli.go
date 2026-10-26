@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -812,21 +813,67 @@ func projectPath(id string, rest ...string) string {
 	return p
 }
 
-// requireService rejects a service the project does not have before a request is sent:
-// the API answers such a route with a plain 404 that does not say what is missing, while
-// the project listing knows exactly which services exist.
-func (c *cli) requireService(p projectSummary, kind string) error {
-	if strings.HasPrefix(kind, "worker:") || len(p.Status.Services) == 0 {
-		return nil
+// serviceKinds are the services --service names besides workers.
+var serviceKinds = []string{"php", "node", "python", "go", "ruby", "java", "dotnet", "web", "database", "redis", "memcached", "mailpit", "rabbitmq", "meilisearch", "typesense", "opensearch", "opensearch-dashboards", "ollama", "storage"}
+
+// resolveService turns --service into what the API takes and rejects a service the
+// project does not have before a request is sent: the API answers such a route with a
+// plain 404 that does not say what is missing, while the project listing knows exactly
+// which services exist. A worker is named by its name or id ("ticker", "worker:ticker");
+// "worker" alone is the only worker there is.
+func (c *cli) resolveService(ctx context.Context, p projectSummary, kind string) (string, error) {
+	worker := func(want string) (string, error) {
+		api, err := c.connect()
+		if err != nil {
+			return "", err
+		}
+		if want == "" {
+			list, err := c.fetchWorkers(ctx, api, p)
+			if err != nil {
+				return "", err
+			}
+			if len(list.Workers) != 1 {
+				var names []string
+				for _, w := range list.Workers {
+					names = append(names, w.Name)
+				}
+				return "", fmt.Errorf("%s has %d workers (%s); name one: --service worker:<name>", p.Slug, len(list.Workers), strings.Join(names, ", "))
+			}
+			return "worker:" + list.Workers[0].ID, nil
+		}
+		w, err := c.findWorker(ctx, api, p, want)
+		if err != nil {
+			return "", err
+		}
+		return "worker:" + w.ID, nil
+	}
+	if name, ok := strings.CutPrefix(kind, "worker:"); ok {
+		return worker(name)
+	}
+	if kind == "worker" {
+		return worker("")
+	}
+	if len(p.Status.Services) == 0 {
+		// Nothing to check against (a stopped project): a name that is no service kind
+		// may still be a worker's.
+		if !slices.Contains(serviceKinds, kind) {
+			if id, err := worker(kind); err == nil {
+				return id, nil
+			}
+		}
+		return kind, nil
 	}
 	var known []string
 	for _, s := range p.Status.Services {
-		if s.Kind == kind {
-			return nil
+		if s.Kind == kind && kind != "worker" {
+			return kind, nil
 		}
 		known = append(known, s.Kind)
 	}
-	return fmt.Errorf("%s has no %s service (it has %s)", p.Slug, kind, strings.Join(known, ", "))
+	if id, err := worker(kind); err == nil {
+		return id, nil
+	}
+	return "", fmt.Errorf("%s has no %s service (it has %s)", p.Slug, kind, strings.Join(known, ", "))
 }
 
 // appService is the container a command runs in unless --service says otherwise: the
