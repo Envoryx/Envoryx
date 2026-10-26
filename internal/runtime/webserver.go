@@ -245,14 +245,18 @@ func HTTPDConf(docroot string, php bool) string { return httpdConf(docroot, WebO
 func httpdConf(docroot string, o WebOptions) string {
 	index := "index.html"
 	fastcgi := ""
-	// The PHP branch keeps Apache's stock .ht* rule; the static branch denies every dot
-	// path since no front controller stands in front of the document root. FilesMatch
-	// only sees the final path component (/.env), so dot-directories (/.git/config,
-	// /.next/…) need DirectoryMatch as well - that is what Caddy's (^|/)\. and nginx's
-	// location ~ /\. already cover.
+	// Every dot path is denied, as Caddy's (^|/)\. and nginx's location ~ /\. do: .env
+	// and .git/config hold credentials. The PHP branch matches the URL (LocationMatch is
+	// merged after .htaccess, so no .htaccess lifts it) and leaves /.well-known/ to the
+	// application; the static branch denies on the file system. FilesMatch only sees the
+	// final path component (/.env), so dot-directories (/.git/config, /.next/…) need
+	// DirectoryMatch as well.
 	access := `<Files ".ht*">
 	Require all denied
-</Files>`
+</Files>
+<LocationMatch "/\.(?!well-known(/|$))">
+	Require all denied
+</LocationMatch>`
 	if !o.PHP {
 		access = `<FilesMatch "^\.">
 	Require all denied
