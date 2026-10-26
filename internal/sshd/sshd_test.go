@@ -1235,3 +1235,91 @@ func TestSuspendedInstanceRefusesLogins(t *testing.T) {
 	}
 	client.Close()
 }
+
+// An open connection ends when its credential goes: the user's key removed or the user
+// disabled, the instance key taken off the list, the token revoked.
+func TestOpenConnectionEndsWhenItsCredentialGoes(t *testing.T) {
+	e := newEnv(t)
+	e.srv.SetRecheck(20 * time.Millisecond)
+	ctx := context.Background()
+	closed := func(c *ssh.Client) bool {
+		done := make(chan struct{})
+		go func() { _ = c.Wait(); close(done) }()
+		select {
+		case <-done:
+			return true
+		case <-time.After(3 * time.Second):
+			c.Close()
+			return false
+		}
+	}
+	signer, err := ssh.NewSignerFromKey(mustKey(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub := string(ssh.MarshalAuthorizedKey(signer.PublicKey()))
+
+	u, err := e.st.Users.Create(ctx, "dana", "", "developer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.st.Users.SetSSHKeys(ctx, u.ID, pub); err != nil {
+		t.Fatal(err)
+	}
+	client, err := e.dial(t, "shop", ssh.PublicKeys(signer))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.st.Users.SetDisabled(ctx, u.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if !closed(client) {
+		t.Fatal("a disabled user's connection stays open")
+	}
+	if err := e.st.Users.SetDisabled(ctx, u.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	client, err = e.dial(t, "shop", ssh.PublicKeys(signer))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.st.Users.SetSSHKeys(ctx, u.ID, ""); err != nil {
+		t.Fatal(err)
+	}
+	if !closed(client) {
+		t.Fatal("the connection of a removed user key stays open")
+	}
+
+	if err := e.st.Settings.Set(ctx, sshd.SettingAuthorizedKeys, pub); err != nil {
+		t.Fatal(err)
+	}
+	client, err = e.dial(t, "shop", ssh.PublicKeys(signer))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.st.Settings.Set(ctx, sshd.SettingAuthorizedKeys, ""); err != nil {
+		t.Fatal(err)
+	}
+	if !closed(client) {
+		t.Fatal("the connection of a removed instance key stays open")
+	}
+
+	client, err = e.dial(t, "shop", ssh.Password(e.token))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A connection whose credential stays keeps going.
+	if closed(client) {
+		t.Fatal("a valid token's connection was closed")
+	}
+	client, err = e.dial(t, "shop", ssh.Password(e.token))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.st.Tokens.DeleteAll(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !closed(client) {
+		t.Fatal("a revoked token's connection stays open")
+	}
+}

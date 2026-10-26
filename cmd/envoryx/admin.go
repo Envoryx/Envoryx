@@ -335,9 +335,9 @@ func (c *adminCLI) logoutAll(ctx context.Context) error {
 
 // untouchedAccess is what revoke-tokens and reset leave alone although it lets people in:
 // whoever had a token or an account may have set it.
-const untouchedAccess = `Not touched: the instance's SSH keys (Settings → SSH, a shell in every project) and
-the single sign-on (Settings → Users). Check both in the web interface; whoever set them
-can still get in through them.
+const untouchedAccess = `Not touched: the instance's SSH keys (Settings → SSH, a shell in every project), the
+users' own SSH keys (My account → SSH keys) and the single sign-on (Settings → Users).
+Check them in the web interface; whoever set them can still get in through them.
 `
 
 func (c *adminCLI) revokeTokens(ctx context.Context) error {

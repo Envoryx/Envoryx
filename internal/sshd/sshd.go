@@ -68,7 +68,24 @@ type Server struct {
 	relayTool sync.Map
 	// loginGrace is the time a client has to authenticate, in nanoseconds (overridden in tests).
 	loginGrace atomic.Int64
+	// recheck is how often an open connection's credential is checked again, in
+	// nanoseconds (overridden in tests).
+	recheck atomic.Int64
 }
+
+// defaultRecheck is how often an open connection's credential is checked again: a
+// revoked key or token, or a disabled user, ends live sessions within this time.
+const defaultRecheck = 15 * time.Second
+
+// The credential a connection signed in with, kept in its Permissions so it can be
+// checked again while the connection lasts.
+const (
+	extAuth   = "envoryx-auth"
+	extSecret = "envoryx-secret"
+	authToken = "token"
+	authKey   = "instance-key"
+	authUser  = "user-key"
+)
 
 // New loads or creates the host key and prepares the server configuration.
 func New(d Deps) (*Server, error) {
@@ -78,6 +95,7 @@ func New(d Deps) (*Server, error) {
 	}
 	s := &Server{d: d, signer: signer, limiter: newFailLimiter()}
 	s.loginGrace.Store(int64(defaultLoginGraceTime))
+	s.recheck.Store(int64(defaultRecheck))
 	s.dial = func(ctx context.Context, addr string) (net.Conn, error) {
 		return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "tcp", addr)
 	}
@@ -203,7 +221,7 @@ func (s *Server) passwordAuth(conn ssh.ConnMetadata, password []byte) (*ssh.Perm
 		return nil, errors.New("token not permitted for this project")
 	}
 	s.limiter.reset(ip, conn.User())
-	return &ssh.Permissions{Extensions: map[string]string{"envoryx-user": p.Username, "envoryx-token": p.TokenName}}, nil
+	return &ssh.Permissions{Extensions: map[string]string{"envoryx-user": p.Username, "envoryx-token": p.TokenName, extAuth: authToken, extSecret: string(password)}}, nil
 }
 
 // publicKeyAuth never counts towards the lockout: clients routinely offer every key in
@@ -235,7 +253,7 @@ func (s *Server) publicKeyAuth(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.P
 				return nil, errors.New("unknown project")
 			}
 			s.limiter.reset(ip, conn.User())
-			return &ssh.Permissions{Extensions: map[string]string{"envoryx-user": "ssh-key", "envoryx-token": comment}}, nil
+			return &ssh.Permissions{Extensions: map[string]string{"envoryx-user": "ssh-key", "envoryx-token": comment, extAuth: authKey, extSecret: string(want)}}, nil
 		}
 	}
 	// A user's own key acts with that user's roles, like the user's API tokens.
@@ -258,9 +276,69 @@ func (s *Server) publicKeyAuth(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.P
 			return nil, errors.New("key not permitted for this project")
 		}
 		s.limiter.reset(ip, conn.User())
-		return &ssh.Permissions{Extensions: map[string]string{"envoryx-user": u.Username, "envoryx-token": "ssh key"}}, nil
+		return &ssh.Permissions{Extensions: map[string]string{"envoryx-user": u.Username, "envoryx-token": "ssh key", extAuth: authUser, extSecret: string(want)}}, nil
 	}
 	return nil, errors.New("unknown key")
+}
+
+// stillAllowed checks the credential of an open connection again: the token is still
+// valid and allowed this project, the instance key is still listed, the user's key is
+// still theirs and the user still active and allowed. A store that can't be read says
+// nothing either way and keeps the connection.
+func (s *Server) stillAllowed(ctx context.Context, perms *ssh.Permissions, projectID string) bool {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	ext := perms.Extensions
+	switch ext[extAuth] {
+	case authToken:
+		p, err := s.d.Auth.ValidateAPIToken(ctx, ext[extSecret])
+		if err != nil {
+			return !errors.Is(err, auth.ErrUnauthenticated)
+		}
+		return p.Require(auth.ScopeOperate, projectID) == nil
+	case authKey:
+		keys, err := s.d.Store.Settings.Get(ctx, SettingAuthorizedKeys)
+		if err != nil {
+			return true
+		}
+		return keyListed(keys, []byte(ext[extSecret]))
+	case authUser:
+		u, err := s.d.Store.Users.ByUsername(ctx, ext["envoryx-user"])
+		if errors.Is(err, store.ErrNotFound) {
+			return false
+		}
+		if err != nil {
+			return true
+		}
+		if u.Disabled || !keyListed(u.SSHKeys, []byte(ext[extSecret])) {
+			return false
+		}
+		p, err := s.d.Auth.PrincipalFor(ctx, u)
+		if err != nil {
+			return true
+		}
+		return p.Require(auth.ScopeOperate, projectID) == nil
+	}
+	return true
+}
+
+// watchCredential ends the connection once its credential no longer allows it.
+func (s *Server) watchCredential(ctx context.Context, sc *ssh.ServerConn, target project.ExecTarget) {
+	t := time.NewTicker(time.Duration(s.recheck.Load()))
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+		if s.stillAllowed(ctx, sc.Permissions, target.Project.ID) {
+			continue
+		}
+		s.d.Log.Info("ssh connection closed: its key or token was revoked or its user disabled", "user", sc.User(), "owner", sc.Permissions.Extensions["envoryx-user"], "remote", sc.RemoteAddr())
+		_ = sc.Close()
+		return
+	}
 }
 
 // keyListed reports whether an authorized_keys list holds the key.
@@ -351,6 +429,9 @@ func (s *Server) handleConn(ctx context.Context, nc net.Conn) {
 	s.d.Audit.Log(actx, "ssh.login", "project", target.Project.ID, map[string]any{"name": target.Project.Name, "service": string(target.Kind)})
 	// Global requests: remote forwarding (ssh -R); anything else is answered with a failure.
 	go s.handleGlobalRequests(actx, sc, reqs, target)
+	watchCtx, stopWatch := context.WithCancel(ctx)
+	defer stopWatch()
+	go s.watchCredential(watchCtx, sc, target)
 
 	for ch := range chans {
 		if ch.ChannelType() == "direct-tcpip" {

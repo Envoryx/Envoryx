@@ -2730,7 +2730,9 @@ and *History* and the *Docker plan* are for admins. The server checks every requ
 so hiding is a courtesy, not the protection.
 
 A user can be disabled, which ends their sessions and stops their API tokens and SSH keys
-until they're enabled again, or deleted with their tokens and project roles. Nobody can
+until they're enabled again, or deleted with their tokens and project roles. Open SSH and
+SFTP connections end too, within 15 seconds, as they do when the key or token they signed
+in with is removed. Nobody can
 disable or delete themselves, and the last admin who can still sign in can't be demoted,
 disabled or deleted. The audit log records `user.invited`, `user.joined`, `user.updated` and
 `user.deleted`.
