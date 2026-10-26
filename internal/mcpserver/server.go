@@ -92,7 +92,9 @@ func (s *Server) enforceScope(next mcp.MethodHandler) mcp.MethodHandler {
 			p, _ := auth.PrincipalFrom(ctx)
 			need, known := s.scopes[call.Params.Name]
 			if !known {
-				need = auth.ScopeAdmin
+				// Every tool is registered with its scope, so this one doesn't exist. Saying
+				// it needs admin would send the assistant asking for a token that can't help.
+				return toolErr(fmt.Errorf("unknown tool %q", call.Params.Name))
 			}
 			if !p.Allows(need) && !p.MaxScope().Covers(need) {
 				if err := p.Require(need, ""); err != nil {

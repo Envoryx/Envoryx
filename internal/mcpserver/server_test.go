@@ -449,6 +449,13 @@ func TestTokenScopesOnMCP(t *testing.T) {
 		t.Fatalf("read token creating: error=%v %q", res.IsError, text(res))
 	}
 
+	// A tool that doesn't exist is unknown to every token, not one that needs admin.
+	for _, sc := range []auth.Scope{auth.ScopeRead, auth.ScopeOperate, auth.ScopeAdmin} {
+		if res := call(connect(sc), "delete_project", map[string]any{"project": "shop"}); !res.IsError || !strings.Contains(text(res), `unknown tool "delete_project"`) {
+			t.Fatalf("%s token calling an unknown tool: error=%v %q", sc, res.IsError, text(res))
+		}
+	}
+
 	op := connect(auth.ScopeOperate)
 	if res := call(op, "restart_project", map[string]any{"project": "shop"}); res.IsError {
 		t.Fatalf("operate token must restart: %s", text(res))
