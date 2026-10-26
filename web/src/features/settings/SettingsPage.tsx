@@ -204,6 +204,8 @@ function SshCard({ keys, ssh, readOnly }: { keys: string; ssh: { enabled: boolea
 
 function DeployKeyCard() {
   const { t } = useTranslation();
+  // The hoster's support sees the key but can't replace it (the server refuses).
+  const { support } = useAuth();
   const key = useDeployKey();
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -224,10 +226,11 @@ function DeployKeyCard() {
             </div>
           </Alert>
         ) : (
-          <Button size="sm" onClick={() => setConfirm(true)} icon={<RefreshCw className="size-3.5" />}>
+          <Button size="sm" onClick={() => setConfirm(true)} disabled={support} icon={<RefreshCw className="size-3.5" />}>
             {t("Regenerate key")}
           </Button>
         )}
+        {support && <SupportRefusedNote />}
       </div>
     </Card>
   );

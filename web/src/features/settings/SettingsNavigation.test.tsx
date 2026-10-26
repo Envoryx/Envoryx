@@ -19,4 +19,15 @@ describe("Settings navigation", () => {
     expect(within(nav).getByRole("link", { name: /Diagnostics/ })).toHaveAttribute("href", "/settings");
     expect(await screen.findByRole("heading", { name: /password/i })).toBeInTheDocument();
   });
+
+  it("shows the hoster's support the deploy key without the way to replace it", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /auth/me": () => ({ body: { user: { id: "s1", username: "Hoster support", role: "admin" }, admin: true, support: true } }),
+      "GET /settings/deploy-key": () => ({ body: { publicKey: "ssh-ed25519 AAAA envoryx" } }),
+    });
+    renderApp(<SettingsPage />, { route: "/settings?tab=deploykey" });
+    expect(await screen.findByText("ssh-ed25519 AAAA envoryx")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Regenerate key" })).toBeDisabled();
+  });
 });
