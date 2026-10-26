@@ -7,7 +7,7 @@ import { LockedHint, PlanCard } from "@/features/plan/PlanCard";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Alert, Badge, Button, Card, CardHeader, ErrorState, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
-import { formatVersion } from "@/lib/format";
+import { formatGoDuration, formatVersion } from "@/lib/format";
 import { PublicHostNotice } from "@/components/PublicHostNotice";
 import { DomainsCard } from "./DomainsCard";
 import { TokensCard } from "./TokensCard";
@@ -299,7 +299,7 @@ function InstanceCard() {
         <Row label={t("Project port range")} value={`${s.data.portRange.start}-${s.data.portRange.end}`} />
         <Row label={t("Container user (PUID:PGID)")} value={`${s.data.puid}:${s.data.pgid}`} />
         <Row label={t("Docker host")} value={s.data.dockerHost || t("default socket")} mono />
-        <Row label={t("Session timeouts")} value={t("idle {{idle}} · absolute {{absolute}}", { idle: s.data.session.idleTimeout, absolute: s.data.session.absoluteTimeout })} />
+        <Row label={t("Session timeouts")} value={t("idle {{idle}} · absolute {{absolute}}", { idle: formatGoDuration(s.data.session.idleTimeout, t), absolute: formatGoDuration(s.data.session.absoluteTimeout, t) })} />
         <Row label={t("Secure cookies")} value={s.data.secureCookies ? t("on") : t("off (enable when served over HTTPS)")} />
       </dl>
       <p className="border-t border-default px-5 py-3 text-xs text-subtle">{t("Change these via ENVORYX_* environment variables; see DEPLOYMENT.md.")}</p>

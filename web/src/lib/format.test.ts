@@ -1,5 +1,5 @@
 import i18n from "@/i18n";
-import { displayVersion, formatBytes, formatNumber, formatPercent, formatVersion, slugify } from "./format";
+import { containerLabel, displayVersion, formatBytes, formatGoDuration, formatNumber, formatPercent, formatVersion, slugify } from "./format";
 
 describe("displayVersion", () => {
   it.each([
@@ -61,5 +61,22 @@ describe("formatBytes", () => {
       await i18n.changeLanguage("en");
     }
     expect(formatBytes(3.4 * 1024)).toBe("3.4 KiB");
+  });
+
+  it("writes Go durations in words", async () => {
+    const t = i18n.t.bind(i18n);
+    expect(formatGoDuration("12h0m0s", t)).toBe("12 hours");
+    expect(formatGoDuration("168h0m0s", t)).toBe("7 days");
+    expect(formatGoDuration("1h30m0s", t)).toBe("1 hour 30 minutes");
+    expect(formatGoDuration("1m30s", t)).toBe("1m30s");
+    await i18n.changeLanguage("ru");
+    try {
+      expect(formatGoDuration("168h0m0s", t)).toBe("7 дней");
+      // The database container's tag reads in the language; other names stay.
+      expect(containerLabel("database")).toBe("база данных");
+      expect(containerLabel("web")).toBe("web");
+    } finally {
+      await i18n.changeLanguage("en");
+    }
   });
 });

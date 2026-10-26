@@ -7,7 +7,7 @@ import { api } from "@/api/client";
 import type { LogLevel, Project } from "@/api/types";
 import { Badge, Button, Card, Input, Select } from "@/components/ui";
 import { translateSentence } from "@/lib/errors";
-import { serviceLabel } from "@/lib/format";
+import { containerLabel, serviceLabel } from "@/lib/format";
 import { downloadClass, LogHistory } from "./LogHistory";
 import { type LineFilter, lineMatches, LogLinesTable, type ShownLine } from "./LogLines";
 
@@ -245,7 +245,7 @@ function LiveLogs({ project, kind }: { project: Project; kind: string }) {
         <span>
           {filtered.length === lines.length ? t("{{count}} lines", { count: lines.length }) : t("{{shown}} of {{total}} lines", { shown: filtered.length, total: lines.length })} · {t("buffer")} {MAX_LINES}
         </span>
-        <Badge>{kind}</Badge>
+        <Badge>{containerLabel(kind)}</Badge>
       </div>
     </>
   );

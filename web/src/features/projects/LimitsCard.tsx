@@ -6,7 +6,7 @@ import { api } from "@/api/client";
 import { keys, usePlan, useProjectStats } from "@/api/hooks";
 import type { ContainerUsage, LimitSet, Project, ResourceLimits } from "@/api/types";
 import { Alert, Button, Card, CardHeader, Field, Input, Select, Spinner } from "@/components/ui";
-import { formatBytes, formatNumber } from "@/lib/format";
+import { containerLabel, formatBytes, formatNumber } from "@/lib/format";
 import { errorText } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
 
@@ -184,7 +184,7 @@ export function LimitsCard({ project }: { project: Project }) {
                 return (
                   <li key={c.containerId} className="grid items-center gap-x-6 gap-y-2 px-3 py-2 sm:grid-cols-[12rem_1fr_1fr]">
                     <span className="truncate font-mono text-xs text-fg" title={c.name}>
-                      {c.name.startsWith(slugPrefix) ? c.name.slice(slugPrefix.length) : c.name}
+                      {containerLabel(c.name.startsWith(slugPrefix) ? c.name.slice(slugPrefix.length) : c.name)}
                     </span>
                     <Bar
                       value={c.cpuPercent}

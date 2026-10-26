@@ -79,6 +79,20 @@ export function formatPercent(v: number): string {
   return `${formatNumber(v, v < 10 ? 1 : 0)} %`;
 }
 
+/**
+ * A duration the server wrote in Go's form ("12h0m0s", "1h30m0s") in words: whole days as
+ * days ("168h0m0s" → "7 days"), else hours and minutes. Anything else stays as it is.
+ */
+export function formatGoDuration(s: string, t: TFunction): string {
+  const m = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/.exec(s);
+  if (!s || !m || Number(m[3] ?? 0) !== 0) return s;
+  const hours = Number(m[1] ?? 0);
+  const minutes = Number(m[2] ?? 0);
+  if (minutes === 0 && hours > 0 && hours % 24 === 0) return t("{{count}} days", { count: hours / 24 });
+  const parts = [hours ? t("{{count}} hours", { count: hours }) : "", minutes ? t("{{count}} minutes", { count: minutes }) : ""].filter(Boolean);
+  return parts.length ? parts.join(" ") : s;
+}
+
 export function formatRelative(iso: string, t: TFunction): string {
   const at = Date.parse(iso);
   if (Number.isNaN(at)) return "";
@@ -202,6 +216,15 @@ export function serviceLabel(kind: string, version?: string, variant?: string): 
   const extraDB = kind.startsWith("db-") ? `${kind.slice(3)} · ${dbNames[variant ?? ""] ?? i18n.t("Database")}` : undefined;
   const base = extraDB ?? name[kind] ?? kind;
   return version ? `${base} ${version}` : base;
+}
+
+/**
+ * A project container's short name ("web", "node", "database", "worker-mails") where the UI
+ * shows it as a tag. They are names, not words, except "database", which reads in the UI
+ * language.
+ */
+export function containerLabel(name: string): string {
+  return name === "database" ? i18n.t("database") : name;
 }
 
 /** "0.4.0 · up to date" - the version with the outcome of the update check. */

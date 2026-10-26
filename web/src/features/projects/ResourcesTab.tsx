@@ -6,7 +6,7 @@ import { api } from "@/api/client";
 import type { MetricPoint, MetricRange, Project, ProjectMetrics } from "@/api/types";
 import { Button, Card, CardHeader, ErrorState, Spinner } from "@/components/ui";
 import { LineChart, SeriesTable, type Series } from "@/components/charts/LineChart";
-import { formatBytes, formatNumber } from "@/lib/format";
+import { containerLabel, formatBytes, formatNumber } from "@/lib/format";
 import { errorText } from "@/lib/errors";
 import { LimitsCard } from "./LimitsCard";
 
@@ -59,7 +59,7 @@ function capSeries(all: Series[], other: string): Series[] {
 function perContainer(m: ProjectMetrics, pick: (p: MetricPoint) => number, other: string): Series[] {
   // Slots follow the container, in name order, so a range with fewer containers keeps
   // everyone's color.
-  const s = m.containers.map((c, i) => ({ key: c.name, label: c.name, slot: i + 1, points: c.points.map((p) => [p[0], pick(p)] as [number, number]) }));
+  const s = m.containers.map((c, i) => ({ key: c.name, label: containerLabel(c.name), slot: i + 1, points: c.points.map((p) => [p[0], pick(p)] as [number, number]) }));
   return capSeries(s, other);
 }
 
