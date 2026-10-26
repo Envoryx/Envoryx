@@ -176,7 +176,7 @@ func (m *Manager) oomWarnings(projectID string) []string {
 	sort.Slice(recs, func(i, j int) bool { return recs[i].at.Before(recs[j].at) })
 	out := make([]string, 0, len(recs))
 	for _, r := range recs {
-		when := r.at.Local().Format("15:04")
+		when := r.at.Local().Format(clockFormat)
 		switch {
 		case r.limitMB > 0 && r.count > 1:
 			out = append(out, fmt.Sprintf("%s ran out of memory %d times, last at %s (limit %d MiB); processes were killed", r.container, r.count, when, r.limitMB))

@@ -212,12 +212,17 @@ func (m *Manager) addHealth(p store.Project, st *Status) {
 	}
 }
 
+// clockFormat is how warnings name a time of day: with its zone, as the server's clock
+// (UTC in the container unless TZ is set) is not necessarily the reader's. The UI turns
+// a UTC one into the browser's time.
+const clockFormat = "15:04 MST"
+
 // healthWarning is the project warning while the application is down.
 func healthWarning(p store.Project, st *HealthStatus) string {
 	if st == nil || st.State != HealthDown {
 		return ""
 	}
-	return fmt.Sprintf("the health check %s has failed since %s: %s", p.HealthCheck.Path, st.DownSince.Local().Format("15:04"), st.Error)
+	return fmt.Sprintf("the health check %s has failed since %s: %s", p.HealthCheck.Path, st.DownSince.Local().Format(clockFormat), st.Error)
 }
 
 // target is where a project's application answers, and whether it runs.

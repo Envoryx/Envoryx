@@ -102,7 +102,9 @@ func TestHealthCheckDownAndBack(t *testing.T) {
 	if got.Status.Health == nil || got.Status.Health.State != HealthDown {
 		t.Fatalf("two failures: %+v", got.Status.Health)
 	}
-	if len(got.Status.Warnings) != 1 || !strings.HasPrefix(got.Status.Warnings[0], "the health check /health has failed since ") || !strings.HasSuffix(got.Status.Warnings[0], ": HTTP 500 instead of 200") {
+	// The time carries its zone: the server's clock is not necessarily the reader's.
+	want := "the health check /health has failed since " + t0.Add(60*time.Second).Local().Format("15:04 MST") + ": HTTP 500 instead of 200"
+	if len(got.Status.Warnings) != 1 || got.Status.Warnings[0] != want {
 		t.Fatalf("warnings: %q", got.Status.Warnings)
 	}
 	if k := sender.kinds(); len(k) != 1 || k[0] != "project.down:Shop is down" {

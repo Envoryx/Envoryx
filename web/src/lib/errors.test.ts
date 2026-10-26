@@ -1,6 +1,6 @@
 import i18n from "@/i18n";
 import { ApiError } from "@/api/client";
-import { errorText, translateMessage } from "./errors";
+import { errorText, localClock, translateMessage } from "./errors";
 
 describe("translateMessage", () => {
   beforeAll(() => i18n.changeLanguage("de"));
@@ -59,6 +59,18 @@ describe("translateMessage", () => {
   it("translates the reason inside a health check warning", () => {
     expect(translateMessage("the health check /health has failed since 14:03: HTTP 500 instead of 200", t)).toBe("Der Health Check /health schlägt seit 14:03 fehl: HTTP 500 statt 200");
     expect(translateMessage("the health check /up has failed since 09:15: no answer within 5 s", t)).toBe("Der Health Check /up schlägt seit 09:15 fehl: Keine Antwort innerhalb von 5 s");
+  });
+
+  it("shows a warning's UTC time in the browser's time", () => {
+    const clock = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const now = new Date(Date.UTC(2026, 9, 26, 18, 30));
+    expect(localClock("16:02 UTC", now)).toBe(clock(new Date(Date.UTC(2026, 9, 26, 16, 2))));
+    // Later than now on the clock: that was yesterday.
+    expect(localClock("23:10 UTC", now)).toBe(clock(new Date(Date.UTC(2026, 9, 25, 23, 10))));
+    expect(localClock("16:02 CET", now)).toBe("16:02 CET");
+    const msg = translateMessage("php ran out of memory at 00:00 UTC (limit 256 MiB); a process was killed", t);
+    expect(msg).not.toContain("UTC");
+    expect(msg).toMatch(/^php hatte um .+ keinen Speicher mehr/);
   });
 
   it("translates the status warnings of a project", () => {

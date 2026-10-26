@@ -411,6 +411,19 @@ const compiled = templates.map((tpl) => ({
   re: new RegExp("^" + escape(tpl).replace(/\\\{\\\{(\w+)\\\}\\\}/g, (_, name: string) => (name === "error" || name === "reason" ? `(?<${name}>.+?)` : `(?<${name}>(?:(?!: ).)+?)`)) + "$"),
 }));
 
+/**
+ * A time of day the server wrote in UTC ("16:02 UTC", a warning's "since" or "at") as the
+ * browser's time, like the rest of the UI shows times. It lies in the past, so a clock time
+ * later than now was yesterday. Times in another zone keep their name.
+ */
+export function localClock(s: string, now = new Date()): string {
+  const m = /^(\d{1,2}):(\d{2}) UTC$/.exec(s);
+  if (!m) return s;
+  const at = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), Number(m[1]), Number(m[2])));
+  if (at.getTime() > now.getTime() + 60_000) at.setUTCDate(at.getUTCDate() - 1);
+  return at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 function translateSegment(s: string, t: TFunction): string | undefined {
   if (i18n.exists(s)) return t(s);
   for (const { tpl, re } of compiled) {
@@ -424,6 +437,7 @@ function translateSegment(s: string, t: TFunction): string | undefined {
       for (const name of ["label", "feature", "field"]) {
         if (groups[name] && i18n.exists(groups[name])) groups[name] = t(groups[name]);
       }
+      if (groups.time) groups.time = localClock(groups.time);
       return t(tpl, groups);
     }
   }
