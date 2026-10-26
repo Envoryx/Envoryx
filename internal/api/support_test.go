@@ -138,6 +138,10 @@ func TestSupportCantGrantAccess(t *testing.T) {
 		{http.MethodPut, "/api/v1/settings/registries", map[string]any{"registries": []any{}}},
 		{http.MethodPut, "/api/v1/audit/settings", map[string]any{"retentionDays": 1}},
 		{http.MethodDelete, "/api/v1/settings/log-history", nil},
+		// Where the backups go: a target of its own would outlast the consent.
+		{http.MethodPost, "/api/v1/offsite/targets", map[string]any{"name": "mine", "type": "s3", "endpoint": "https://s3.example.com", "bucket": "b"}},
+		{http.MethodPut, "/api/v1/offsite/targets/x", map[string]any{"name": "mine"}},
+		{http.MethodDelete, "/api/v1/offsite/targets/x", nil},
 		{http.MethodPatch, "/api/v1/settings", map[string]any{"logHistory": map[string]any{"enabled": false}}},
 		{http.MethodPost, "/api/v1/projects/from-manifest", map[string]any{"name": "Custom", "yaml": "version: 1\nphp:\n  version: \"8.4\"\n  image: example/php:1\n"}},
 	} {

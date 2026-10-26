@@ -3077,7 +3077,9 @@ accounts) or change the consent. Nor can it show or replace the secret key:
 the hoster has the instance backups on its offsite target, and with the key it
 could read every secret in them. It brings no code of its own choosing to stay
 on the instance: it can't install or edit addons, give a runtime a custom image
-(also not through a manifest) or store registry logins. And it leaves the
+(also not through a manifest) or store registry logins. It doesn't decide where
+the backups go: it can't add, change or remove an offsite target, which would
+keep receiving them after the consent ends. And it leaves the
 record of its visit alone: it can't shorten the audit log's retention, switch
 off or clear the log history. The UI shows these parts read-only to it.
 

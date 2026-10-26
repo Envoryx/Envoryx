@@ -89,12 +89,13 @@ export function SupportAccessCard() {
  * own images ("code"), and the record of the visit ("record"). Whatever the support set
  * there would outlast the consent, or cover its tracks.
  */
-export function SupportRefusedNote({ about = "access" }: { about?: "access" | "code" | "record" }) {
+export function SupportRefusedNote({ about = "access" }: { about?: "access" | "code" | "record" | "backups" }) {
   const { t } = useTranslation();
   const text = {
     access: t("The hoster's support can't change this: accounts, passwords, sign-in and keys stay with the instance's admins."),
     code: t("The hoster's support can't change this: addons, custom images and registry logins stay with the instance's admins."),
     record: t("The hoster's support can't change this: the audit log and the log history are the admins' record of its visit."),
+    backups: t("The hoster's support can't change this: where the backups go stays with the instance's admins."),
   }[about];
   return <Alert tone="blue">{text}</Alert>;
 }

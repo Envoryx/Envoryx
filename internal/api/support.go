@@ -70,8 +70,10 @@ func (a *API) supportLogin(w http.ResponseWriter, r *http.Request) {
 // or replace the secret key: the hoster gets the instance backups through its offsite
 // target already, and with the key it could read every secret in them. It brings no
 // code of its own choosing to stay on the instance either: no addons, no custom images
-// and no registry credentials for them. And it leaves the record of its visit alone: it
-// can't shorten the audit log's retention or clear the log history.
+// and no registry credentials for them. It doesn't decide where the backups go either: an
+// offsite target it set up would keep receiving them after the consent ends, so it can't
+// add, change or remove one. And it leaves the record of its visit alone: it can't
+// shorten the audit log's retention or clear the log history.
 //
 // Refused in the handlers by what the body carries: the instance's SSH keys and the log
 // history in PATCH /settings (updateSettings), and a custom image in a manifest
@@ -100,6 +102,9 @@ var supportRefused = map[string]bool{
 	"PUT /api/v1/settings/registries":                 true,
 	"PUT /api/v1/audit/settings":                      true,
 	"DELETE /api/v1/settings/log-history":             true,
+	"POST /api/v1/offsite/targets":                    true,
+	"PUT /api/v1/offsite/targets/{target}":            true,
+	"DELETE /api/v1/offsite/targets/{target}":         true,
 	// Second factors: the support has no password to protect, and resetting a user's
 	// would open their account to whoever knows the password.
 	"POST /api/v1/auth/2fa/totp/setup":           true,
