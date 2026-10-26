@@ -3584,7 +3584,8 @@ generated password and ends its sessions. `--password PW` sets one of your
 choice, but it ends up in the shell history and in the process list (`ps`):
 prefer the generated one and change it after signing in. `reset-2fa` removes an
 account's authenticator app, passkeys and recovery codes; `users` shows who has
-a second factor. `reset` deletes
+a second factor and how each account signs in (password, invited, sso only,
+disabled), so you can tell which ones a password opens. `reset` deletes
 accounts, sessions and API tokens but leaves projects, settings and backups
 alone. Open the web interface afterwards and
 create the administrator account again. `revoke-tokens` and `reset` leave the

@@ -236,3 +236,22 @@ func TestAdminResetTwoFactor(t *testing.T) {
 		t.Fatalf("audit: %+v", entries)
 	}
 }
+
+// users tells apart the accounts a password opens from invitations, single sign-on and
+// disabled ones.
+func TestSignInState(t *testing.T) {
+	now := time.Date(2026, 10, 26, 12, 0, 0, 0, time.UTC)
+	for want, u := range map[string]store.User{
+		"password":           {PasswordHash: "h"},
+		"password, sso":      {PasswordHash: "h", OIDCSubject: "s"},
+		"invited":            {InviteHash: "i", InviteExpiresAt: now.Add(time.Hour)},
+		"invitation expired": {InviteHash: "i", InviteExpiresAt: now.Add(-time.Hour)},
+		"sso only":           {OIDCSubject: "s"},
+		"disabled":           {PasswordHash: "h", Disabled: true},
+		"no password":        {},
+	} {
+		if got := signInState(u, now); got != want {
+			t.Errorf("%+v: got %q, want %q", u, got, want)
+		}
+	}
+}

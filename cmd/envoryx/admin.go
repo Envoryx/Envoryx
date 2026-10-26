@@ -253,15 +253,41 @@ func (c *adminCLI) users(ctx context.Context) error {
 		return err
 	}
 	tw := tabwriter.NewWriter(c.out, 0, 8, 2, ' ', 0)
-	fmt.Fprintln(tw, "USERNAME\tROLE\t2FA\tCREATED\tPASSWORD CHANGED (UTC)")
+	fmt.Fprintln(tw, "USERNAME\tROLE\tSIGN-IN\t2FA\tCREATED\tPASSWORD CHANGED (UTC)")
+	now := time.Now()
 	for _, u := range users {
 		fa := "-"
 		if withFactors[u.ID] {
 			fa = "yes"
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", u.Username, u.Role, fa, u.CreatedAt.Format("2006-01-02"), u.UpdatedAt.Format("2006-01-02 15:04"))
+		changed := "-"
+		if u.PasswordHash != "" {
+			changed = u.UpdatedAt.UTC().Format("2006-01-02 15:04")
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", u.Username, u.Role, signInState(u, now), fa, u.CreatedAt.Format("2006-01-02"), changed)
 	}
 	return tw.Flush()
+}
+
+// signInState says how an account can sign in, so in a lockout it is clear which ones a
+// password opens: disabled, an open (or expired) invitation, single sign-on only, or a
+// password (with single sign-on besides).
+func signInState(u store.User, now time.Time) string {
+	switch {
+	case u.Disabled:
+		return "disabled"
+	case u.PasswordHash == "" && u.InviteHash != "" && now.After(u.InviteExpiresAt):
+		return "invitation expired"
+	case u.PasswordHash == "" && u.InviteHash != "":
+		return "invited"
+	case u.PasswordHash == "" && u.OIDCSubject != "":
+		return "sso only"
+	case u.PasswordHash == "":
+		return "no password"
+	case u.OIDCSubject != "":
+		return "password, sso"
+	}
+	return "password"
 }
 
 // resetTwoFactor removes an account's second factors, for a lost device without
