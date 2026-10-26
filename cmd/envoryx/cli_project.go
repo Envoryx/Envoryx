@@ -17,8 +17,8 @@ import (
 func (c *cli) projectCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
-	case "help", "-h", "--help":
-		return errCLIHelp
+	case "help", "-h", "--help", "-help":
+		return groupHelp("project")
 	case "", "list", "ls":
 		return c.projectList(ctx, rest)
 	case "show", "info":

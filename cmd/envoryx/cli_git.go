@@ -36,8 +36,8 @@ type gitResult struct {
 func (c *cli) gitCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
-	case "help", "-h", "--help":
-		return errCLIHelp
+	case "help", "-h", "--help", "-help":
+		return groupHelp("git")
 	case "", "status":
 		return c.gitStatus(ctx, rest)
 	case "clone":

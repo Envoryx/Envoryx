@@ -246,7 +246,12 @@ func cliCommand(ctx context.Context, args []string) int {
 	case err == nil:
 		return 0
 	case errors.Is(err, errCLIHelp):
-		fmt.Fprint(c.out, cliUsage)
+		var help *helpError
+		if errors.As(err, &help) {
+			fmt.Fprint(c.out, commandHelp(help.cmd, help.flags))
+		} else {
+			fmt.Fprint(c.out, cliUsage)
+		}
 		return 0
 	case errors.As(err, &exit):
 		// An exit code the engine could not determine (-1) must not become a process
@@ -296,6 +301,10 @@ func (c *cli) run(ctx context.Context, args []string) error {
 	cmd, rest := args[0], args[1:]
 	switch cmd {
 	case "help":
+		// "help project logs" is "project logs --help".
+		if len(rest) > 0 {
+			return c.run(ctx, append(slices.Clone(rest), "--help"))
+		}
 		return errCLIHelp
 	case "login":
 		return c.login(ctx, rest)
@@ -370,7 +379,7 @@ func parse(fs *flag.FlagSet, args []string) ([]string, error) {
 	for {
 		if err := fs.Parse(args); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
-				return nil, errCLIHelp
+				return nil, &helpError{cmd: fs.Name(), flags: fs}
 			}
 			return nil, flagError(fs, err)
 		}
@@ -440,10 +449,14 @@ func fileError(err error) error {
 	return err
 }
 
-// splitCommand takes the subcommand off the front of a group's arguments.
+// splitCommand takes the subcommand off the front of a group's arguments. A flag in front
+// ("settings --json") belongs to the group's default command, which "" stands for.
 func splitCommand(args []string) (string, []string) {
 	if len(args) == 0 {
 		return "", nil
+	}
+	if strings.HasPrefix(args[0], "-") && !isHelpArg(args[0]) {
+		return "", args
 	}
 	return args[0], args[1:]
 }

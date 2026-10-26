@@ -44,10 +44,10 @@ type reconcileReport struct {
 func (c *cli) dockerCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
-	case "help", "-h", "--help":
-		return errCLIHelp
+	case "help", "-h", "--help", "-help":
+		return groupHelp("docker")
 	case "":
-		return errCLIUsage
+		return usagef("which docker command? images, prune, orphans or remove (\"envoryx docker --help\")")
 	case "images":
 		return c.dockerImages(ctx, rest)
 	case "prune":

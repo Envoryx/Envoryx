@@ -70,8 +70,8 @@ func (b backupInfo) contents() string {
 func (c *cli) backupCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
-	case "help", "-h", "--help":
-		return errCLIHelp
+	case "help", "-h", "--help", "-help":
+		return groupHelp("backup")
 	case "", "list", "ls":
 		return c.backupList(ctx, rest)
 	case "create", "new":

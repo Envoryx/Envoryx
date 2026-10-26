@@ -46,8 +46,8 @@ type workerList struct {
 func (c *cli) workerCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
-	case "help", "-h", "--help":
-		return errCLIHelp
+	case "help", "-h", "--help", "-help":
+		return groupHelp("worker")
 	case "", "list", "ls":
 		return c.workerList(ctx, rest)
 	case "presets":
@@ -422,8 +422,8 @@ var cronRuntimes = []string{"php", "node", "python", "go", "ruby", "java", "dotn
 func (c *cli) cronCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
-	case "help", "-h", "--help":
-		return errCLIHelp
+	case "help", "-h", "--help", "-help":
+		return groupHelp("cron")
 	case "", "list", "ls":
 		return c.cronList(ctx, rest)
 	case "add", "create":

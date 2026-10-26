@@ -47,8 +47,8 @@ const instanceBackups = "/api/v1/instance/backups"
 func (c *cli) instanceCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
-	case "help", "-h", "--help":
-		return errCLIHelp
+	case "help", "-h", "--help", "-help":
+		return groupHelp("instance")
 	case "", "backups", "list", "ls":
 		return c.instanceList(ctx, rest)
 	case "backup", "create":

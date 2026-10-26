@@ -383,6 +383,75 @@ func TestHelpIsNotAUsageError(t *testing.T) {
 	}
 }
 
+// --help on a command shows that command's entry and flags, not the whole usage text, and
+// never runs it.
+func TestCommandHelp(t *testing.T) {
+	commands := []string{
+		"project list", "project show", "project share", "project start", "project stop", "project restart",
+		"project delete", "project logs", "project exec", "project run", "project branches", "project branch",
+		"project deploy", "backup list", "backup create", "backup restore", "backup download", "backup delete",
+		"backup offsite", "backup remote", "backup fetch", "backup recover", "instance backups", "instance backup",
+		"instance download", "instance upload", "instance restore", "instance cancel-restore", "instance delete",
+		"instance offsite", "instance remote", "instance fetch", "db snapshot", "db snapshots", "db restore",
+		"db clone", "domain list", "domain add", "domain remove", "worker list", "worker presets", "worker add",
+		"worker edit", "worker enable", "worker disable", "worker restart", "worker remove", "cron list", "cron add",
+		"cron edit", "cron enable", "cron disable", "cron run", "cron runs", "cron remove", "git status", "git clone",
+		"git pull", "git checkout", "diagnostics", "audit", "docker images", "docker prune", "docker orphans",
+		"docker remove", "settings", "settings set", "login", "logout", "whoami",
+		// Groups
+		"project", "backup", "instance", "db", "domain", "worker", "cron", "git", "docker",
+	}
+	t.Setenv("ENVORYX_CLI_CONFIG", filepath.Join(t.TempDir(), "cli.json"))
+	t.Setenv("ENVORYX_URL", "http://127.0.0.1:1") // nothing listens: a command that runs fails
+	for _, cmd := range commands {
+		for _, help := range []string{"--help", "-h"} {
+			c := &cli{stdin: strings.NewReader("")}
+			err := c.run(context.Background(), append(strings.Fields(cmd), help))
+			var h *helpError
+			if !errors.As(err, &h) {
+				t.Errorf("%s %s: %v, want help", cmd, help, err)
+				continue
+			}
+			text := commandHelp(h.cmd, h.flags)
+			if !strings.HasPrefix(text, "Usage:\n  envoryx "+strings.Fields(cmd)[0]) || text == cliUsage {
+				t.Errorf("%s %s: not its own help:\n%s", cmd, help, text)
+			}
+		}
+	}
+	c := &cli{}
+	var h *helpError
+	if err := c.run(context.Background(), []string{"help", "project", "logs"}); !errors.As(err, &h) {
+		t.Fatalf("help project logs: %v", err)
+	}
+	text := commandHelp(h.cmd, h.flags)
+	for _, want := range []string{"envoryx project logs <project>", "-f, --follow", "--tail N", "(default 200)"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("help project logs lacks %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "--insecure ") || strings.Contains(text, "project show") {
+		t.Errorf("help project logs shows more than its own:\n%s", text)
+	}
+}
+
+// A flag right after a group belongs to its default command; a wrong one is a flag error.
+func TestFlagAfterGroup(t *testing.T) {
+	srv := newFakeServer(t, map[string]func(w http.ResponseWriter, r *http.Request){
+		"/api/v1/settings": func(w http.ResponseWriter, r *http.Request) { writeJSON(w, map[string]any{"baseDomain": "test"}) },
+	})
+	c, out, _ := newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"settings", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"baseDomain"`) {
+		t.Errorf("settings --json printed %q", out.String())
+	}
+	c, _, _ = newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"settings", "--bogus"}); !errors.Is(err, errCLIUsage) || err.Error() != "unknown flag --bogus" {
+		t.Errorf("settings --bogus: %v", err)
+	}
+}
+
 // Everything after "--" belongs to the command, flags included.
 func TestSplitAtDashDash(t *testing.T) {
 	own, cmd := splitAtDashDash([]string{"shop", "--service", "php", "--", "ls", "-la", "--json"})

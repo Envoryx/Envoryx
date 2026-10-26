@@ -61,8 +61,8 @@ func settingByName(name string) (settingKey, bool) {
 func (c *cli) settingsCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
-	case "help", "-h", "--help":
-		return errCLIHelp
+	case "help", "-h", "--help", "-help":
+		return groupHelp("settings")
 	case "", "show", "list":
 		return c.settingsShow(ctx, rest)
 	case "set":
@@ -248,8 +248,8 @@ type domainInfo struct {
 func (c *cli) domainCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
-	case "help", "-h", "--help":
-		return errCLIHelp
+	case "help", "-h", "--help", "-help":
+		return groupHelp("domain")
 	case "", "list", "ls":
 		return c.domainList(ctx, rest)
 	case "add":

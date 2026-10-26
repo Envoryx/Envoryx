@@ -30,8 +30,8 @@ func dbOf(slug, db string) string {
 func (c *cli) dbCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
-	case "help", "-h", "--help":
-		return errCLIHelp
+	case "help", "-h", "--help", "-help":
+		return groupHelp("db")
 	case "", "snapshots":
 		return c.dbSnapshots(ctx, rest)
 	case "snapshot":

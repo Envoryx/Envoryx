@@ -31,6 +31,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -79,6 +80,12 @@ func main() {
 	if len(os.Args) > 1 {
 		cmd = os.Args[1]
 	}
+	// Help for a server command is only help: "healthcheck --help" must not probe, nor
+	// "serve --help" start a server.
+	if (cmd == "serve" || cmd == "healthcheck" || cmd == "version") && len(os.Args) > 2 && slices.ContainsFunc(os.Args[2:], isHelpArg) {
+		fmt.Print(serverUsage)
+		return
+	}
 	switch cmd {
 	case "serve":
 		err := serve()
@@ -108,6 +115,10 @@ func main() {
 	case "version":
 		fmt.Println("Envoryx", version)
 	case "help", "-h", "--help":
+		if cmd == "help" && len(os.Args) > 2 {
+			// "help project logs": the command's own help.
+			os.Exit(cliCommand(context.Background(), os.Args[1:]))
+		}
 		fmt.Print(cliUsage)
 	default:
 		// Everything else is a client command talking to a server over the API. Ctrl+C
