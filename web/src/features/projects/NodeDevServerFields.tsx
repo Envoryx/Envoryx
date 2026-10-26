@@ -139,6 +139,7 @@ export function NodeDevServerFields({
             checked={value.inspect}
             onChange={(e) => set({ inspect: e.target.checked })}
           />
+          {value.inspect && <p className="text-xs text-amber-700 dark:text-amber-300">{t("The Node.js inspector accepts everyone who reaches the port and can run any code in the container. Switch it off when you are not debugging.")}</p>}
           {value.inspect && (
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label={t("Inspector port inside the container")} htmlFor={`${idPrefix}-inspect-port`} hint={t("Node's default is 9229")}>

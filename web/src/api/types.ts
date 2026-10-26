@@ -269,6 +269,8 @@ export interface ProjectAddon {
   port?: number;
   hostPort?: number;
   publishPort?: boolean;
+  /** The host port listens on 127.0.0.1 only (a web UI's; the proxy is the way in). */
+  hostPortLocal?: boolean;
   url?: string;
   injectedEnv: string[];
   /** The addon's variables the application doesn't get: Envoryx, the project's own

@@ -86,8 +86,10 @@ func TestAddonLifecycle(t *testing.T) {
 	if len(s.Mounts) != 2 || s.Mounts[0].Source != "envoryx-gadget-addon-widget-data" || s.Mounts[0].Target != "/data" {
 		t.Fatalf("mounts: %+v", s.Mounts)
 	}
-	if len(s.Ports) != 1 || s.Ports[0].ContainerPort != 8080 || s.Ports[0].HostPort == 0 {
-		t.Fatalf("a web UI is published: %+v", s.Ports)
+	// The web UI's port is the proxy's way in, on 127.0.0.1 only: in the LAN it would
+	// skip the project's sign-in and rules.
+	if len(s.Ports) != 1 || s.Ports[0].ContainerPort != 8080 || s.Ports[0].HostPort == 0 || s.Ports[0].HostIP != "127.0.0.1" {
+		t.Fatalf("a web UI is published on loopback: %+v", s.Ports)
 	}
 	// The application gets the injected variables.
 	if php, _ := e.engine.Container("envoryx-gadget-php"); specEnv(php.Spec, "WIDGET_URL") != "http://widget:8080" || specEnv(php.Spec, "ENVORYX_PROJECT") != "gadget" {
@@ -297,5 +299,41 @@ func TestPublicAddonStaysOpen(t *testing.T) {
 	route := table.Routes[AddonHostname("chat", "ws", DefaultBaseDomain)]
 	if route.Login != "" || route.Rules == nil || route.Rules.BasicAuth == nil {
 		t.Fatalf("a public addon is guarded like the application: %+v", route)
+	}
+}
+
+// A port the admin chose to publish listens like the project's ports; a web UI's stays
+// on loopback, behind the proxy.
+func TestExposedAddonPortListensLikeProjectPorts(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	const db = `name: tinydb
+title: Tiny DB
+versions:
+  - version: "1"
+    image: acme/tinydb:1
+port: 7000
+publishPort: true
+`
+	if _, err := e.m.InstallAddon(ctx, []byte(db)); err != nil {
+		t.Fatal(err)
+	}
+	view, err := e.m.Create(ctx, phpRequest("Gadget", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Addons: map[string]AddonUpdate{"tinydb": {Enabled: true, ExposePort: true}}}); err != nil {
+		t.Fatal(err)
+	}
+	c, ok := e.engine.Container("envoryx-gadget-addon-tinydb")
+	if !ok {
+		t.Fatalf("no addon container: %v", e.engine.ContainerNames())
+	}
+	if len(c.Spec.Ports) != 1 || c.Spec.Ports[0].HostIP == "127.0.0.1" {
+		t.Fatalf("an exposed port listens like the project's: %+v", c.Spec.Ports)
+	}
+	infos, err := e.m.ProjectAddons(ctx, view.Project.ID)
+	if err != nil || len(infos) != 1 || infos[0].HostPortLocal {
+		t.Fatalf("info: %+v %v", infos, err)
 	}
 }
