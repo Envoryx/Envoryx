@@ -311,6 +311,9 @@ type EnvVarRequest struct {
 	Key      string
 	Value    string
 	IsSecret bool
+	// KeepValue takes the value the project has for Key (a secret listed without its
+	// value, as callers that may not read secrets see it).
+	KeepValue bool
 }
 
 // UpdateRequest changes editable project settings. Nil pointers leave fields untouched.
