@@ -69,6 +69,26 @@ release). `:main` follows the development branch.
 - The automatic removal of orphans is credited to Envoryx in the audit, also when a manual
   reconcile was its second pass; `envoryx audit` prints Envoryx for such entries.
 - `envoryx backup download` wrote the archive world-readable; it is 0600 now.
+- PHP projects under Apache answered every route except `/` with 404 for Symfony and
+  TYPO3: unknown paths now go to `index.php` (a `.htaccess` still decides first).
+- Caddy sent a folder that holds only `index.html` to `index.php`.
+- `ENVORYX_URL` with the proxy's host port (e.g. `:18904`) was unreachable from inside the
+  project's containers when the proxy isn't on 80/443 (WordPress loopback and REST
+  errors). The proxy now answers those ports inside the project networks too.
+- Rails blocked a project's extra domains deeper than one level below the base domain.
+- Laravel and Rails projects created without starting skipped `artisan migrate` and
+  `db:prepare`, so the first request was a 500. The first start runs them.
+- A broken `.venv` (a restart during `pip install`, or a switch to Python 3.10) is
+  detected and rebuilt by the next pip install; the venv warning shows once.
+- The Vite, Nuxt and Next.js templates are refused on Node.js versions they can't run,
+  with a clear message, instead of failing cryptically.
+- A cloned repository's package manager (pnpm, Yarn) shows in the Node settings.
+- The .NET Web API template starts its schema as an EF Core migration, so the documented
+  migrations path works; the .NET templates bring a `.gitignore`.
+- A memory limit set on a running Java project recreates its container, instead of the
+  JVM being killed with the heap it sized for the host.
+- Importing WordPress before 6.7 suggests PHP 8.3 at most (8.4 before 6.9).
+- The UI and docs say which containers get the project variables (not the database).
 
 ## [0.45.1] - 2026-10-26
 
