@@ -1399,8 +1399,13 @@ run again after the restart (a start or restart picks up where it left off, a
 creation is rolled back). Backups in flight are discarded and retried at the
 next scheduled run.
 
-The grace period must stay below the container's stop timeout, otherwise
-Docker kills the process first: Docker's default is 10 s; the compose file
+After the grace period the abandoned operations get up to 2 s more to tidy up
+(remove partial files, stop a database started for a dump); whatever is still
+left is cleaned up at the next start.
+
+The grace period plus those 2 s must stay within the container's stop
+timeout, otherwise Docker kills the process first: Docker's default is 10 s,
+which the default grace of 8 s just fits; the compose file
 sets `stop_grace_period: 90s` with `ENVORYX_SHUTDOWN_GRACE: 80s` so an image
 pull can usually finish. On Unraid the stop timeout is global (*Settings →
 Docker → Docker stop timeout*, default 10 s), so raise it and the template's

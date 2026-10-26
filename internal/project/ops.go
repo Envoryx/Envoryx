@@ -117,9 +117,17 @@ func opError(ctx context.Context, err error) error {
 	return err
 }
 
+// shutdownWindDown bounds how long Shutdown waits for cancelled operations to wind
+// down (remove partial files, stop a database started for a dump, record the
+// interruption). Without a bound a slow cleanup runs into the container's stop timeout
+// and Docker kills the process; what is cut off here is tidied up at the next start
+// (SweepBackups, SweepInterruptedRestores, the reconcile's interrupted lifecycles).
+var shutdownWindDown = 2 * time.Second
+
 // Shutdown stops accepting lifecycle operations and waits up to grace for the running
-// ones to finish; whatever is still running afterwards is cancelled with ErrInterrupted.
-// It reports whether everything finished in time.
+// ones to finish; whatever is still running afterwards is cancelled with ErrInterrupted
+// and gets shutdownWindDown to wind down. It reports whether everything finished in
+// time.
 func (m *Manager) Shutdown(grace time.Duration) bool {
 	o := m.ops
 	o.mu.Lock()
@@ -133,15 +141,19 @@ func (m *Manager) Shutdown(grace time.Duration) bool {
 	}()
 	timer := time.NewTimer(grace)
 	defer timer.Stop()
-	finished := true
 	select {
 	case <-done:
+		o.cancel(ErrInterrupted)
+		return true
 	case <-timer.C:
-		finished = false
 	}
 	o.cancel(ErrInterrupted)
-	if !finished {
-		<-done
+	windDown := time.NewTimer(shutdownWindDown)
+	defer windDown.Stop()
+	select {
+	case <-done:
+	case <-windDown.C:
+		m.log.Warn("project operations did not wind down in time after the interruption; the next start tidies up", "waited", shutdownWindDown)
 	}
-	return finished
+	return false
 }

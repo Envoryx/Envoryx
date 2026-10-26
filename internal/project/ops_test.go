@@ -170,3 +170,33 @@ func TestReconcileRereadsAProjectAfterTheLock(t *testing.T) {
 		t.Fatalf("lifecycle changed to %s", got.Lifecycle)
 	}
 }
+
+// An operation that is slow to wind down after the interruption must not hold the
+// shutdown past the wind-down bound, or Docker kills Envoryx at its stop timeout.
+func TestShutdownBoundsTheWindDown(t *testing.T) {
+	e := newEnv(t)
+	old := shutdownWindDown
+	shutdownWindDown = 100 * time.Millisecond
+	t.Cleanup(func() { shutdownWindDown = old })
+
+	release := make(chan struct{})
+	defer close(release)
+	running := make(chan struct{})
+	go func() {
+		_ = e.m.run(context.Background(), time.Minute, Operation{Action: "backup"}, func(ctx context.Context) error {
+			close(running)
+			<-ctx.Done()
+			<-release // a cleanup that takes its time
+			return ctx.Err()
+		})
+	}()
+	<-running
+
+	begin := time.Now()
+	if e.m.Shutdown(50 * time.Millisecond) {
+		t.Fatal("Shutdown reported all operations finished although one was still winding down")
+	}
+	if took := time.Since(begin); took > time.Second {
+		t.Fatalf("Shutdown waited %v, the wind-down must be bounded", took)
+	}
+}
