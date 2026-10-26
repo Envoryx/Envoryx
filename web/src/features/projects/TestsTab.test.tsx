@@ -92,4 +92,12 @@ describe("TestsTab", () => {
     await user.click(output);
     expect(screen.getByText("PHPUnit 12 by Sebastian Bergmann")).toBeVisible();
   });
+
+  it("does not show a run whose filter matched nothing as passed", async () => {
+    const empty = { ...failedRun, status: "passed", exitCode: 0, filter: "Nope", result: { report: true, tests: 0, failures: 0, errors: 0, skipped: 0, seconds: 0, failed: [] } };
+    mockApi({ ...authedRoutes, [`GET /projects/${id}/tests`]: () => ({ body: { suites, runs: [empty] } }) });
+    renderApp(<TestsTab project={makeProject()} />);
+    expect(await screen.findByText("no test matched the filter")).toBeInTheDocument();
+    expect(screen.queryByText("0 passed")).not.toBeInTheDocument();
+  });
 });

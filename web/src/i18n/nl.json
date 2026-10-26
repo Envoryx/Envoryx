@@ -2329,6 +2329,8 @@
   "Tests": "Tests",
   "cancelled": "geannuleerd",
   "passed": "geslaagd",
+  "no test matched the filter": "geen test past bij het filter",
+  "no tests ran": "er zijn geen tests uitgevoerd",
   "failed (exit {{code}})": "mislukt (exit {{code}})",
   "{{failed}} of {{total}} failed": "{{failed}} van {{total}} mislukt",
   "{{number}} passed": "{{number}} geslaagd",

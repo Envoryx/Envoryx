@@ -2367,6 +2367,8 @@
   "Tests": "Testy",
   "cancelled": "anulowano",
   "passed": "zaliczono",
+  "no test matched the filter": "żaden test nie pasuje do filtra",
+  "no tests ran": "nie uruchomiono żadnych testów",
   "failed (exit {{code}})": "niepowodzenie (kod {{code}})",
   "{{failed}} of {{total}} failed": "{{failed}} z {{total}} nie powiodło się",
   "{{number}} passed": "zaliczono: {{number}}",

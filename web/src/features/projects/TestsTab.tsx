@@ -1,6 +1,6 @@
 import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, ChevronDown, ChevronRight, FlaskConical, Play, Square, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronRight, CircleMinus, FlaskConical, Play, Square, XCircle } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
@@ -17,12 +17,18 @@ function duration(ms: number): string {
   return s < 60 ? `${formatNumber(s, 1)} s` : `${Math.floor(s / 60)} min ${Math.round(s % 60)} s`;
 }
 
+/** A run that passed without running a test, typically a filter that matched none: no success. */
+function ranNothing(run: TestRun) {
+  return run.status === "passed" && run.result.report && run.result.tests === 0;
+}
+
 /** The outcome in one badge: passed/failed counts when there was a report, the status otherwise. */
 function RunBadge({ run }: { run: TestRun }) {
   const { t } = useTranslation();
   const r = run.result;
   const tone = run.status === "passed" ? "green" : run.status === "failed" ? "red" : "gray";
   if (run.status === "cancelled") return <Badge tone={tone}>{t("cancelled")}</Badge>;
+  if (ranNothing(run)) return <Badge tone="amber">{run.filter ? t("no test matched the filter") : t("no tests ran")}</Badge>;
   if (!r.report) return <Badge tone={tone}>{run.status === "passed" ? t("passed") : t("failed (exit {{code}})", { code: run.exitCode })}</Badge>;
   const bad = r.failures + r.errors;
   return <Badge tone={tone}>{bad > 0 ? t("{{failed}} of {{total}} failed", { failed: bad, total: r.tests }) : t("{{number}} passed", { number: r.tests - r.skipped })}</Badge>;
@@ -63,7 +69,13 @@ function RunDetails({ run, suites }: { run: TestRun; suites: TestSuite[] }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        {run.status === "passed" ? <CheckCircle2 className="size-4 text-emerald-500" aria-hidden /> : <XCircle className="size-4 text-red-500" aria-hidden />}
+        {ranNothing(run) ? (
+          <CircleMinus className="size-4 text-amber-500" aria-hidden />
+        ) : run.status === "passed" ? (
+          <CheckCircle2 className="size-4 text-emerald-500" aria-hidden />
+        ) : (
+          <XCircle className="size-4 text-red-500" aria-hidden />
+        )}
         <span className="font-medium">{label}</span>
         {run.filter && <Code>{run.filter}</Code>}
         <RunBadge run={run} />

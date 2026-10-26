@@ -2367,6 +2367,8 @@
   "Tests": "Тести",
   "cancelled": "скасовано",
   "passed": "пройдено",
+  "no test matched the filter": "жоден тест не відповідає фільтру",
+  "no tests ran": "жоден тест не запущено",
   "failed (exit {{code}})": "помилка (код {{code}})",
   "{{failed}} of {{total}} failed": "{{failed}} з {{total}} з помилкою",
   "{{number}} passed": "пройдено: {{number}}",

@@ -2329,6 +2329,8 @@
   "Tests": "Tests",
   "cancelled": "abgebrochen",
   "passed": "bestanden",
+  "no test matched the filter": "kein Test passt zum Filter",
+  "no tests ran": "keine Tests gelaufen",
   "failed (exit {{code}})": "fehlgeschlagen (Exit {{code}})",
   "{{failed}} of {{total}} failed": "{{failed}} von {{total}} fehlgeschlagen",
   "{{number}} passed": "{{number}} bestanden",

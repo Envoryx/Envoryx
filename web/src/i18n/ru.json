@@ -2367,6 +2367,8 @@
   "Tests": "Тесты",
   "cancelled": "отменено",
   "passed": "пройдено",
+  "no test matched the filter": "ни один тест не подходит под фильтр",
+  "no tests ran": "ни один тест не запущен",
   "failed (exit {{code}})": "ошибка (код {{code}})",
   "{{failed}} of {{total}} failed": "{{failed}} из {{total}} с ошибкой",
   "{{number}} passed": "пройдено: {{number}}",
