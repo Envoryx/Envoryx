@@ -10,6 +10,50 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Security
+- PHP projects under Apache served dotfiles such as `.env` and `.git/config`, which nginx
+  and Caddy deny. Apache now denies every dot path too, except `/.well-known/`. The web
+  server's configuration is rewritten at the next start of a project.
+- A project's containers reached Envoryx's interface and API, on the listen port (Envoryx
+  joins every project network for its proxy) and through the UI's host name. Requests
+  from a project network now get a 403; the proxy still routes them to projects.
+- An addon's web UI port listened on every interface, so phpMyAdmin answered the LAN
+  without Envoryx's sign-in, already signed in to the database. That port is the proxy's
+  way in and now listens on 127.0.0.1 only; a port published on purpose (`publishPort`)
+  still listens like the project's ports.
+- *Remove unused images* also offered images of other Envoryx instances on the same Docker
+  host (their rollback targets and builds) and any tag of a catalogue repository someone
+  else pulled (`busybox:latest`, `mongo:latest`). It now offers only the exact catalogue
+  and addon images, the rollback tags of this instance's projects and the images it
+  built. Removing an orphaned volume asks first.
+- A stored notification token or SMTP password went to whatever channel or address a
+  test or a save named, a Telegram bot token as the bearer of an ntfy test, say. It now
+  stays with the destination it was entered for and can be removed. Deliveries and addon
+  downloads no longer go to Envoryx itself, loopback or link-local addresses (the cloud
+  metadata service), and on a hosted instance not into private networks.
+- Removing an SSH key, revoking a token or disabling a user only stopped new logins; an
+  open shell, SFTP or IDE connection went on. Open connections now end within 15 seconds.
+- A hosted instance restored instance backups of other Envoryx instances, which brought
+  their projects with services outside the plan. It now restores only its own.
+- Ten setup requests at once created ten admins. The setup now creates one.
+- `envoryx admin logout-all --help` ended every browser session: the admin commands
+  ignored their arguments. Help anywhere now only prints the usage (to stdout, exit 0).
+- The hoster's support can no longer add, change or remove offsite targets; one it set
+  up kept receiving the backups after the consent ended.
+- A redirect rule like `/r/*` to `/*` sent `/r//evil.com` to another host. A path target
+  now stays on the project's host.
+- The login page showed any text a link carried in `?sso_error=`. The reason of a failed
+  single sign-on now travels in a short-lived cookie.
+
+### Fixed
+- Envoryx refused to start after an instance restore when one project backup sealed with
+  the restored key was damaged (possible since 0.45.0 accepts backups of another
+  Envoryx). Resealing now skips such a backup, and a key replacement no longer fails on it.
+- A PATCH that listed a secret variable without its value emptied it. Such a secret now
+  keeps its value; an explicit empty value still empties it.
+- The Node.js inspector and debugpy switches now warn, like JDWP, Delve and rdbg, that the
+  port lets anyone who reaches it run code.
+
 ## [0.45.0] - 2026-10-26
 
 ### Added
