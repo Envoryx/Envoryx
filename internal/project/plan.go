@@ -31,6 +31,9 @@ type planUsage struct {
 // SetPlan hands the Manager the instance's plan and suspension.
 func (m *Manager) SetPlan(h *plan.Holder) {
 	m.plan = h
+	// A hosted instance's admins don't get to reach the hoster's network through an
+	// addon URL.
+	m.addons.SetPrivateAllowed(func() bool { return h.Get() == nil })
 	h.OnSuspend(m.suspensionChanged)
 	// The containers already run with the limits of the plan they started under.
 	if pl := h.Get(); pl != nil {

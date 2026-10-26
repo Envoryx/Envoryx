@@ -4,12 +4,15 @@
 package notify
 
 import (
+	"net/netip"
+
 	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/envoryx/envoryx/internal/netguard"
 	"io"
 	"log/slog"
 	"net"
@@ -206,6 +209,10 @@ type Service struct {
 	dir  string
 	log  *slog.Logger
 	http *http.Client
+	// allow decides which addresses deliveries may connect to; privateAllowed says
+	// whether private networks count (not on a hosted instance).
+	allow          func(netip.Addr) bool
+	privateAllowed func() bool
 
 	mu        sync.Mutex
 	cfg       Config
@@ -233,7 +240,11 @@ func New(dir string, log *slog.Logger) (*Service, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("create notify directory: %w", err)
 	}
-	s := &Service{dir: dir, log: log, http: &http.Client{Timeout: 20 * time.Second}, recent: map[string]time.Time{}, now: time.Now}
+	s := &Service{dir: dir, log: log, recent: map[string]time.Time{}, now: time.Now}
+	// Deliveries go where an admin typed, so not to Envoryx itself or the metadata service,
+	// and on a hosted instance not into the hoster's network (SetPrivateAllowed).
+	s.allow = netguard.Policy(func() bool { return s.privateAllowed == nil || s.privateAllowed() })
+	s.http = netguard.Client(20*time.Second, func(a netip.Addr) bool { return s.allow(a) })
 	raw, err := secrets.ReadFile(filepath.Join(dir, configFile))
 	if err == nil {
 		if err := json.Unmarshal(raw, &s.cfg); err != nil {
@@ -245,6 +256,15 @@ func New(dir string, log *slog.Logger) (*Service, error) {
 	}
 	return s, nil
 }
+
+// SetPrivateAllowed decides whether deliveries may go to private networks (a webhook or
+// ntfy server on the LAN); a hosted instance says no, keeping its admins out of the
+// hoster's network.
+func (s *Service) SetPrivateAllowed(f func() bool) { s.privateAllowed = f }
+
+// SetAddressPolicy replaces the check of the addresses deliveries connect to; tests use
+// it to reach their servers on loopback.
+func (s *Service) SetAddressPolicy(allow func(netip.Addr) bool) { s.allow = allow }
 
 // Status returns the state for the UI.
 func (s *Service) Status() Status {
@@ -510,10 +530,10 @@ func (s *Service) sendMail(ctx context.Context, cfg Config, e Event, at time.Tim
 	if s.smtpDial != nil {
 		conn, err = s.smtpDial(ctx, addr)
 	} else if security == "tls" {
-		d := tls.Dialer{NetDialer: &net.Dialer{Timeout: 15 * time.Second}, Config: &tls.Config{ServerName: cfg.SMTPHost, MinVersion: tls.VersionTLS12}}
+		d := tls.Dialer{NetDialer: &net.Dialer{Timeout: 15 * time.Second, Control: netguard.Control(s.allow)}, Config: &tls.Config{ServerName: cfg.SMTPHost, MinVersion: tls.VersionTLS12}}
 		conn, err = d.DialContext(ctx, "tcp", addr)
 	} else {
-		conn, err = (&net.Dialer{Timeout: 15 * time.Second}).DialContext(ctx, "tcp", addr)
+		conn, err = (&net.Dialer{Timeout: 15 * time.Second, Control: netguard.Control(s.allow)}).DialContext(ctx, "tcp", addr)
 	}
 	if err != nil {
 		return fmt.Errorf("smtp connect: %w", err)

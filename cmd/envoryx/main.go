@@ -368,6 +368,9 @@ func serve() error {
 	if err != nil {
 		log.Warn("notifications unavailable", "err", err)
 	} else {
+		// A hosted instance's admins don't get to reach the hoster's network through a
+		// webhook.
+		notifier.SetPrivateAllowed(func() bool { return plans.Get() == nil })
 		manager.SetNotifier(notifier)
 	}
 

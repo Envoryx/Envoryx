@@ -1,10 +1,13 @@
 package addon
 
 import (
+	"net/netip"
+
 	"context"
 	"embed"
 	"errors"
 	"fmt"
+	"github.com/envoryx/envoryx/internal/netguard"
 	"io"
 	"io/fs"
 	"net/http"
@@ -63,15 +66,25 @@ func Examples() []Example {
 type Registry struct {
 	dir func() (string, error)
 	mu  sync.Mutex
-	// client fetches addon files from URLs; tests replace it.
-	client *http.Client
+	// client fetches addon files from URLs. Like a webhook it goes where an admin typed,
+	// so allow keeps it off Envoryx itself and the metadata service, and privateAllowed
+	// off private networks on a hosted instance.
+	client         *http.Client
+	allow          func(netip.Addr) bool
+	privateAllowed func() bool
 }
 
 // NewRegistry returns the registry of the directory dir returns (it may change with the
 // configuration).
 func NewRegistry(dir func() (string, error)) *Registry {
-	return &Registry{dir: dir, client: &http.Client{Timeout: 20 * time.Second}}
+	r := &Registry{dir: dir}
+	r.allow = netguard.Policy(func() bool { return r.privateAllowed == nil || r.privateAllowed() })
+	r.client = netguard.Client(20*time.Second, func(a netip.Addr) bool { return r.allow(a) })
+	return r
 }
+
+// SetPrivateAllowed decides whether addon files may come from private networks.
+func (r *Registry) SetPrivateAllowed(f func() bool) { r.privateAllowed = f }
 
 func (r *Registry) path(name string) (string, error) {
 	if err := ValidName(name); err != nil {

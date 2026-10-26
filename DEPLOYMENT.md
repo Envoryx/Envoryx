@@ -2372,6 +2372,9 @@ and object storage stay built in, with their extra features; addons sit next to 
   - *Keycloak* 26 (development mode, admin password generated per project,
     `KEYCLOAK_URL`), handy for trying single sign-on.
 - **Install from a URL** downloads a file over http(s), a raw GitHub link for example.
+  Like a notification webhook it never goes to Envoryx itself, the host's loopback or
+  link-local addresses (the cloud metadata service), and on a hosted instance not to
+  private networks either.
 
 Every file is checked when it's saved: unknown keys, a name Envoryx uses itself, an image
 that isn't a reference, a placeholder the addon can't fill - each is refused with the
@@ -2695,7 +2698,10 @@ Secrets live in `/config/notify.json` (0600, encrypted with the
 one only for the destination it was entered for: the token for its channel
 (an ntfy token for its topic URL), the SMTP password for its server and user.
 Another channel or address never gets it, and *Remove the stored token* /
-*Remove the stored password* delete it. SMTP authentication requires
+*Remove the stored password* delete it. Deliveries don't go to Envoryx itself, the
+host's loopback or link-local addresses (such as the cloud metadata service at
+169.254.169.254); a webhook or mail server on the LAN is fine, except on a hosted
+instance, which keeps its admins out of the hoster's network. SMTP authentication requires
 STARTTLS or TLS. An event type added by an update follows its default until
 the event selection is saved again, so a new alarm is not silently off for
 anyone who once chose their events.
