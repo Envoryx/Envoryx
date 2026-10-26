@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -122,6 +123,11 @@ func TestRegistry(t *testing.T) {
 		}
 	}))
 	defer srv.Close()
+	// Loopback, where the test server is, is refused like Envoryx itself would be.
+	if _, err := r.Fetch(context.Background(), srv.URL+"/widget.yml"); !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "not allowed") {
+		t.Fatalf("loopback: %v", err)
+	}
+	r.allow = func(netip.Addr) bool { return true }
 	if raw, err := r.Fetch(context.Background(), srv.URL+"/widget.yml"); err != nil || string(raw) != minimal {
 		t.Fatalf("fetch: %v", err)
 	}

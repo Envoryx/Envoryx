@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"os"
 	"slices"
 	"strings"
@@ -52,6 +53,8 @@ func newService(t *testing.T) (*Service, *sink, *httptest.Server) {
 		t.Fatal(err)
 	}
 	s.telegramBase = srv.URL
+	// The test server is on loopback, which deliveries otherwise never reach.
+	s.allow = func(netip.Addr) bool { return true }
 	return s, got, srv
 }
 
@@ -336,5 +339,24 @@ func TestStoredSecretsStayWithTheirDestination(t *testing.T) {
 	}
 	if c := (Config{Provider: "email", SMTPHost: "mail.example.com", SMTPUser: "me"}).keepSecrets(s.cfg); c.SMTPPassword != "pw" {
 		t.Fatal("the SMTP password was not kept for its own server")
+	}
+}
+
+// Deliveries never reach Envoryx itself or the metadata service, and on a hosted instance
+// not the private network either.
+func TestDeliveriesStayOffLocalAddresses(t *testing.T) {
+	s, err := New(t.TempDir(), slog.New(slog.NewTextHandler(os.Stderr, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	for _, url := range []string{"http://127.0.0.1:8787/api/v1/health", "http://169.254.169.254/latest/meta-data/"} {
+		if err := s.Test(ctx, Config{Provider: "webhook", URL: url}); err == nil || !strings.Contains(err.Error(), "not allowed") {
+			t.Errorf("%s: %v", url, err)
+		}
+	}
+	s.SetPrivateAllowed(func() bool { return false })
+	if err := s.Test(ctx, Config{Provider: "webhook", URL: "http://10.0.0.1:9/"}); err == nil || !strings.Contains(err.Error(), "not allowed") {
+		t.Errorf("private address on a hosted instance: %v", err)
 	}
 }

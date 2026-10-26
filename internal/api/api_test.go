@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"slices"
@@ -111,6 +112,8 @@ func newApp(t *testing.T) *testApp {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The tests' webhook servers listen on loopback.
+	notifier.SetAddressPolicy(func(netip.Addr) bool { return true })
 	invalidations := 0
 	proxyInfo := &api.ProxyInfo{Enabled: true, HTTPPort: 80, HTTPSPort: 443, InDocker: true, Invalidate: func() { invalidations++ }}
 	mcpSrv := mcpserver.New(mcpserver.Deps{Projects: manager, Catalog: runtime.Default(), Auth: sessions, Version: "test", Log: log})
