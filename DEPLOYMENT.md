@@ -368,6 +368,10 @@ not at the Unraid IP (which is where the direct project ports live).
   application can therefore call its own URL (`http://shop.test`) or another
   project's, whatever DNS server the Docker host uses and even when Envoryx has
   its own IP on `br0`, which containers on a bridge network cannot reach.
+  When the proxy is published on other host ports than 80 and 443 (such as
+  `18443:443`), the project URLs carry those ports, so the proxy listens on
+  them inside Envoryx's container as well, and `https://shop.test:18443`
+  works from inside the project, too.
   Docker fixes aliases when a container joins a network, so names added
   meanwhile reach a project the next time it starts. HTTPS from inside a
   container needs the Envoryx CA in that container, or `curl -k`. On bare

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -192,5 +193,58 @@ func TestPruneCertificatesKeepsWhatTheProxyServes(t *testing.T) {
 	removed, err := s.PruneCertificates(context.Background())
 	if err != nil || strings.Join(removed, ",") != "gone.test" {
 		t.Fatalf("removed = %v, %v", removed, err)
+	}
+}
+
+// The listeners added with ListenAlso serve the same traffic as the main ones; one that
+// cannot start leaves the proxy running.
+func TestServerListenAlso(t *testing.T) {
+	free := func() string {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer ln.Close()
+		return ln.Addr().String()
+	}
+	main, also := free(), free()
+	busy, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer busy.Close()
+	source := func(context.Context) (Table, error) {
+		return Table{UIHosts: map[string]bool{"envoryx.test": true}}, nil
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ui := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = io.WriteString(w, "envoryx ui") })
+	router := NewRouter(source, time.Second, log)
+	s := NewServer(NewHandler(router, ui, false, log), router, nil, main, "", nil, log)
+	s.ListenAlso(also, busy.Addr().String())
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- s.Run(ctx) }()
+	defer func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Error(err)
+		}
+	}()
+	for _, addr := range []string{main, also} {
+		var body string
+		for range 50 {
+			req, _ := http.NewRequest(http.MethodGet, "http://"+addr+"/", nil)
+			req.Host = "envoryx.test"
+			if res, err := http.DefaultClient.Do(req); err == nil {
+				b, _ := io.ReadAll(res.Body)
+				res.Body.Close()
+				body = string(b)
+				break
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+		if body != "envoryx ui" {
+			t.Errorf("%s answered %q", addr, body)
+		}
 	}
 }

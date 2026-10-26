@@ -778,6 +778,9 @@ func serve() error {
 			httpsAddr = cfg.ProxyHTTPS
 		}
 		ps := proxy.NewServer(handler, router, certs, cfg.ProxyHTTP, httpsAddr, nil, log)
+		if proxyInfo.InDocker && proxyInfo.Address == "" {
+			ps.ListenAlso(hostPortListener(cfg, cfg.ProxyHTTP, proxyInfo.HTTPPort), hostPortListener(cfg, httpsAddr, proxyInfo.HTTPSPort))
+		}
 		manager.SetShareProxy(cfg.ProxyHTTP)
 		if certs != nil {
 			// Certificates of host names nothing routes to any more go once at start
@@ -916,6 +919,22 @@ func portOfAddr(addr string) int {
 	var n int
 	fmt.Sscanf(port, "%d", &n)
 	return n
+}
+
+// hostPortListener is the address for a proxy listener on the host-side port of the one
+// on listen (see proxy.Server.ListenAlso), "" when there is none to add: the listener is
+// off, the port isn't published, or it is the same port or one Envoryx listens on for
+// something else.
+func hostPortListener(cfg config.Config, listen string, hostPort int) string {
+	if listen == "" || hostPort <= 0 {
+		return ""
+	}
+	for _, addr := range []string{cfg.ListenAddr, cfg.SSHListen, cfg.ProxyHTTP, cfg.ProxyHTTPS} {
+		if portOfAddr(addr) == hostPort {
+			return ""
+		}
+	}
+	return fmt.Sprintf(":%d", hostPort)
 }
 
 // detectProxy figures out how the proxy's listeners are reachable from the host: inside

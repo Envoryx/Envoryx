@@ -366,11 +366,22 @@ type Server struct {
 	log       *slog.Logger
 	// extraAllow admits extra names the TLS listener issues certificates for (UI hosts).
 	extraAllow func(host string) bool
+	// alsoHTTP and alsoHTTPS are further listeners for the same traffic (see ListenAlso).
+	alsoHTTP, alsoHTTPS string
 }
 
 // NewServer creates the proxy server. httpsAddr may be empty to disable TLS.
 func NewServer(handler *Handler, router *Router, certs *tlsca.Store, httpAddr, httpsAddr string, extraAllow func(string) bool, log *slog.Logger) *Server {
 	return &Server{handler: handler, router: router, certs: certs, httpAddr: httpAddr, httpsAddr: httpsAddr, extraAllow: extraAllow, log: log}
+}
+
+// ListenAlso serves plain HTTP on httpAddr and HTTPS on httpsAddr as well ("" for none),
+// set before Run. In Docker the proxy's host names resolve to Envoryx's own address inside
+// the project networks, while the links carry the host-side ports: with 18443:443 a
+// project calling its own https://shop.test:18443 has to find the proxy on 18443 there,
+// too. A listener that can't start is logged and left out.
+func (s *Server) ListenAlso(httpAddr, httpsAddr string) {
+	s.alsoHTTP, s.alsoHTTPS = httpAddr, httpsAddr
 }
 
 // allowHost decides whether TLS certificates may be issued for a name: known routes, UI
@@ -415,18 +426,17 @@ func (s *Server) PruneCertificates(ctx context.Context) ([]string, error) {
 func (s *Server) Run(ctx context.Context) error {
 	var servers []*http.Server
 	started := 0
-	start := func(addr string, tlsCfg func() *http.Server) {
+	start := func(addr string, tlsCfg func() *http.Server) bool {
 		if addr == "" {
-			return
+			return false
 		}
 		ln, err := net.Listen("tcp", addr)
 		if err != nil {
 			s.log.Warn("proxy listener unavailable", "addr", addr, "err", err)
-			return
+			return false
 		}
 		srv := tlsCfg()
 		servers = append(servers, srv)
-		started++
 		go func() {
 			var err error
 			if srv.TLSConfig != nil {
@@ -439,20 +449,28 @@ func (s *Server) Run(ctx context.Context) error {
 			}
 		}()
 		s.log.Info("proxy listening", "addr", addr, "tls", srv.TLSConfig != nil)
+		return true
 	}
 	base := func() *http.Server {
 		return &http.Server{Handler: s.handler, ReadHeaderTimeout: 15 * time.Second, IdleTimeout: 120 * time.Second, MaxHeaderBytes: 64 << 10}
 	}
-	start(s.httpAddr, base)
-	if s.certs != nil {
-		start(s.httpsAddr, func() *http.Server {
-			srv := base()
-			srv.TLSConfig = s.certs.TLSConfig(s.allowHost)
-			return srv
-		})
+	withTLS := func() *http.Server {
+		srv := base()
+		srv.TLSConfig = s.certs.TLSConfig(s.allowHost)
+		return srv
+	}
+	if start(s.httpAddr, base) {
+		started++
+	}
+	if s.certs != nil && start(s.httpsAddr, withTLS) {
+		started++
 	}
 	if started == 0 {
 		return errors.New("proxy: no listener could be started")
+	}
+	start(s.alsoHTTP, base)
+	if s.certs != nil {
+		start(s.alsoHTTPS, withTLS)
 	}
 	<-ctx.Done()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
