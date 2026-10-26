@@ -213,6 +213,17 @@ func (m *Manager) planner() (*Planner, error) {
 	}
 	planner := NewPlanner(p, m.catalog)
 	planner.containerLimit = m.Plan().ContainerLimit
+	planner.domains = func(projectID string) []string {
+		domains, err := m.store.Domains.ListByProject(context.Background(), projectID)
+		if err != nil {
+			m.log.Warn("listing the extra domains for the plan", "project", projectID, "err", err)
+		}
+		names := make([]string, 0, len(domains))
+		for _, d := range domains {
+			names = append(names, d.Hostname)
+		}
+		return names
+	}
 	return planner, nil
 }
 

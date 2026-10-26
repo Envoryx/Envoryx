@@ -182,15 +182,16 @@ func (c RubyConfig) WrappedCommand(guards ...string) []string {
 
 // Env returns the variables that tell the application where to listen and in which
 // environment it runs: RAILS_ENV, RACK_ENV, APP_ENV (Sinatra) and HANAMI_ENV follow the
-// mode. In development Rails only answers host names it knows - allowedHost goes into
-// RAILS_DEVELOPMENT_HOSTS, where a leading dot allows every name under the domain. In
+// mode. In development Rails only answers host names it knows - allowedHosts go into
+// RAILS_DEVELOPMENT_HOSTS, comma-separated, where a leading dot allows the name itself and
+// one label below it (Rails matches ([a-z0-9-]+\.)? in front), not deeper ones. In
 // production Rails serves public/ itself (there is no nginx in front of Puma).
-func (c RubyConfig) Env(allowedHost string) []string {
+func (c RubyConfig) Env(allowedHosts ...string) []string {
 	env := []string{"HOST=0.0.0.0", "PORT=" + strconv.Itoa(c.Port), "BINDING=0.0.0.0", "RAILS_LOG_TO_STDOUT=1"}
 	if c.Production() {
 		env = append(env, "RAILS_SERVE_STATIC_FILES=1")
-	} else if allowedHost != "" {
-		env = append(env, "RAILS_DEVELOPMENT_HOSTS="+allowedHost)
+	} else if len(allowedHosts) > 0 {
+		env = append(env, "RAILS_DEVELOPMENT_HOSTS="+strings.Join(allowedHosts, ","))
 	}
 	return append(env, c.AppEnv()...)
 }

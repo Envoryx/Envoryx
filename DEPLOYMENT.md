@@ -747,8 +747,10 @@ and needs none.
   on `$PORT` (3000 for Rails, 9292 for Rack; `HOST`/`BINDING` are
   `0.0.0.0`). `RAILS_ENV`, `RACK_ENV`, `APP_ENV` and `HANAMI_ENV` follow the
   mode, and the workers get the same. In development Envoryx sets
-  `RAILS_DEVELOPMENT_HOSTS=.<base>`, so Rails' host authorization lets the
-  project's host names through. Production mode is Rails' production
+  `RAILS_DEVELOPMENT_HOSTS` to `.<base>` and each extra domain with a leading
+  dot, so Rails' host authorization lets the project's host names through
+  (an entry with a leading dot covers the name and one label below it). A
+  domain added to a running project reaches Rails with the next restart. Production mode is Rails' production
   environment: it needs `config/master.key` (or `SECRET_KEY_BASE` as a
   project variable), precompiled assets (*rails assets:precompile*) and the
   databases its `database.yml` names for production; Rails serves `public/`

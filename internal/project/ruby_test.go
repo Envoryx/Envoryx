@@ -26,6 +26,40 @@ func rubyRequest(name string, start bool) CreateRequest {
 	}
 }
 
+// Rails' host authorization lets a leading-dot entry cover one label below the name only,
+// so every extra domain the base domain's entry doesn't cover gets its own.
+func TestRailsDevelopmentHostsIncludeExtraDomains(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	v, err := e.m.Create(ctx, rubyRequest("Shop", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range []string{"shop.example.test", "api.shop.test", "www.test"} {
+		if _, err := e.m.AddDomain(ctx, v.Project.ID, d); err != nil {
+			t.Fatal(err)
+		}
+	}
+	planner, err := e.m.planner()
+	if err != nil {
+		t.Fatal(err)
+	}
+	proj, _ := e.m.loadProject(ctx, v.Project.ID)
+	plan, err := planner.Plan(proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var env []string
+	for _, c := range plan.Containers {
+		if c.Kind == store.ServiceRuby {
+			env = c.Spec.Env
+		}
+	}
+	if want := "RAILS_DEVELOPMENT_HOSTS=.test,.api.shop.test,.shop.example.test"; !slices.Contains(env, want) {
+		t.Fatalf("want %s in %v", want, env)
+	}
+}
+
 func TestRubyServerServesProject(t *testing.T) {
 	e := newEnv(t)
 	e.selfID = "envoryx-self"

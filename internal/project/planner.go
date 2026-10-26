@@ -541,6 +541,9 @@ type Planner struct {
 	// containerLimit applies the hoster's plan to a container's CPU and memory limit
 	// (plan.Plan.ContainerLimit); nil leaves them as the project sets them.
 	containerLimit func(cpus float64, memoryMB int) (float64, int)
+	// domains lists a project's extra domains, for the dev servers that check the Host
+	// header against names they know (Rails); nil knows none.
+	domains func(projectID string) []string
 }
 
 // NewPlanner creates a planner.
@@ -940,7 +943,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				// clone comes up without a manual bundle install.
 				spec.Cmd = rcfg.WrappedCommand(dbGuard)
 				spec.Healthcheck = serverHealth()
-				spec.Env = append(spec.Env, rcfg.Env("."+p.paths.BaseDomain)...)
+				spec.Env = append(spec.Env, rcfg.Env(p.railsHosts(proj)...)...)
 				if rcfg.HostPort > 0 {
 					spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: rcfg.HostPort, ContainerPort: rcfg.Port, Protocol: "tcp"}}
 				}
@@ -1597,6 +1600,29 @@ func (p *Planner) devUIHosts(proj store.Project) []string {
 	}
 	if p.paths.PublicHost != "" {
 		hosts = append(hosts, p.paths.PublicHost)
+	}
+	return hosts
+}
+
+// railsHosts are the entries of RAILS_DEVELOPMENT_HOSTS: the base domain with a leading
+// dot, which Rails takes for the name and one label below it (<slug>.<base>,
+// <slug>-dev.<base>), and each extra domain it doesn't cover the same way, so
+// shop.example.test and www.shop.example.test pass, and so does api.<slug>.<base>.
+func (p *Planner) railsHosts(proj store.Project) []string {
+	var hosts []string
+	base := p.paths.BaseDomain
+	if base != "" {
+		hosts = append(hosts, "."+base)
+	}
+	var extra []string
+	if p.domains != nil {
+		extra = p.domains(proj.ID)
+	}
+	for _, d := range extra {
+		if label, rest, _ := strings.Cut(d, "."); base != "" && label != "" && rest == base {
+			continue
+		}
+		hosts = append(hosts, "."+d)
 	}
 	return hosts
 }
