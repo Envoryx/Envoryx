@@ -402,6 +402,22 @@ func TestUserKeyFollowsRoles(t *testing.T) {
 		t.Fatalf("a developer's key: %v", err)
 	}
 	client.Close()
+	// The audit names the account, not a token, and says it was a key.
+	var login store.AuditEntry
+	for i := 0; i < 100 && login.ID == ""; i++ {
+		entries, _, err := e.st.Audit.Query(ctx, store.AuditQuery{Actions: []string{"ssh.login"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) > 0 {
+			login = entries[0]
+		} else {
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	if login.Username != "dana" || !strings.Contains(string(login.Details), `"via":"ssh key"`) {
+		t.Fatalf("ssh.login entry: %+v %s", login, login.Details)
+	}
 	if err := e.st.Users.SetDisabled(ctx, u.ID, true); err != nil {
 		t.Fatal(err)
 	}

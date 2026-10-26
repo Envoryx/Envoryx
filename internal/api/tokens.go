@@ -139,18 +139,19 @@ func (a *API) deleteToken(w http.ResponseWriter, r *http.Request) {
 	}
 	id := r.PathValue("id")
 	// Only the owner or an admin revokes a token; to anyone else it does not exist.
-	if p, _ := auth.PrincipalFrom(r.Context()); !p.Allows(auth.ScopeAdmin) {
-		t, err := a.d.Store.Tokens.Get(r.Context(), id)
-		if err != nil || t.UserID != p.UserID {
-			writeError(w, r, store.ErrNotFound)
-			return
-		}
+	t, err := a.d.Store.Tokens.Get(r.Context(), id)
+	if p, _ := auth.PrincipalFrom(r.Context()); err == nil && t.UserID != p.UserID && !p.Allows(auth.ScopeAdmin) {
+		err = store.ErrNotFound
+	}
+	if err != nil {
+		writeError(w, r, err)
+		return
 	}
 	if err := a.d.Auth.RevokeAPIToken(r.Context(), id); err != nil {
 		writeError(w, r, err)
 		return
 	}
-	a.d.Audit.Log(r.Context(), "token.revoked", "token", id, nil)
+	a.d.Audit.Log(r.Context(), "token.revoked", "token", id, map[string]any{"name": t.Name})
 	w.WriteHeader(http.StatusNoContent)
 }
 

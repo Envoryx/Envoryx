@@ -169,6 +169,10 @@ func TestAPITokensAndMCPEndpoint(t *testing.T) {
 	if !strings.Contains(string(r.raw), "token.created") || !strings.Contains(string(r.raw), "token.revoked") {
 		t.Fatalf("audit must record token changes: %s", r.raw)
 	}
+	r = a.do(http.MethodGet, "/api/v1/audit?action=token.revoked", nil, false)
+	if !strings.Contains(string(r.raw), `"name":"Claude Code"`) {
+		t.Fatalf("token.revoked must name the token: %s", r.raw)
+	}
 }
 
 func TestTokenScopesAndProjectRestriction(t *testing.T) {

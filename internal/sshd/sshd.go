@@ -276,7 +276,8 @@ func (s *Server) publicKeyAuth(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.P
 			return nil, errors.New("key not permitted for this project")
 		}
 		s.limiter.reset(ip, conn.User())
-		return &ssh.Permissions{Extensions: map[string]string{"envoryx-user": u.Username, "envoryx-token": "ssh key", extAuth: authUser, extSecret: string(want)}}, nil
+		// No token name: the audit shows the account itself, ssh.login says it was a key.
+		return &ssh.Permissions{Extensions: map[string]string{"envoryx-user": u.Username, extAuth: authUser, extSecret: string(want)}}, nil
 	}
 	return nil, errors.New("unknown key")
 }
@@ -426,7 +427,11 @@ func (s *Server) handleConn(ctx context.Context, nc net.Conn) {
 		return
 	}
 	actx := audit.WithClientIP(auth.WithPrincipal(ctx, auth.Principal{Username: sc.Permissions.Extensions["envoryx-user"], TokenName: sc.Permissions.Extensions["envoryx-token"]}), remoteIP(nc.RemoteAddr()))
-	s.d.Audit.Log(actx, "ssh.login", "project", target.Project.ID, map[string]any{"name": target.Project.Name, "service": string(target.Kind)})
+	details := map[string]any{"name": target.Project.Name, "service": string(target.Kind)}
+	if sc.Permissions.Extensions[extAuth] == authUser {
+		details["via"] = "ssh key"
+	}
+	s.d.Audit.Log(actx, "ssh.login", "project", target.Project.ID, details)
 	// Global requests: remote forwarding (ssh -R); anything else is answered with a failure.
 	go s.handleGlobalRequests(actx, sc, reqs, target)
 	watchCtx, stopWatch := context.WithCancel(ctx)

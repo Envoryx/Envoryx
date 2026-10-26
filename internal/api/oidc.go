@@ -118,7 +118,7 @@ func (a *API) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.SetCookie(w, a.d.Auth.Cookie(r, token))
-	a.d.Audit.LogAs(r.Context(), user.Username, audit.ActionLogin, "user", user.ID, map[string]string{"via": "sso"})
+	a.d.Audit.LogAs(r.Context(), user.Username, audit.ActionLogin, "user", user.ID, map[string]string{"method": auth.MethodOIDC, "via": "sso"})
 	http.Redirect(w, r, returnTo, http.StatusFound)
 }
 

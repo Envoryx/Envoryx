@@ -130,6 +130,11 @@ func TestTLSEndpoints(t *testing.T) {
 	}
 
 	certPEM, keyPEM := selfSigned(t, "*.dev.example.com")
+	// An empty body is refused, not taken as "remove" (and logged as "set").
+	r = a.do(http.MethodPut, "/api/v1/settings/tls/custom", map[string]any{}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("empty certificate must be rejected: %d %s", r.status, r.raw)
+	}
 	r = a.do(http.MethodPut, "/api/v1/settings/tls/custom", map[string]any{"certificate": certPEM, "key": "garbage"}, true)
 	if r.status != http.StatusUnprocessableEntity {
 		t.Fatalf("broken key must be rejected: %d %s", r.status, r.raw)

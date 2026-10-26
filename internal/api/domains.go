@@ -142,6 +142,11 @@ func (a *API) setCustomCert(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
+	// An empty pair would clear the certificate; that is DELETE's job.
+	if strings.TrimSpace(req.Certificate) == "" || strings.TrimSpace(req.Key) == "" {
+		writeError(w, r, newError(http.StatusUnprocessableEntity, "validation_failed", "certificate and key are both required"))
+		return
+	}
 	if len(req.Certificate) > 64<<10 || len(req.Key) > 64<<10 {
 		writeError(w, r, newError(http.StatusUnprocessableEntity, "validation_failed", "certificate or key too large"))
 		return
