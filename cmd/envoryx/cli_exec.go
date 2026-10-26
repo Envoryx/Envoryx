@@ -222,6 +222,12 @@ func (c *cli) projectRun(ctx context.Context, args []string) error {
 		return err
 	}
 	defer conn.CloseNow()
+	// Action output comes from a pseudo-terminal, carriage returns and all; its colours
+	// and cursor codes only belong on a terminal, not in a file or a pipe.
+	var out io.Writer = c.out
+	if f, ok := c.out.(*os.File); !ok || !term.IsTerminal(int(f.Fd())) {
+		out = &ansiStripper{w: c.out}
+	}
 	exit := 0
 	for {
 		typ, data, err := conn.Read(ctx)
@@ -232,8 +238,7 @@ func (c *cli) projectRun(ctx context.Context, args []string) error {
 			return streamEnded(api.base, err)
 		}
 		if typ == websocket.MessageBinary {
-			// Action output comes from a pseudo-terminal, carriage returns and all.
-			fmt.Fprint(c.out, string(data))
+			_, _ = out.Write(data)
 			continue
 		}
 		var msg struct {
@@ -248,7 +253,12 @@ func (c *cli) projectRun(ctx context.Context, args []string) error {
 		switch msg.Type {
 		case "start":
 			if !c.json {
-				fmt.Fprintf(c.errOut, "› %s\n", strings.Join(msg.Cmd, " "))
+				// The label, like the listing: some commands are whole scripts.
+				line := body.Actions[i].Label
+				if line == "" {
+					line = strings.Join(msg.Cmd, " ")
+				}
+				fmt.Fprintf(c.errOut, "› %s\n", line)
 			}
 		case "exit":
 			exit = msg.Code

@@ -496,6 +496,21 @@ func TestNotFoundNamesWhatIsMissing(t *testing.T) {
 	}
 }
 
+// Piped action output loses the terminal's escape codes, also when one is split between
+// two writes.
+func TestANSIStripper(t *testing.T) {
+	var b bytes.Buffer
+	s := &ansiStripper{w: &b}
+	for _, chunk := range []string{"\x1b[1mnpm\x1b[22m \x1b[33mwarn\x1b", "[39m deprecated\n\x1b[?25l", "\x1b]0;title\x07done\x1b(B\n"} {
+		if _, err := s.Write([]byte(chunk)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if b.String() != "npm warn deprecated\ndone\n" {
+		t.Fatalf("stripped: %q", b.String())
+	}
+}
+
 // The dev server's address goes through the project's proxy, port included.
 func TestDevURL(t *testing.T) {
 	p := projectSummary{Address: "https://lara.test:18904", Hostnames: []string{"lara.test"}, DevHostname: "lara-dev.test"}
