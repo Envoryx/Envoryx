@@ -496,6 +496,32 @@ func TestNotFoundNamesWhatIsMissing(t *testing.T) {
 	}
 }
 
+// The dev server's address goes through the project's proxy, port included.
+func TestDevURL(t *testing.T) {
+	p := projectSummary{Address: "https://lara.test:18904", Hostnames: []string{"lara.test"}, DevHostname: "lara-dev.test"}
+	if got := p.devURL(); got != "https://lara-dev.test:18904" {
+		t.Fatalf("devURL: %s", got)
+	}
+	p.Address = "http://192.168.1.5:21100" // a host port, not the proxy
+	if got := p.devURL(); got != "https://lara-dev.test" {
+		t.Fatalf("devURL without the proxy: %s", got)
+	}
+}
+
+// git's progress keeps its last state, and a failure doesn't repeat the line its reason
+// already quotes.
+func TestGitOutput(t *testing.T) {
+	raw := "From https://example.com/repo\nremote: Counting objects:   9% (1/11)   \rremote: Counting objects: 100% (11/11), done.\nUpdating 1a2b..3c4d\n"
+	if got := gitTerminalOutput(raw); got != "From https://example.com/repo\nremote: Counting objects: 100% (11/11), done.\nUpdating 1a2b..3c4d" {
+		t.Fatalf("gitTerminalOutput: %q", got)
+	}
+	body, _ := json.Marshal(map[string]any{"result": map[string]any{"output": "fatal: invalid reference: nope\n"}})
+	err := gitFailure(&apiError{Status: 409, Code: "git_failed", Message: "conflict: git switch failed: fatal: invalid reference: nope", Body: body})
+	if err.Error() != "conflict: git switch failed: fatal: invalid reference: nope" {
+		t.Fatalf("gitFailure: %q", err)
+	}
+}
+
 // A failed deploy's output loses its last "envoryx:" line, which the CLI prints anyway.
 func TestWithoutErrorLine(t *testing.T) {
 	for in, want := range map[string]string{

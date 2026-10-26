@@ -8,7 +8,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"slices"
 	"strings"
@@ -133,11 +135,15 @@ func (c *cli) projectShow(ctx context.Context, args []string) error {
 		c.printf("  URL       %s\n", u)
 	}
 	if p.DevHostname != "" {
-		c.printf("  Dev URL   https://%s\n", p.DevHostname)
+		c.printf("  Dev URL   %s\n", p.devURL())
 	}
 	c.printf("  Path      %s\n", p.Path)
 	if p.Git.URL != "" {
-		c.printf("  Git       %s (%s)\n", p.Git.URL, p.Git.Branch)
+		if p.Git.Branch != "" {
+			c.printf("  Git       %s (%s)\n", p.Git.URL, p.Git.Branch)
+		} else {
+			c.printf("  Git       %s\n", p.Git.URL)
+		}
 	}
 	if l := p.Limits; l.App != (limitSet{}) || l.Services != (limitSet{}) || l.Pids != 0 {
 		pids := l.Pids
@@ -185,6 +191,19 @@ func (c *cli) projectShow(ctx context.Context, args []string) error {
 	}
 	c.table([]string{"SERVICE", "VERSION", "STATE", "PORTS"}, rows)
 	return nil
+}
+
+// devURL is the dev server's address. It goes through the same proxy as the project's
+// own, so it takes that one's scheme and port (https://shop-dev.test:18443).
+func (p projectSummary) devURL() string {
+	if u, err := url.Parse(p.Address); err == nil && u.Scheme != "" && slices.Contains(p.Hostnames, u.Hostname()) {
+		host := p.DevHostname
+		if port := u.Port(); port != "" {
+			host = net.JoinHostPort(host, port)
+		}
+		return u.Scheme + "://" + host
+	}
+	return "https://" + p.DevHostname
 }
 
 func (c *cli) projectTransition(ctx context.Context, action string, args []string) error {

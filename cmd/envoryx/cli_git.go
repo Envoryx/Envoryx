@@ -151,11 +151,25 @@ func (c *cli) printGitResult(p projectSummary, res gitResult) error {
 	if c.json {
 		return c.printJSON(res)
 	}
-	if out := strings.TrimSpace(res.Output); out != "" {
+	if out := gitTerminalOutput(res.Output); out != "" {
 		fmt.Fprintln(c.errOut, out)
 	}
 	c.printGitStatus(p, res.Status)
 	return nil
+}
+
+// gitTerminalOutput is git's output as it ended up on a terminal: a progress line
+// redrawn with carriage returns ("Counting objects: 9% … 100%") keeps its last state.
+func gitTerminalOutput(raw string) string {
+	lines := strings.Split(strings.TrimSpace(raw), "\n")
+	for i, l := range lines {
+		l = strings.TrimRight(l, "\r")
+		if j := strings.LastIndex(l, "\r"); j >= 0 {
+			l = l[j+1:]
+		}
+		lines[i] = strings.TrimRight(l, " ")
+	}
+	return strings.Join(lines, "\n")
 }
 
 // gitFailure unwraps the 409 a failed git command produces: its message is the reason,
@@ -169,8 +183,15 @@ func gitFailure(err error) error {
 		Result gitResult `json:"result"`
 	}
 	if json.Unmarshal(apiErr.Body, &body) == nil {
-		if out := strings.TrimSpace(body.Result.Output); out != "" {
-			return fmt.Errorf("%s\n%s", apiErr.Message, out)
+		// The reason usually quotes git's last line; it needn't come twice.
+		var rest []string
+		for _, l := range strings.Split(gitTerminalOutput(body.Result.Output), "\n") {
+			if l != "" && !strings.Contains(apiErr.Message, l) {
+				rest = append(rest, l)
+			}
+		}
+		if len(rest) > 0 {
+			return fmt.Errorf("%s\n%s", apiErr.Message, strings.Join(rest, "\n"))
 		}
 	}
 	return err

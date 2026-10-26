@@ -453,3 +453,11 @@ func TestManifestStorageIsPrivateByDefault(t *testing.T) {
 		t.Fatal("publicRead: false must make the bucket private")
 	}
 }
+
+// A nested section reads like YAML in the plan, not like a Go map.
+func TestDescribeNestedSection(t *testing.T) {
+	got := describe(manifest.Limits{App: &manifest.LimitSet{CPUs: 1, Memory: "512M"}, Pids: 512})
+	if got != "app: {cpus: 1, memory: 512M}, pids: 512" {
+		t.Fatalf("describe: %q", got)
+	}
+}

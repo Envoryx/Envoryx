@@ -1231,18 +1231,30 @@ func sectionFields(v any) map[string]string {
 		return out // "redis: true" - a service without settings
 	}
 	for k, val := range fields {
-		switch x := val.(type) {
-		case []any:
-			parts := make([]string, len(x))
-			for i, p := range x {
-				parts[i] = fmt.Sprint(p)
-			}
-			out[k] = "[" + strings.Join(parts, ", ") + "]"
-		default:
-			out[k] = fmt.Sprint(x)
-		}
+		out[k] = flowValue(val)
 	}
 	return out
+}
+
+// flowValue writes a YAML value the way YAML's flow style does ("[a, b]", "{cpus: 1,
+// memory: 512M}"), not as Go prints a map.
+func flowValue(v any) string {
+	switch x := v.(type) {
+	case []any:
+		parts := make([]string, len(x))
+		for i, p := range x {
+			parts[i] = flowValue(p)
+		}
+		return "[" + strings.Join(parts, ", ") + "]"
+	case map[string]any:
+		parts := make([]string, 0, len(x))
+		for _, k := range slices.Sorted(maps.Keys(x)) {
+			parts = append(parts, k+": "+flowValue(x[k]))
+		}
+		return "{" + strings.Join(parts, ", ") + "}"
+	default:
+		return fmt.Sprint(x)
+	}
 }
 
 // describe summarises a section: "type: mariadb, version: 11.4".
