@@ -1681,8 +1681,11 @@ no effect.
 registry host (`ghcr.io`, `registry.example.com:5000`, `docker.io` for Docker Hub),
 a username and a password or access token (for GHCR a token with `read:packages`).
 Envoryx pulls with them and passes them to builds for their `FROM` images. The password is
-never shown again; saving without one keeps the stored password. Setting an image that
-can't be pulled for lack of a login points you here.
+never shown again; saving without one keeps the stored password. A new or changed
+login is tried when you save it (Docker signs in to the registry), and one the registry
+turns down is not stored; a registry that can't be reached at that moment doesn't stop
+the save. Setting an image that can't be pulled for lack of a login points you here,
+and one whose stored login the registry refuses says so.
 
 In `envoryx.yml` each runtime takes `image:` or `dockerfile:` (not both):
 

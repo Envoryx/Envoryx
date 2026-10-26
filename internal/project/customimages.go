@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -389,12 +390,12 @@ func (m *Manager) userImageError(ctx context.Context, projectID, ref string, err
 		return nil
 	}
 	if isBuildRef(ref) {
-		return imageError(ref, err)
+		return m.imageError(ctx, ref, err)
 	}
 	if p, gerr := m.store.Projects.Get(context.WithoutCancel(ctx), projectID); gerr == nil {
 		for _, svc := range p.Services {
 			if customImageKinds[svc.Kind] && svc.Custom.Image == ref {
-				return imageError(ref, err)
+				return m.imageError(ctx, ref, err)
 			}
 		}
 	}
@@ -758,7 +759,7 @@ func (m *Manager) customImageLocked(ctx context.Context, id string, kind store.S
 			}
 		}
 		if err != nil {
-			return View{}, imageError(ref, err)
+			return View{}, m.imageError(ctx, ref, err)
 		}
 	}
 	if proj.DesiredState == store.DesiredRunning && proj.Lifecycle == store.LifecycleReady {
@@ -787,14 +788,21 @@ func (m *Manager) customImageLocked(ctx context.Context, id string, kind store.S
 }
 
 // imageError makes a failed pull or build of the user's image a readable input error
-// (Docker being down stays what it is).
-func imageError(ref string, err error) error {
+// (Docker being down stays what it is). A refused pull says what to do: add a login, or
+// check the one that is stored for the registry.
+func (m *Manager) imageError(ctx context.Context, ref string, err error) error {
 	if errors.Is(err, docker.ErrUnavailable) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, validate.ErrInvalid) {
 		return err
 	}
 	hint := ""
 	if msg := strings.ToLower(err.Error()); strings.Contains(msg, "authoriz") || strings.Contains(msg, "denied") {
 		hint = "; if the registry is private, add a login under Settings, Private registries"
+		if !isBuildRef(ref) {
+			host := docker.RegistryHost(ref)
+			if regs, rerr := m.readRegistries(ctx); rerr == nil && slices.ContainsFunc(regs, func(r Registry) bool { return r.Host == host }) {
+				hint = "; the registry refused the stored login for " + host + ", check it under Settings, Private registries"
+			}
+		}
 	}
 	if isBuildRef(ref) {
 		return fmt.Errorf("%w: %v%s", validate.ErrInvalid, err, hint)
@@ -860,9 +868,9 @@ func (m *Manager) SetRegistries(ctx context.Context, regs []Registry) ([]Registr
 	if err != nil {
 		return nil, err
 	}
-	oldPw := map[string]string{}
+	oldPw, oldUser := map[string]string{}, map[string]string{}
 	for _, r := range old {
-		oldPw[r.Host] = r.Password
+		oldPw[r.Host], oldUser[r.Host] = r.Password, r.Username
 	}
 	seen := map[string]bool{}
 	out := make([]Registry, 0, len(regs))
@@ -885,6 +893,16 @@ func (m *Manager) SetRegistries(ctx context.Context, regs []Registry) ([]Registr
 			return nil, fmt.Errorf("%w: the login for %s needs a password or token", validate.ErrInvalid, r.Host)
 		}
 		r.HasPassword = false
+		// A login that is new or changed is tried before it is kept, so a typo shows now
+		// and not at the next pull. A registry that can't be reached right now doesn't
+		// block saving; only one that turns the login down does.
+		if oldUser[r.Host] != r.Username || oldPw[r.Host] != r.Password {
+			if err := m.engine.CheckRegistryLogin(ctx, r.Host, r.Username, r.Password); errors.Is(err, docker.ErrLoginRefused) {
+				return nil, fmt.Errorf("%w: %s refused the login for %s; check the username and the password or token", validate.ErrInvalid, r.Host, r.Username)
+			} else if err != nil {
+				m.log.Warn("registry login not checked", "host", r.Host, "err", err)
+			}
+		}
 		out = append(out, r)
 	}
 	raw, _ := json.Marshal(out)

@@ -339,6 +339,8 @@ const templates: (string | [string, string])[] = [
   "the {{service}} service does not build a Dockerfile",
   // Before the plain one, which would swallow it (both end in a parenthesis).
   "the image {{image}} could not be pulled; if the registry is private, add a login under Settings, Private registries ({{error}})",
+  "the image {{image}} could not be pulled; the registry refused the stored login for {{host}}, check it under Settings, Private registries ({{error}})",
+  "{{host}} refused the login for {{user}}; check the username and the password or token",
   "the image {{image}} could not be pulled ({{error}})",
   "\"{{host}}\" is not a registry host (like ghcr.io or registry.example.com:5000)",
   "{{host}} is listed twice",

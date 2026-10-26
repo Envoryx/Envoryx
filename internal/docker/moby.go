@@ -1553,6 +1553,22 @@ func (e *MobyEngine) SetRegistryCredentials(creds RegistryCredentials) {
 	e.creds = creds
 }
 
+// CheckRegistryLogin implements Engine.
+func (e *MobyEngine) CheckRegistryLogin(ctx context.Context, host, username, password string) error {
+	addr := host
+	if host == "docker.io" {
+		addr = dockerHubAuthKey
+	}
+	_, err := e.cli.RegistryLogin(ctx, client.RegistryLoginOptions{Username: username, Password: password, ServerAddress: addr})
+	switch {
+	case err == nil:
+		return nil
+	case cerrdefs.IsUnauthorized(err), cerrdefs.IsPermissionDenied(err):
+		return fmt.Errorf("%w: %v", ErrLoginRefused, err)
+	}
+	return err
+}
+
 func (e *MobyEngine) credentials() []RegistryCredential {
 	e.credsMu.Lock()
 	creds := e.creds

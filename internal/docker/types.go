@@ -51,6 +51,9 @@ var ErrOtherInstance = errors.New("the name is taken by another Envoryx instance
 // ErrNotFound is returned when a resource does not exist.
 var ErrNotFound = errors.New("docker resource not found")
 
+// ErrLoginRefused means a registry turned a login down (CheckRegistryLogin).
+var ErrLoginRefused = errors.New("the registry refused the login")
+
 // ErrUnavailable is returned when the Docker Engine cannot be reached.
 var ErrUnavailable = errors.New("docker engine unavailable")
 
@@ -555,6 +558,9 @@ type Engine interface {
 	BuildImage(ctx context.Context, opts BuildOptions) error
 	// SetRegistryCredentials installs the lookup for private registry logins.
 	SetRegistryCredentials(creds RegistryCredentials)
+	// CheckRegistryLogin has the Docker daemon sign in to a registry with a login, the way
+	// a pull would; a login the registry turns down is ErrLoginRefused.
+	CheckRegistryLogin(ctx context.Context, host, username, password string) error
 	// ImageID returns the local id of an image reference (ErrNotFound if absent).
 	ImageID(ctx context.Context, ref string) (string, error)
 	// ListImages lists local images.

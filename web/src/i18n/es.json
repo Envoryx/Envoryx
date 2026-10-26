@@ -3769,5 +3769,7 @@
   "the server refused access or the repository doesn't exist; check the URL and the access token": "el servidor deniega el acceso o el repositorio no existe; comprueba la URL y el token de acceso",
   "the server's HTTPS certificate isn't trusted (signed by a private CA?); clone over SSH with the deploy key or over plain HTTP": "el certificado HTTPS del servidor no es de confianza (¿firmado por una CA privada?); clona por SSH con la clave de despliegue o por HTTP simple",
   "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "el servidor rechaza la clave de despliegue; añádela al repositorio (Ajustes, clave de despliegue Git)",
-  "Domains you added keep their names, also one that contains the old identifier.": "Los dominios que añadiste conservan su nombre, también uno que contenga el identificador antiguo."
+  "Domains you added keep their names, also one that contains the old identifier.": "Los dominios que añadiste conservan su nombre, también uno que contenga el identificador antiguo.",
+  "the image {{image}} could not be pulled; the registry refused the stored login for {{host}}, check it under Settings, Private registries ({{error}})": "No se pudo descargar la imagen {{image}}; el registro rechaza el inicio de sesión guardado para {{host}}, compruébalo en Ajustes, Registros privados ({{error}})",
+  "{{host}} refused the login for {{user}}; check the username and the password or token": "{{host}} rechaza el inicio de sesión de {{user}}; comprueba el usuario y la contraseña o el token"
 }

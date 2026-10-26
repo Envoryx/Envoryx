@@ -669,3 +669,15 @@ func TestIntegrationUpdaterExitIsReported(t *testing.T) {
 		t.Fatal("the helper's end wasn't reported")
 	}
 }
+
+// A login the registry turns down comes back as ErrLoginRefused (needs the internet:
+// ghcr.io answers a wrong token with 401).
+func TestIntegrationRegistryLoginRefused(t *testing.T) {
+	e := integrationEngine(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	err := e.CheckRegistryLogin(ctx, "ghcr.io", "envoryx-integration", "not-a-token")
+	if !errors.Is(err, ErrLoginRefused) {
+		t.Fatalf("wrong token: %v", err)
+	}
+}

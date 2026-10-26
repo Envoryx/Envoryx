@@ -3835,5 +3835,7 @@
   "the server refused access or the repository doesn't exist; check the URL and the access token": "сервер відмовляє в доступі або репозиторію немає; перевірте URL і токен доступу",
   "the server's HTTPS certificate isn't trusted (signed by a private CA?); clone over SSH with the deploy key or over plain HTTP": "HTTPS-сертифікату сервера немає довіри (підписаний приватним ЦС?); клонуйте через SSH із ключем розгортання або через звичайний HTTP",
   "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "сервер відхиляє ключ розгортання; додайте його до репозиторію (Налаштування, ключ розгортання Git)",
-  "Domains you added keep their names, also one that contains the old identifier.": "Додані вами домени зберігають свої імена, навіть якщо містять старий ідентифікатор."
+  "Domains you added keep their names, also one that contains the old identifier.": "Додані вами домени зберігають свої імена, навіть якщо містять старий ідентифікатор.",
+  "the image {{image}} could not be pulled; the registry refused the stored login for {{host}}, check it under Settings, Private registries ({{error}})": "Не вдалося завантажити образ {{image}}; реєстр відхиляє збережений вхід для {{host}}, перевірте його в Налаштування, Приватні реєстри ({{error}})",
+  "{{host}} refused the login for {{user}}; check the username and the password or token": "{{host}} відхиляє вхід для {{user}}; перевірте ім'я користувача і пароль або токен"
 }

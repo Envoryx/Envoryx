@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -315,6 +316,41 @@ func TestRegistryLogins(t *testing.T) {
 		if _, err := e.m.SetRegistries(ctx, bad); !errors.Is(err, validate.ErrInvalid) {
 			t.Errorf("%+v: %v", bad, err)
 		}
+	}
+}
+
+// A new or changed login is tried before it is stored: one the registry turns down is
+// refused, an unchanged one isn't tried again. A pull the registry refuses although a
+// login is stored says to check that login.
+func TestRegistryLoginIsCheckedWhenSaved(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	var tried []string
+	e.engine.LoginHandler = func(host, username, password string) error {
+		tried = append(tried, host+" "+username)
+		if password != "right" {
+			return fmt.Errorf("%w: 401 Unauthorized", docker.ErrLoginRefused)
+		}
+		return nil
+	}
+	if _, err := e.m.SetRegistries(ctx, []Registry{{Host: "registry.example.com", Username: "me", Password: "wrong"}}); !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "refused the login for me") {
+		t.Fatalf("wrong password: %v", err)
+	}
+	if _, err := e.m.SetRegistries(ctx, []Registry{{Host: "registry.example.com", Username: "me", Password: "right"}}); err != nil {
+		t.Fatal(err)
+	}
+	tried = nil
+	if _, err := e.m.SetRegistries(ctx, []Registry{{Host: "registry.example.com", Username: "me"}}); err != nil || len(tried) != 0 {
+		t.Fatalf("unchanged login: %v, tried %v", err, tried)
+	}
+
+	err := e.m.imageError(ctx, "registry.example.com/acme/php:8.4", errors.New("pull access denied: 401 Unauthorized"))
+	if !strings.Contains(err.Error(), "refused the stored login for registry.example.com") {
+		t.Fatalf("pull refused with a login: %v", err)
+	}
+	err = e.m.imageError(ctx, "ghcr.io/acme/php:8.4", errors.New("pull access denied: 401 Unauthorized"))
+	if !strings.Contains(err.Error(), "add a login under Settings") {
+		t.Fatalf("pull refused without a login: %v", err)
 	}
 }
 

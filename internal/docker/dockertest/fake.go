@@ -106,6 +106,8 @@ type Fake struct {
 	// OneShotStreamHandler simulates streamed transient containers (RunOneShotStream): it
 	// receives the spec and the whole stdin. nil means exit 0 and no output.
 	OneShotStreamHandler func(spec docker.ContainerSpec, stdin []byte) (stdout string, code int, err error)
+	// LoginHandler answers CheckRegistryLogin (nil: every login works).
+	LoginHandler func(host, username, password string) error
 	// OneShots records every RunOneShot spec.
 	OneShots []docker.ContainerSpec
 
@@ -1574,6 +1576,17 @@ func (f *Fake) BuildImage(_ context.Context, opts docker.BuildOptions) error {
 	f.built[opts.Tag] = true
 	f.record("build:" + opts.Tag)
 	return nil
+}
+
+// CheckRegistryLogin implements docker.Engine: LoginHandler decides, nil accepts every login.
+func (f *Fake) CheckRegistryLogin(_ context.Context, host, username, password string) error {
+	f.mu.Lock()
+	handler := f.LoginHandler
+	f.mu.Unlock()
+	if handler == nil {
+		return nil
+	}
+	return handler(host, username, password)
 }
 
 // SetRegistryCredentials implements docker.Engine.
