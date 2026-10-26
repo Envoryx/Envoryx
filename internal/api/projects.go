@@ -885,7 +885,9 @@ func (a *API) listOperations(w http.ResponseWriter, r *http.Request) {
 	p, _ := auth.PrincipalFrom(r.Context())
 	out := []project.Operation{}
 	for _, op := range a.d.Projects.Operations() {
-		if op.ProjectID == "" && p.Confined() || op.ProjectID != "" && !p.CanAccessProject(op.ProjectID) {
+		// An operation without a project (a create, a failed duplicate) may carry another
+		// user's intended project name: only admins and the user who started it see it.
+		if op.ProjectID == "" && (p.Confined() || !p.Allows(auth.ScopeAdmin) && op.UserID != p.UserID) || op.ProjectID != "" && !p.CanAccessProject(op.ProjectID) {
 			continue
 		}
 		out = append(out, op)
