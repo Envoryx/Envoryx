@@ -1970,7 +1970,10 @@ instance/<instance backup id>.tar.gz[.age]              an instance backup
 section lists what the target holds for the project (also backups that were
 deleted here), and *Fetch* puts one back into the local list, from where it is
 restored as usual (`envoryx backup remote|fetch <project>` on the command
-line).
+line). The bin next to a copy removes it from the target after asking; scheduled
+copies are rotated by the target's *keep* anyway, copies made by hand only this way
+(`envoryx backup remote <project> --remove <backup> --yes`, `envoryx instance remote
+--remove <backup> --yes`). The hoster's target is the hoster's to clean up.
 
 **After losing the host** (disaster recovery):
 

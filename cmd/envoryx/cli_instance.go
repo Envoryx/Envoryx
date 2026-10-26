@@ -451,18 +451,23 @@ func (c *cli) instanceRemoteListing(ctx context.Context, target string) (*client
 func (c *cli) instanceRemote(ctx context.Context, args []string) error {
 	fs := c.newFlags("instance remote")
 	target := fs.String("target", "", "offsite target name or id")
+	remove := fs.String("remove", "", "remove this copy from the target")
+	yes := fs.Bool("yes", false, "confirm --remove")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
 	}
 	if len(pos) > 0 {
-		return usagef("usage: envoryx instance remote [--target NAME]")
+		return usagef("usage: envoryx instance remote [--target NAME] [--remove BACKUP --yes]")
 	}
 	ctx, cancel := c.context(ctx)
 	defer cancel()
-	_, t, remote, list, err := c.instanceRemoteListing(ctx, *target)
+	api, t, remote, list, err := c.instanceRemoteListing(ctx, *target)
 	if err != nil {
 		return err
+	}
+	if *remove != "" {
+		return c.removeRemote(ctx, api, t, remote, *remove, *yes)
 	}
 	if c.json {
 		return c.printJSON(remote)

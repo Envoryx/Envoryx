@@ -78,6 +78,7 @@ Backups:
   backup offsite <project> <backup>     copy it to the offsite targets (create --offsite
                                         does it right away)
   backup remote <project>               the project's backups on an offsite target
+                                        (--remove <backup> --yes removes a copy)
   backup fetch <project> <backup>       copy one back, then restore it as usual
                                         (--target NAME when there are several)
   backup recover                        every project's backups on an offsite target,
@@ -100,6 +101,7 @@ Instance backups (Envoryx's own database and configuration; admin token):
   instance delete <backup> --yes
   instance offsite <backup>             copy it to the offsite targets
   instance remote                       the instance backups on an offsite target
+                                        (--remove <backup> --yes removes a copy)
   instance fetch <backup>               copy one back (--target NAME when there
                                         are several)
 

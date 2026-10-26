@@ -118,6 +118,25 @@ describe("offsite copies of project backups", () => {
     expect(await screen.findByText(/is back in the list above/)).toBeInTheDocument();
   });
 
+  it("removes a copy from the target after asking", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      [`GET /projects/${id}/backups`]: () => ({ body: { backups: [backup], offsite: {}, offsiteTargets: names } }),
+      [`GET /projects/${id}/offsite/t1`]: () => ({
+        body: { backups: [{ key: "projects/acme-shop/20260910-020000-eeee0000.full.manual.tar.age", id: "20260910-020000-eeee0000", createdAt: "2026-09-10T02:00:00Z", kind: "full", source: "manual", sizeBytes: 9000, encrypted: true }] },
+      }),
+      "POST /offsite/targets/t1/remove": () => ({ status: 204 }),
+    });
+    renderApp(<BackupsTab project={makeProject({ id })} />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Show copies on Backblaze" }));
+    await user.click(await screen.findByRole("button", { name: /Remove the copy from/ }));
+    expect(api.calls.some((c) => c.url.endsWith("/remove"))).toBe(false);
+    await user.click(screen.getByRole("button", { name: "Remove copy" }));
+    await waitFor(() => expect(api.calls.some((c) => c.url.endsWith("/offsite/targets/t1/remove"))).toBe(true));
+    expect(api.calls.find((c) => c.url.endsWith("/remove"))!.body).toEqual({ key: "projects/acme-shop/20260910-020000-eeee0000.full.manual.tar.age" });
+  });
+
   it("offers the offsite copy when creating and shows a failed upload", async () => {
     const api = mockApi({
       ...authedRoutes,

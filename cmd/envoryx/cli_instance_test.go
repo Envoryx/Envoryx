@@ -183,3 +183,25 @@ func TestDownloadNames(t *testing.T) {
 		t.Fatalf("-o: %q", b)
 	}
 }
+
+// A copy on an offsite target is removed by its backup id, only with --yes.
+func TestInstanceRemoteRemovesACopy(t *testing.T) {
+	routes := instanceRoutes(new(atomic.Bool))
+	routes["GET /api/v1/offsite/targets/t1/instance"] = func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{"backups": []map[string]any{{"key": "instance/manual-20261012-051500-ab12.tar.gz.age", "id": "manual-20261012-051500-ab12", "createdAt": "2026-10-12T05:15:00Z", "kind": "manual"}}})
+	}
+	routes["POST /api/v1/offsite/targets/t1/remove"] = func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) }
+	srv := newFakeServer(t, routes)
+	c, out, _ := newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"instance", "remote", "--remove", "manual-20261012-051500-ab12"}); !errors.Is(err, errCLIUsage) {
+		t.Fatalf("without --yes: %v", err)
+	}
+	if err := c.run(context.Background(), []string{"instance", "remote", "--remove", "manual-20261012-051500-ab12", "--yes"}); err != nil {
+		t.Fatal(err)
+	}
+	var sent map[string]string
+	_ = json.Unmarshal(srv.bodies["/api/v1/offsite/targets/t1/remove"], &sent)
+	if sent["key"] != "instance/manual-20261012-051500-ab12.tar.gz.age" || !strings.Contains(out.String(), "Removed the copy") {
+		t.Fatalf("sent %v, output %s", sent, out)
+	}
+}

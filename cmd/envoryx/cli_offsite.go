@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -141,6 +142,8 @@ func (c *cli) backupOffsite(ctx context.Context, args []string) error {
 func (c *cli) backupRemote(ctx context.Context, args []string) error {
 	fs := c.newFlags("backup remote")
 	target := fs.String("target", "", "offsite target name or id")
+	remove := fs.String("remove", "", "remove this copy from the target")
+	yes := fs.Bool("yes", false, "confirm --remove")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
@@ -160,6 +163,9 @@ func (c *cli) backupRemote(ctx context.Context, args []string) error {
 	}
 	if err := api.get(ctx, projectPath(p.ID, "offsite", t.ID), nil, &out); err != nil {
 		return err
+	}
+	if *remove != "" {
+		return c.removeRemote(ctx, api, t, out.Backups, *remove, *yes)
 	}
 	if c.json {
 		return c.printJSON(out.Backups)
@@ -329,4 +335,22 @@ func (c *cli) backupRecover(ctx context.Context, args []string) error {
 		fetched.Backup.ProjectName = slug
 	}
 	return c.restoreUploadedBackup(ctx, api, fetched.Backup, arg(pos, 1), *path, secretKey, *start, false)
+}
+
+// removeRemote removes one copy, named by its backup id, from an offsite target.
+func (c *cli) removeRemote(ctx context.Context, api *client, t offsiteTarget, remote []remoteBackup, id string, yes bool) error {
+	for _, b := range remote {
+		if b.ID != id {
+			continue
+		}
+		if !yes {
+			return usagef("removing the copy %s from %s can't be undone; confirm with --yes", id, t.Name)
+		}
+		if err := api.post(ctx, "/api/v1/offsite/targets/"+url.PathEscape(t.ID)+"/remove", map[string]string{"key": b.Key}, nil); err != nil {
+			return err
+		}
+		c.printf("Removed the copy %s from %s.\n", id, t.Name)
+		return nil
+	}
+	return fmt.Errorf("no copy %q on %s", id, t.Name)
 }

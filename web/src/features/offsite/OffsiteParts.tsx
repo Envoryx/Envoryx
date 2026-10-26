@@ -1,8 +1,9 @@
-import { CloudDownload, CloudUpload, Lock, RefreshCw } from "lucide-react";
+import { CloudDownload, CloudUpload, Lock, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { api } from "@/api/client";
 import type { OffsiteTargetName, OffsiteUpload, RemoteBackup } from "@/api/types";
 import { Alert, Badge, Button, Select, Spinner } from "@/components/ui";
 import { backupKindLabel, formatBytes, formatDateTime } from "@/lib/format";
@@ -57,8 +58,9 @@ export function OffsiteUploadButton({ targets, copies, onUpload, busy }: { targe
 }
 
 /**
- * The backups on one target, with a button that fetches a copy into the local backups.
- * `local` names the copies that are there already (they need no fetching).
+ * The backups on one target, with a button that fetches a copy into the local backups
+ * and one that removes it from the target (not from the hoster's target, which the
+ * hoster manages). `local` names the copies that are there already (they need no fetching).
  */
 export function RemoteBackups({
   targets,
@@ -79,6 +81,15 @@ export function RemoteBackups({
   const [targetId, setTargetId] = useState(targets[0]?.id ?? "");
   const [open, setOpen] = useState(false);
   const q = useQuery({ queryKey: [...queryKey, targetId], queryFn: () => load(targetId), enabled: open && targetId !== "", retry: false });
+  // Removing a copy asks first: it is gone from the target for good.
+  const [removing, setRemoving] = useState<RemoteBackup | null>(null);
+  const remove = useMutation({
+    mutationFn: (b: RemoteBackup) => api.offsite.removeRemote(targetId, b.key),
+    onSuccess: () => {
+      setRemoving(null);
+      void q.refetch();
+    },
+  });
 
   if (!targets.length) return null;
   return (
@@ -127,12 +138,31 @@ export function RemoteBackups({
                       {b.id} · {formatBytes(b.sizeBytes)}
                     </p>
                   </div>
-                  {here ? (
-                    <span className="text-xs text-muted">{t("also here")}</span>
-                  ) : (
-                    <Button size="sm" loading={fetching === b.key} disabled={fetching !== null} onClick={() => onFetch(targetId, b)} icon={<CloudDownload className="size-3.5" />}>
-                      {t("Fetch")}
-                    </Button>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {here ? (
+                      <span className="text-xs text-muted">{t("also here")}</span>
+                    ) : (
+                      <Button size="sm" loading={fetching === b.key} disabled={fetching !== null} onClick={() => onFetch(targetId, b)} icon={<CloudDownload className="size-3.5" />}>
+                        {t("Fetch")}
+                      </Button>
+                    )}
+                    {targetId !== "hoster" && (
+                      <Button size="sm" variant="ghost" onClick={() => setRemoving(b)} aria-label={t("Remove the copy from {{date}}", { date: formatDateTime(b.createdAt) })} icon={<Trash2 className="size-3.5" />} />
+                    )}
+                  </div>
+                  {removing?.key === b.key && (
+                    <div className="w-full space-y-2">
+                      <p className="text-sm">{t("Remove this copy from the target? It can't be fetched again afterwards; the local backup, if there is one, stays.")}</p>
+                      {remove.isError && <Alert tone="red">{errorText(remove.error, t)}</Alert>}
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="danger" loading={remove.isPending} onClick={() => remove.mutate(b)}>
+                          {t("Remove copy")}
+                        </Button>
+                        <Button size="sm" disabled={remove.isPending} onClick={() => { setRemoving(null); remove.reset(); }}>
+                          {t("Cancel")}
+                        </Button>
+                      </div>
+                    </div>
                   )}
                 </li>
               );
