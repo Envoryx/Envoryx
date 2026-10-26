@@ -177,6 +177,8 @@ export const backupKindLabels: Record<string, string> = {
   database: "database",
   files: "files",
   storage: "object storage",
+  databasestorage: "database + object storage",
+  filesstorage: "files + object storage",
   manual: "manual",
   upload: "uploaded",
   "pre-migrate": "before migration",

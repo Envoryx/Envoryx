@@ -190,7 +190,7 @@ func (c *cli) backupRemote(ctx context.Context, args []string) error {
 		if b.Encrypted {
 			enc = "encrypted"
 		}
-		rows = append(rows, []string{b.ID, b.CreatedAt.Local().Format("2006-01-02 15:04"), b.Kind, humanSize(b.SizeBytes), b.Source, enc, here})
+		rows = append(rows, []string{b.ID, b.CreatedAt.Local().Format("2006-01-02 15:04"), backupKindText(b.Kind), humanSize(b.SizeBytes), b.Source, enc, here})
 	}
 	c.table([]string{"BACKUP", "CREATED", "CONTENTS", "SIZE", "SOURCE", "", ""}, rows)
 	return nil
@@ -300,7 +300,7 @@ func (c *cli) backupRecover(ctx context.Context, args []string) error {
 				if b.Encrypted {
 					enc = "encrypted"
 				}
-				rows = append(rows, []string{p.Slug + "/" + b.ID, b.CreatedAt.Local().Format("2006-01-02 15:04"), b.Kind, humanSize(b.SizeBytes), b.Source, enc})
+				rows = append(rows, []string{p.Slug + "/" + b.ID, b.CreatedAt.Local().Format("2006-01-02 15:04"), backupKindText(b.Kind), humanSize(b.SizeBytes), b.Source, enc})
 			}
 		}
 		if len(rows) == 0 {
@@ -353,4 +353,15 @@ func (c *cli) removeRemote(ctx context.Context, api *client, t offsiteTarget, re
 		return nil
 	}
 	return fmt.Errorf("no copy %q on %s", id, t.Name)
+}
+
+// backupKindText spells out the kinds that name two parts of a backup.
+func backupKindText(kind string) string {
+	switch kind {
+	case "databasestorage":
+		return "database+storage"
+	case "filesstorage":
+		return "files+storage"
+	}
+	return kind
 }

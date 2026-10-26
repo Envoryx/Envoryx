@@ -3828,5 +3828,7 @@
   "Envoryx {{version}} made this backup, a newer version than this one. Settings that version added are left out; update this Envoryx first to keep them.": "Цю резервну копію створив Envoryx {{version}}, новіша версія, ніж ця. Налаштування, додані в тій версії, буде пропущено; спочатку оновіть цей Envoryx, щоб їх зберегти.",
   "the key could not be replaced and stays as it was": "Не вдалося замінити ключ, він залишається попереднім",
   "Logical dumps of the project's {{number}} databases": "Логічні дампи баз даних проєкту ({{number}})",
-  "the database of {{project}} refuses Envoryx's login; was the password changed inside the database?": "база даних {{project}} відхиляє вхід Envoryx; чи було змінено пароль у базі даних?"
+  "the database of {{project}} refuses Envoryx's login; was the password changed inside the database?": "база даних {{project}} відхиляє вхід Envoryx; чи було змінено пароль у базі даних?",
+  "database + object storage": "база даних + об'єктне сховище",
+  "files + object storage": "файли + об'єктне сховище"
 }

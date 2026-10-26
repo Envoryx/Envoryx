@@ -338,13 +338,13 @@ func TestBackupIncludesObjectStorage(t *testing.T) {
 	_ = mem.PutObject(ctx, "shop", "docs/a b/report.pdf", bytes.NewReader([]byte("%PDF")), 4, "application/pdf")
 	_ = mem.PutObject(ctx, "shop", "big.bin", bytes.NewReader(big), int64(len(big)), "")
 
-	// Files + storage: kind is "full", metadata counts the objects, the archive lists
-	// them as plain files with their content types.
+	// Files + storage: kind is "filesstorage", metadata counts the objects, the archive
+	// lists them as plain files with their content types.
 	info, err := e.m.CreateBackup(ctx, id, BackupOptions{Files: true, Storage: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Kind != "full" || info.Meta.Storage == nil || info.Meta.Storage.Objects != 3 || info.Meta.Storage.Bucket != "shop" || info.Meta.Storage.Bytes != int64(3+4+len(big)) {
+	if info.Kind != "filesstorage" || info.Meta.Storage == nil || info.Meta.Storage.Objects != 3 || info.Meta.Storage.Bucket != "shop" || info.Meta.Storage.Bytes != int64(3+4+len(big)) {
 		t.Fatalf("backup info: kind=%s storage=%+v", info.Kind, info.Meta.Storage)
 	}
 	archive := filepath.Join(e.cfgDir, "backups", "shop", info.Dir, backupStorageFile)

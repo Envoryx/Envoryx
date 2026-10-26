@@ -187,6 +187,26 @@ func TestExtractArchiveRejectsTarSlip(t *testing.T) {
 	_ = err
 }
 
+// A backup's kind says what it holds; "full" is only the one with database and files.
+func TestBackupKindNamesItsParts(t *testing.T) {
+	for _, c := range []struct {
+		opts BackupOptions
+		want string
+	}{
+		{BackupOptions{Database: true}, "database"},
+		{BackupOptions{Files: true}, "files"},
+		{BackupOptions{Storage: true}, "storage"},
+		{BackupOptions{Database: true, Files: true}, "full"},
+		{BackupOptions{Database: true, Files: true, Storage: true}, "full"},
+		{BackupOptions{Database: true, Storage: true}, "databasestorage"},
+		{BackupOptions{Files: true, Storage: true}, "filesstorage"},
+	} {
+		if got := backupKind(c.opts); got != c.want {
+			t.Errorf("%+v: %q, want %q", c.opts, got, c.want)
+		}
+	}
+}
+
 // Restored files and directories keep the modification time they had in the backup.
 func TestExtractArchiveKeepsModificationTimes(t *testing.T) {
 	src := t.TempDir()

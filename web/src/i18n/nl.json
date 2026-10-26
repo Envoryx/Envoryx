@@ -3762,5 +3762,7 @@
   "Envoryx {{version}} made this backup, a newer version than this one. Settings that version added are left out; update this Envoryx first to keep them.": "Envoryx {{version}} heeft deze back-up gemaakt, een nieuwere versie dan deze. Instellingen die die versie heeft toegevoegd, vallen weg; werk eerst deze Envoryx bij om ze te behouden.",
   "the key could not be replaced and stays as it was": "De sleutel kon niet worden vervangen en blijft zoals hij was",
   "Logical dumps of the project's {{number}} databases": "Logische dumps van de {{number}} databases van het project",
-  "the database of {{project}} refuses Envoryx's login; was the password changed inside the database?": "de database van {{project}} weigert de aanmelding van Envoryx; is het wachtwoord in de database gewijzigd?"
+  "the database of {{project}} refuses Envoryx's login; was the password changed inside the database?": "de database van {{project}} weigert de aanmelding van Envoryx; is het wachtwoord in de database gewijzigd?",
+  "database + object storage": "database + objectopslag",
+  "files + object storage": "bestanden + objectopslag"
 }

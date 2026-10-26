@@ -503,13 +503,7 @@ func (m *Manager) SweepBackups(ctx context.Context) {
 			if err := json.Unmarshal(raw, &bf); err != nil || bf.ProjectID != p.ID {
 				continue
 			}
-			kind := "full"
-			switch {
-			case bf.HasAnyDatabase() && bf.Files == nil:
-				kind = "database"
-			case !bf.HasAnyDatabase() && bf.Files != nil:
-				kind = "files"
-			}
+			kind := backupKind(BackupOptions{Database: bf.HasAnyDatabase(), Files: bf.Files != nil, Storage: bf.Storage != nil})
 			metaJSON, _ := json.Marshal(bf.BackupMeta)
 			rec := &store.Backup{ProjectID: p.ID, Filename: name, SizeBytes: dirSize(dir), Kind: kind, Metadata: metaJSON, CreatedAt: bf.CreatedAt}
 			if err := m.store.Backups.Create(ctx, rec); err != nil {
@@ -776,7 +770,10 @@ func backupDatabases(p store.Project, only *string) []*store.ProjectService {
 	return out
 }
 
-// backupKind names a backup by its parts: one part → that name, several → "full".
+// backupKind names a backup by its parts: one part → that name, database and files
+// (with or without the objects) → "full", the objects with one of the others →
+// "databasestorage" or "filesstorage". The kind goes into the offsite key, which an
+// older Envoryx only reads with lower-case letters, hence no separator.
 func backupKind(opts BackupOptions) string {
 	var parts []string
 	if opts.Database {
@@ -788,8 +785,13 @@ func backupKind(opts BackupOptions) string {
 	if opts.Storage {
 		parts = append(parts, "storage")
 	}
-	if len(parts) == 1 {
+	switch {
+	case len(parts) == 1:
 		return parts[0]
+	case opts.Database && opts.Files:
+		return "full"
+	case len(parts) == 2:
+		return parts[0] + parts[1]
 	}
 	return "full"
 }

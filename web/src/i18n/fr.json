@@ -3762,5 +3762,7 @@
   "Envoryx {{version}} made this backup, a newer version than this one. Settings that version added are left out; update this Envoryx first to keep them.": "Envoryx {{version}} a créé cette sauvegarde, une version plus récente que celle-ci. Les réglages ajoutés par cette version sont laissés de côté ; mettez d'abord à jour cet Envoryx pour les garder.",
   "the key could not be replaced and stays as it was": "La clé n'a pas pu être remplacée et reste inchangée",
   "Logical dumps of the project's {{number}} databases": "Dumps logiques des {{number}} bases de données du projet",
-  "the database of {{project}} refuses Envoryx's login; was the password changed inside the database?": "la base de données de {{project}} refuse la connexion d'Envoryx ; le mot de passe a-t-il été changé dans la base ?"
+  "the database of {{project}} refuses Envoryx's login; was the password changed inside the database?": "la base de données de {{project}} refuse la connexion d'Envoryx ; le mot de passe a-t-il été changé dans la base ?",
+  "database + object storage": "base de données + stockage d'objets",
+  "files + object storage": "fichiers + stockage d'objets"
 }
