@@ -3705,5 +3705,7 @@
   "the archive is incomplete (cut off during the upload?): {{name}} is missing": "het archief is onvolledig (afgebroken tijdens het uploaden?): {{name}} ontbreekt",
   "Project containers would mount an empty directory from the wrong host path. Remove the variable or set it to the path the bind mount uses.": "De projectcontainers zouden een lege map van het verkeerde hostpad koppelen. Verwijder de variabele of zet hem op het pad dat de bind mount gebruikt.",
   "this account has no password to confirm with; sign in again and retry within 10 minutes": "dit account heeft geen wachtwoord om mee te bevestigen; log opnieuw in en probeer het binnen 10 minuten nog eens",
-  "The name needs Latin or Cyrillic letters or digits.": "De naam moet Latijnse of Cyrillische letters of cijfers bevatten."
+  "The name needs Latin or Cyrillic letters or digits.": "De naam moet Latijnse of Cyrillische letters of cijfers bevatten.",
+  "Its volumes, with the database and other service data, are deleted as well, even when the project files are kept.": "Ook de volumes, met de database en de gegevens van de andere services, worden verwijderd, zelfs als de projectbestanden blijven.",
+  "Backups are kept and can be restored into a new project later.": "Back-ups blijven bewaard en kunnen later in een nieuw project worden hersteld."
 }

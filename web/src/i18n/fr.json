@@ -3705,5 +3705,7 @@
   "the archive is incomplete (cut off during the upload?): {{name}} is missing": "l'archive est incomplète (interrompue pendant l'envoi ?) : {{name}} manque",
   "Project containers would mount an empty directory from the wrong host path. Remove the variable or set it to the path the bind mount uses.": "Les conteneurs du projet monteraient un dossier vide depuis le mauvais chemin de l'hôte. Supprimez la variable ou réglez-la sur le chemin du montage.",
   "this account has no password to confirm with; sign in again and retry within 10 minutes": "ce compte n'a pas de mot de passe pour confirmer ; reconnectez-vous et réessayez dans les 10 minutes",
-  "The name needs Latin or Cyrillic letters or digits.": "Le nom doit contenir des lettres latines ou cyrilliques, ou des chiffres."
+  "The name needs Latin or Cyrillic letters or digits.": "Le nom doit contenir des lettres latines ou cyrilliques, ou des chiffres.",
+  "Its volumes, with the database and other service data, are deleted as well, even when the project files are kept.": "Ses volumes, avec la base de données et les données des autres services, sont aussi supprimés, même si les fichiers du projet sont conservés.",
+  "Backups are kept and can be restored into a new project later.": "Les sauvegardes sont conservées et peuvent être restaurées plus tard dans un nouveau projet."
 }

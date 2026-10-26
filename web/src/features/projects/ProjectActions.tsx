@@ -130,6 +130,11 @@ export function DeleteProjectDialog({ project, open, onClose }: { project: Proje
     >
       <div className="space-y-4">
         {error && <Alert tone="red">{error}</Alert>}
+        {/* Leaving "delete files" unticked keeps the files only, not the data in the volumes. */}
+        <Alert tone="amber">
+          <p>{t("Its volumes, with the database and other service data, are deleted as well, even when the project files are kept.")}</p>
+          <p className="mt-1">{t("Backups are kept and can be restored into a new project later.")}</p>
+        </Alert>
         <Field label={t("Type {{slug}} to confirm", { slug: project.slug })} htmlFor="confirm-slug">
           <Input id="confirm-slug" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="off" spellCheck={false} />
         </Field>

@@ -3755,5 +3755,7 @@
   "the archive is incomplete (cut off during the upload?): {{name}} is missing": "архив неполный (оборвался при загрузке?): нет {{name}}",
   "Project containers would mount an empty directory from the wrong host path. Remove the variable or set it to the path the bind mount uses.": "Контейнеры проекта подключили бы пустой каталог с неверного пути хоста. Удалите переменную или укажите путь bind-монтирования.",
   "this account has no password to confirm with; sign in again and retry within 10 minutes": "у этой учётной записи нет пароля для подтверждения; войдите заново и повторите в течение 10 минут",
-  "The name needs Latin or Cyrillic letters or digits.": "Имя должно содержать латинские или кириллические буквы либо цифры."
+  "The name needs Latin or Cyrillic letters or digits.": "Имя должно содержать латинские или кириллические буквы либо цифры.",
+  "Its volumes, with the database and other service data, are deleted as well, even when the project files are kept.": "Его тома с базой данных и данными других сервисов тоже удаляются, даже если файлы проекта сохраняются.",
+  "Backups are kept and can be restored into a new project later.": "Резервные копии сохраняются, их можно позже восстановить в новый проект."
 }
