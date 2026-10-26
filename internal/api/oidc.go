@@ -1,9 +1,9 @@
 package api
 
 import (
+	"encoding/base64"
 	"errors"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/envoryx/envoryx/internal/audit"
@@ -55,23 +55,30 @@ func safeReturn(p string) string {
 	return p
 }
 
+// ssoErrorCookie carries the reason of a failed single sign-on to the login page. A
+// cookie, not the query string: a link with ?sso_error=<any text> would otherwise put a
+// sentence of anyone's choosing on the genuine login page.
+const ssoErrorCookie = "envoryx_sso_error"
+
 // ssoFailed returns to the login page with the reason.
-func ssoFailed(w http.ResponseWriter, r *http.Request, reason string) {
-	http.Redirect(w, r, "/login?sso_error="+url.QueryEscape(reason), http.StatusFound)
+func (a *API) ssoFailed(w http.ResponseWriter, r *http.Request, reason string) {
+	secure := a.d.Auth.SecureRequest(r)
+	http.SetCookie(w, &http.Cookie{Name: auth.HostCookie(ssoErrorCookie, secure), Value: base64.RawURLEncoding.EncodeToString([]byte(reason)), Path: "/", MaxAge: 120, Secure: secure, SameSite: http.SameSiteLaxMode})
+	http.Redirect(w, r, "/login?sso_error=1", http.StatusFound)
 }
 
 // oidcStart sends the browser to the provider: GET /auth/oidc/start?return=/path, plus
 // &invite=<token> from an invitation page, which connects that account.
 func (a *API) oidcStart(w http.ResponseWriter, r *http.Request) {
 	if a.d.OIDC == nil {
-		ssoFailed(w, r, oidc.ErrDisabled.Error())
+		a.ssoFailed(w, r, oidc.ErrDisabled.Error())
 		return
 	}
 	redirect := baseURL(r) + "/api/v1/auth/oidc/callback"
 	authURL, state, err := a.d.OIDC.Start(r.Context(), redirect, safeReturn(r.URL.Query().Get("return")), r.URL.Query().Get("invite"))
 	if err != nil {
 		a.d.Log.Warn("single sign-on could not start", "err", err)
-		ssoFailed(w, r, err.Error())
+		a.ssoFailed(w, r, err.Error())
 		return
 	}
 	http.SetCookie(w, a.stateCookie(r, state))
@@ -82,18 +89,18 @@ func (a *API) oidcStart(w http.ResponseWriter, r *http.Request) {
 func (a *API) oidcCallback(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, a.stateCookie(r, ""))
 	if a.d.OIDC == nil {
-		ssoFailed(w, r, oidc.ErrDisabled.Error())
+		a.ssoFailed(w, r, oidc.ErrDisabled.Error())
 		return
 	}
 	q := r.URL.Query()
 	if e := q.Get("error"); e != "" {
-		ssoFailed(w, r, "the provider refused: "+e+" "+q.Get("error_description"))
+		a.ssoFailed(w, r, "the provider refused: "+e+" "+q.Get("error_description"))
 		return
 	}
 	state := q.Get("state")
 	c, err := r.Cookie(auth.HostCookie(oidcStateCookie, a.d.Auth.SecureRequest(r)))
 	if err != nil || state == "" || c.Value != state {
-		ssoFailed(w, r, "the sign-in did not start in this browser; start it again")
+		a.ssoFailed(w, r, "the sign-in did not start in this browser; start it again")
 		return
 	}
 	user, returnTo, err := a.d.OIDC.Finish(r.Context(), state, q.Get("code"))
@@ -102,12 +109,12 @@ func (a *API) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
 			err = errors.New("this account is disabled")
 		}
-		ssoFailed(w, r, err.Error())
+		a.ssoFailed(w, r, err.Error())
 		return
 	}
 	token, err := a.d.Auth.StartSession(r.Context(), user, auth.MethodOIDC, auth.ClientIP(r), r.UserAgent())
 	if err != nil {
-		ssoFailed(w, r, err.Error())
+		a.ssoFailed(w, r, err.Error())
 		return
 	}
 	http.SetCookie(w, a.d.Auth.Cookie(r, token))

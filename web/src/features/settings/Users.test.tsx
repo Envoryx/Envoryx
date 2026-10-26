@@ -153,6 +153,7 @@ describe("Invitations and sign-in", () => {
   });
 
   it("offers single sign-on on the login page and shows why it failed", async () => {
+    document.cookie = "envoryx_sso_error=" + btoa("there is no Envoryx account for eve").replace(/=+$/, "") + "; Path=/";
     mockApi({
       "GET /setup": () => ({ body: { needsSetup: false } }),
       "GET /auth/me": () => ({ status: 401, body: { error: { code: "unauthorized", message: "unauthenticated" } } }),
@@ -162,11 +163,28 @@ describe("Invitations and sign-in", () => {
       <Routes>
         <Route path="/login" element={<LoginPage mode="login" />} />
       </Routes>,
-      { route: "/login?sso_error=there%20is%20no%20Envoryx%20account%20for%20eve" },
+      { route: "/login?sso_error=1" },
     );
     const link = await screen.findByRole("link", { name: "Sign in with Authentik" });
     expect(link).toHaveAttribute("href", "/api/v1/auth/oidc/start?return=%2F");
     expect(screen.getByText("there is no Envoryx account for eve")).toBeInTheDocument();
+    expect(document.cookie).not.toContain("envoryx_sso_error=");
+  });
+
+  it("shows no text a link brings along", async () => {
+    mockApi({
+      "GET /setup": () => ({ body: { needsSetup: false } }),
+      "GET /auth/me": () => ({ status: 401, body: { error: { code: "unauthorized", message: "unauthenticated" } } }),
+      "GET /auth/oidc": () => ({ body: { enabled: true, name: "Authentik" } }),
+    });
+    renderApp(
+      <Routes>
+        <Route path="/login" element={<LoginPage mode="login" />} />
+      </Routes>,
+      { route: "/login?sso_error=Your%20account%20is%20locked,%20call%20us" },
+    );
+    expect(await screen.findByText("Single sign-on failed.")).toBeInTheDocument();
+    expect(screen.queryByText(/account is locked/)).not.toBeInTheDocument();
   });
 });
 

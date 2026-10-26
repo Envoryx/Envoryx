@@ -52,7 +52,7 @@ func (a *API) setSupportAccess(w http.ResponseWriter, r *http.Request) {
 func (a *API) supportLogin(w http.ResponseWriter, r *http.Request) {
 	token, user, hoster, err := a.d.Auth.RedeemSupportLogin(r.Context(), r.PathValue("token"), auth.ClientIP(r), r.UserAgent())
 	if err != nil {
-		ssoFailed(w, r, err.Error())
+		a.ssoFailed(w, r, err.Error())
 		return
 	}
 	http.SetCookie(w, a.d.Auth.Cookie(r, token))
