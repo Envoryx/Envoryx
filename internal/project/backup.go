@@ -1530,7 +1530,10 @@ func (m *Manager) ResealBackups(ctx context.Context) (int, error) {
 		case r.NeedsReseal(bf.SealedExport):
 			v, _, err := r.Reseal(bf.SealedExport)
 			if err != nil {
-				return changed, fmt.Errorf("%s: %w", f, err)
+				// A damaged backup must not stop the start or a key replacement: it
+				// stays as it is, and restoring it says why it can't be opened.
+				m.log.Warn("backup.json not resealed: its project settings don't open", "file", f, "err", err)
+				continue
 			}
 			bf.SealedExport = v
 		default:
