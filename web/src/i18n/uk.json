@@ -3824,5 +3824,6 @@
   "scheduled weekly": "за розкладом, щотижня",
   "before restoring {{id}}": "перед відновленням {{id}}",
   "before schema {{from}} → {{to}} (Envoryx {{version}})": "перед схемою {{from}} → {{to}} (Envoryx {{version}})",
-  "Leave empty to use ENVORYX_PUBLIC_HOST ({{host}}). Host name or IP only, no port.": "Залиште порожнім, щоб використовувати ENVORYX_PUBLIC_HOST ({{host}}). Лише ім'я хоста або IP, без порту."
+  "Leave empty to use ENVORYX_PUBLIC_HOST ({{host}}). Host name or IP only, no port.": "Залиште порожнім, щоб використовувати ENVORYX_PUBLIC_HOST ({{host}}). Лише ім'я хоста або IP, без порту.",
+  "Backup imported": "Резервну копію імпортовано"
 }

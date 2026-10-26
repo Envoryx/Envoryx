@@ -3758,5 +3758,6 @@
   "scheduled weekly": "gepland, wekelijks",
   "before restoring {{id}}": "voor het herstellen van {{id}}",
   "before schema {{from}} → {{to}} (Envoryx {{version}})": "voor schema {{from}} → {{to}} (Envoryx {{version}})",
-  "Leave empty to use ENVORYX_PUBLIC_HOST ({{host}}). Host name or IP only, no port.": "Leeg laten om ENVORYX_PUBLIC_HOST ({{host}}) te gebruiken. Alleen hostnaam of IP, geen poort."
+  "Leave empty to use ENVORYX_PUBLIC_HOST ({{host}}). Host name or IP only, no port.": "Leeg laten om ENVORYX_PUBLIC_HOST ({{host}}) te gebruiken. Alleen hostnaam of IP, geen poort.",
+  "Backup imported": "Back-up geïmporteerd"
 }

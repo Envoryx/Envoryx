@@ -230,7 +230,7 @@ func (m *Manager) storeBackupArchive(ctx context.Context, r io.Reader, owner fun
 		_ = os.RemoveAll(target)
 		return BackupInfo{}, err
 	}
-	m.audit.Log(ctx, audit.ActionBackupCreated, "project", p.ID, map[string]any{"name": p.Name, "backup": rec.ID, "kind": kind, "bytes": rec.SizeBytes, "imported": true})
+	m.audit.Log(ctx, audit.ActionBackupImported, "project", p.ID, map[string]any{"name": p.Name, "backup": rec.ID, "kind": kind, "bytes": rec.SizeBytes})
 	return BackupInfo{ID: rec.ID, Dir: dirName, Kind: kind, SizeBytes: rec.SizeBytes, CreatedAt: rec.CreatedAt, Meta: bf.BackupMeta}, nil
 }
 

@@ -81,7 +81,10 @@ const (
 	ActionOllamaModelPulled  = "ollama.model_pulled"
 	ActionOllamaModelDeleted = "ollama.model_deleted"
 
-	ActionBackupCreated  = "backup.created"
+	ActionBackupCreated = "backup.created"
+	// ActionBackupImported is a backup that came from elsewhere: uploaded, or fetched
+	// from an offsite target.
+	ActionBackupImported = "backup.imported"
 	ActionBackupRestored = "backup.restored"
 	// ActionBackupRestoredNew is a backup restored into a new project.
 	ActionBackupRestoredNew = "backup.restored_new"

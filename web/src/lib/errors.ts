@@ -532,6 +532,15 @@ export function translateSentence(msg: string | undefined | null, t: TFunction):
 
 
 /**
+ * Like errorText, without the kind of error the server puts in front ("invalid input: that
+ * is key …"): for dialogs where the message alone says what to fix.
+ */
+export function reasonText(err: unknown, t: TFunction, fallback?: string): string {
+  if (err instanceof ApiError) return translateMessage(err.message.replace(/^(?:invalid input|conflict|not found): /, ""), t);
+  return fallback ?? t("The server could not be reached.");
+}
+
+/**
  * Text for an error caught from the API client: the server's message, translated, or the
  * fallback when the request never reached the server.
  */

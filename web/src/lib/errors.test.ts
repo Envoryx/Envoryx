@@ -1,6 +1,6 @@
 import i18n from "@/i18n";
 import { ApiError } from "@/api/client";
-import { backupNote, errorText, localClock, translateMessage, translateSentence } from "./errors";
+import { backupNote, errorText, localClock, reasonText, translateMessage, translateSentence } from "./errors";
 
 describe("translateMessage", () => {
   beforeAll(() => i18n.changeLanguage("de"));
@@ -212,6 +212,12 @@ describe("errorText", () => {
     expect(errorText(new ApiError(409, "busy", "project is busy with another operation"), t)).toBe("project is busy with another operation");
     expect(errorText(new TypeError("Failed to fetch"), t, "Saving failed")).toBe("Saving failed");
     expect(errorText(new TypeError("Failed to fetch"), t)).toBe("The server could not be reached.");
+  });
+
+  it("leaves the kind of error out where the message says what to fix", () => {
+    expect(reasonText(new ApiError(422, "validation_failed", "invalid input: that is key 40da55be, the backup needs key fb4b888c"), t)).toBe(
+      "that is key 40da55be, the backup needs key fb4b888c",
+    );
   });
 });
 

@@ -3824,5 +3824,6 @@
   "scheduled weekly": "по расписанию, еженедельно",
   "before restoring {{id}}": "перед восстановлением {{id}}",
   "before schema {{from}} → {{to}} (Envoryx {{version}})": "перед схемой {{from}} → {{to}} (Envoryx {{version}})",
-  "Leave empty to use ENVORYX_PUBLIC_HOST ({{host}}). Host name or IP only, no port.": "Оставьте пустым, чтобы использовать ENVORYX_PUBLIC_HOST ({{host}}). Только имя хоста или IP, без порта."
+  "Leave empty to use ENVORYX_PUBLIC_HOST ({{host}}). Host name or IP only, no port.": "Оставьте пустым, чтобы использовать ENVORYX_PUBLIC_HOST ({{host}}). Только имя хоста или IP, без порта.",
+  "Backup imported": "Резервная копия импортирована"
 }

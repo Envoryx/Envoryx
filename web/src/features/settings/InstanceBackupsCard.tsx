@@ -6,7 +6,7 @@ import { api } from "@/api/client";
 import type { InstanceBackup } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Code, Dialog, Field, Input, Spinner } from "@/components/ui";
 import { backupKindLabel, formatBytes, formatDateTime } from "@/lib/format";
-import { backupNote, errorText } from "@/lib/errors";
+import { backupNote, errorText, reasonText } from "@/lib/errors";
 import { useAuth } from "@/features/auth/AuthContext";
 import { OffsiteBadges, OffsiteUploadButton, RemoteBackups, uploading } from "@/features/offsite/OffsiteParts";
 
@@ -290,7 +290,7 @@ export function InstanceBackupsCard() {
         }
       >
         <div className="space-y-4">
-          {restore.error && <Alert tone="red">{errorText(restore.error, t, t("Scheduling the restore failed"))}</Alert>}
+          {restore.error && <Alert tone="red">{reasonText(restore.error, t, t("Scheduling the restore failed"))}</Alert>}
           <Alert tone="red" title={t("This replaces the Envoryx configuration")}>
             <p>{t("Database, CA, SSH keys, notification settings and project configuration are replaced by the backup; changes since then are lost. A backup of the current state is taken first (pre-restore).")}</p>
             <p className="mt-1">{t("Project files and Docker containers are not touched. Projects created after the backup show up as orphans and can be cleaned up afterwards.")}</p>

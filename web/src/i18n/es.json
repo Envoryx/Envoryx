@@ -3758,5 +3758,6 @@
   "scheduled weekly": "programada, semanal",
   "before restoring {{id}}": "antes de restaurar {{id}}",
   "before schema {{from}} → {{to}} (Envoryx {{version}})": "antes del esquema {{from}} → {{to}} (Envoryx {{version}})",
-  "Leave empty to use ENVORYX_PUBLIC_HOST ({{host}}). Host name or IP only, no port.": "Déjalo vacío para usar ENVORYX_PUBLIC_HOST ({{host}}). Solo nombre de host o IP, sin puerto."
+  "Leave empty to use ENVORYX_PUBLIC_HOST ({{host}}). Host name or IP only, no port.": "Déjalo vacío para usar ENVORYX_PUBLIC_HOST ({{host}}). Solo nombre de host o IP, sin puerto.",
+  "Backup imported": "Copia de seguridad importada"
 }

@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useRestoreNewProject } from "@/api/hooks";
 import type { BackupInfo, BackupMeta, RestoreNewRequest } from "@/api/types";
 import { Alert, Button, Checkbox, Dialog, Field, Input } from "@/components/ui";
-import { errorText } from "@/lib/errors";
+import { reasonText } from "@/lib/errors";
 import { formatDateTime, slugify } from "@/lib/format";
 import { CreateProgress } from "./CreateProgress";
 
@@ -73,7 +73,7 @@ export function RestoreNewDialog({ projectId, projectName, backup, onClose }: { 
           close();
           navigate(`/projects/${p.id}`);
         },
-        onError: (err) => setError(errorText(err, t, t("Restoring failed"))),
+        onError: (err) => setError(reasonText(err, t, t("Restoring failed"))),
       },
     );
   };
