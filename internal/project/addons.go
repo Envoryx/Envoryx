@@ -210,8 +210,10 @@ func (p *Planner) addonContainer(proj store.Project, svc store.ProjectService, n
 		spec.Mounts = append(spec.Mounts, docker.MountSpec{Type: "volume", Source: name, Target: v.Path})
 	}
 	if h := d.Healthcheck; h != nil {
-		interval, timeout, start := h.Durations()
-		spec.Healthcheck = &docker.HealthSpec{Test: h.Test, Interval: interval, Timeout: timeout, StartPeriod: start, Retries: h.Retries}
+		if test := addonHealthTest(h.Test); len(test) > 0 {
+			interval, timeout, start := h.Durations()
+			spec.Healthcheck = &docker.HealthSpec{Test: test, Interval: interval, Timeout: timeout, StartPeriod: start, Retries: h.Retries}
+		}
 	}
 	if cfg.HostPort > 0 && d.Port > 0 {
 		hostIP := "127.0.0.1"
@@ -221,6 +223,25 @@ func (p *Planner) addonContainer(proj store.Project, svc store.ProjectService, n
 		spec.Ports = []docker.PortSpec{{HostIP: hostIP, HostPort: cfg.HostPort, ContainerPort: d.Port, Protocol: "tcp"}}
 	}
 	return ContainerPlan{Kind: svc.Kind, Order: 9, Spec: spec}, volumes, nil
+}
+
+// addonHealthTest turns an addon's test, written as in a Compose file (["CMD-SHELL",
+// "…"], ["CMD", "prog", "arg"] or a bare command), into the command the engine runs:
+// the engine puts CMD in front itself, so a CMD-SHELL test runs through sh -c. NONE
+// switches the check off.
+func addonHealthTest(test []string) []string {
+	if len(test) == 0 {
+		return nil
+	}
+	switch test[0] {
+	case "NONE":
+		return nil
+	case "CMD":
+		return test[1:]
+	case "CMD-SHELL":
+		return []string{"sh", "-c", strings.Join(test[1:], " ")}
+	}
+	return test
 }
 
 // addonEnv adds what the project's addons hand the application. has reports variables

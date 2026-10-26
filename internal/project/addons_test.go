@@ -337,3 +337,18 @@ publishPort: true
 		t.Fatalf("info: %+v %v", infos, err)
 	}
 }
+
+// Health checks written as in a Compose file run as such: CMD-SHELL through sh -c, CMD
+// without the prefix, NONE not at all.
+func TestAddonHealthTest(t *testing.T) {
+	for _, tc := range []struct{ in, want []string }{
+		{[]string{"CMD-SHELL", "wget -qO- http://127.0.0.1/ || exit 1"}, []string{"sh", "-c", "wget -qO- http://127.0.0.1/ || exit 1"}},
+		{[]string{"CMD", "pg_isready", "-q"}, []string{"pg_isready", "-q"}},
+		{[]string{"redis-cli", "ping"}, []string{"redis-cli", "ping"}},
+		{[]string{"NONE"}, nil},
+	} {
+		if got := addonHealthTest(tc.in); !slices.Equal(got, tc.want) {
+			t.Errorf("%v: %v, want %v", tc.in, got, tc.want)
+		}
+	}
+}
