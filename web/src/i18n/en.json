@@ -69,5 +69,7 @@
   "this instance's plan runs at most {{count}} projects at the same time; stop another project first_one": "this instance's plan runs at most {{count}} project at the same time; stop another project first",
   "this instance's plan runs at most {{count}} projects at the same time; stop another project first_other": "this instance's plan runs at most {{count}} projects at the same time; stop another project first",
   "{{count}} projects consistent with Docker (checked {{time}})_one": "{{count}} project consistent with Docker (checked {{time}})",
-  "{{count}} projects consistent with Docker (checked {{time}})_other": "{{count}} projects consistent with Docker (checked {{time}})"
+  "{{count}} projects consistent with Docker (checked {{time}})_other": "{{count}} projects consistent with Docker (checked {{time}})",
+  "{{count}} objects_one": "{{count}} object",
+  "{{count}} objects_other": "{{count}} objects"
 }

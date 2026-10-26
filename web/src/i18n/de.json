@@ -2283,7 +2283,6 @@
   "Databases of the project": "Datenbanken des Projekts",
   "Primary": "Primär",
   "Inside the project network at the host “{{host}}”. The application containers (PHP, Python, Go, Ruby, Java, .NET, Node) receive these values as {{prefix}}_DB_* and {{prefix}}_DATABASE_URL.": "Im Projektnetz unter dem Host „{{host}}“. Die Anwendungscontainer (PHP, Python, Go, Ruby, Java, .NET, Node) erhalten diese Werte als {{prefix}}_DB_* und {{prefix}}_DATABASE_URL.",
-  "Logical dumps of all {{number}} databases of the project": "Logische Dumps aller {{number}} Datenbanken des Projekts",
   "Additional databases": "Zusätzliche Datenbanken",
   "Another database server next to the first one - for example PostgreSQL for reporting next to MariaDB. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Ein weiterer Datenbankserver neben dem ersten - etwa PostgreSQL für Auswertungen neben MariaDB. Jeder ist unter seinem Namen als Host erreichbar und setzt Variablen, die mit seinem Namen beginnen (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).",
   "database": "Datenbank",
@@ -3761,5 +3760,6 @@
   "Backup imported": "Backup importiert",
   "this backup was made by Envoryx {{version}} in a newer format; update this Envoryx to restore it": "dieses Backup hat Envoryx {{version}} in einem neueren Format erstellt; aktualisiere dieses Envoryx, um es wiederherzustellen",
   "Envoryx {{version}} made this backup, a newer version than this one. Settings that version added are left out; update this Envoryx first to keep them.": "Envoryx {{version}} hat dieses Backup erstellt, eine neuere Version als diese. Einstellungen, die diese Version hinzugefügt hat, fehlen danach; aktualisiere zuerst dieses Envoryx, um sie zu behalten.",
-  "the key could not be replaced and stays as it was": "Der Schlüssel konnte nicht ersetzt werden und bleibt, wie er war"
+  "the key could not be replaced and stays as it was": "Der Schlüssel konnte nicht ersetzt werden und bleibt, wie er war",
+  "Logical dumps of the project's {{number}} databases": "Logische Dumps der {{number}} Datenbanken des Projekts"
 }

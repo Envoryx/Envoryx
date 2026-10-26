@@ -2283,7 +2283,6 @@
   "Databases of the project": "Bancos de dados do projeto",
   "Primary": "Principal",
   "Inside the project network at the host “{{host}}”. The application containers (PHP, Python, Go, Ruby, Java, .NET, Node) receive these values as {{prefix}}_DB_* and {{prefix}}_DATABASE_URL.": "Na rede do projeto, no host “{{host}}”. Os contêineres da aplicação (PHP, Python, Go, Ruby, Java, .NET, Node) recebem estes valores como {{prefix}}_DB_* e {{prefix}}_DATABASE_URL.",
-  "Logical dumps of all {{number}} databases of the project": "Dumps lógicos dos {{number}} bancos de dados do projeto",
   "Additional databases": "Bancos de dados adicionais",
   "Another database server next to the first one - for example PostgreSQL for reporting next to MariaDB. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Outro servidor de banco de dados ao lado do primeiro - por exemplo PostgreSQL para relatórios ao lado do MariaDB. Cada um é acessível pelo seu nome como host e injeta variáveis que começam pelo seu nome (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).",
   "database": "banco de dados",
@@ -3761,5 +3760,6 @@
   "Backup imported": "Backup importado",
   "this backup was made by Envoryx {{version}} in a newer format; update this Envoryx to restore it": "este backup foi criado pelo Envoryx {{version}} num formato mais recente; atualize este Envoryx para o restaurar",
   "Envoryx {{version}} made this backup, a newer version than this one. Settings that version added are left out; update this Envoryx first to keep them.": "O Envoryx {{version}} criou este backup, uma versão mais recente do que esta. As definições que essa versão acrescentou ficam de fora; atualize primeiro este Envoryx para as manter.",
-  "the key could not be replaced and stays as it was": "Não foi possível substituir a chave, que fica como estava"
+  "the key could not be replaced and stays as it was": "Não foi possível substituir a chave, que fica como estava",
+  "Logical dumps of the project's {{number}} databases": "Dumps lógicos dos {{number}} bancos de dados do projeto"
 }

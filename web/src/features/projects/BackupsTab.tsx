@@ -19,6 +19,23 @@ function hasDumps(meta: BackupMeta): boolean {
   return !!meta.database || (meta.databases?.length ?? 0) > 0 || (meta.databaseVolumes?.length ?? 0) > 0;
 }
 
+/**
+ * The addon volumes of a backup by name: "Notes (data)" for addon-notes-data.tar.gz when
+ * the project has the addon, else the volume part of the file name.
+ */
+export function addonVolumeNames(meta: BackupMeta, project: Project): string[] {
+  const addons = project.services
+    .filter((s) => s.kind.startsWith("addon-"))
+    .map((s) => ({ prefix: `${s.kind}-`, title: String(s.config.title || s.kind.slice("addon-".length)) }))
+    // addon-a-b-data: the longer name wins over addon-a.
+    .sort((a, b) => b.prefix.length - a.prefix.length);
+  return (meta.addonVolumes ?? []).map((file) => {
+    const base = file.replace(/\.tar\.gz$/, "");
+    const addon = addons.find((a) => base.startsWith(a.prefix));
+    return addon ? `${addon.title} (${base.slice(addon.prefix.length)})` : base.replace(/^addon-/, "");
+  });
+}
+
 export function BackupsTab({ project }: { project: Project }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -172,8 +189,8 @@ export function BackupsTab({ project }: { project: Project }) {
             <Checkbox
               label={t("Database")}
               description={
-                (dbCount > 1 ? t("Logical dumps of all {{number}} databases of the project", { number: dbCount }) : hasDb ? t("Logical dump of the primary database") : addonData ? t("The project has no database; the addon volumes are saved.") : t("Project has no database")) +
-                (hasDb && addonData ? " " + t("The addon volumes are saved, too.") : "")
+                (dbCount > 1 ? t("Logical dumps of the project's {{number}} databases", { number: dbCount }) : hasDb ? t("Logical dump of the primary database") : addonData ? t("The project has no database; the addon volumes are saved.") : t("Project has no database")) +
+                (hasDb && addonData ? ". " + t("The addon volumes are saved, too.") : "")
               }
               checked={withDb && hasData}
               disabled={!hasData}
@@ -241,6 +258,11 @@ export function BackupsTab({ project }: { project: Project }) {
                         {t("{{count}} objects", { count: b.meta.storage.objects })} · {formatBytes(b.meta.storage.bytes)}
                       </Badge>
                     )}
+                    {addonVolumeNames(b.meta, project).map((name) => (
+                      <Badge key={name} tone="amber">
+                        {name}
+                      </Badge>
+                    ))}
                     {b.missing && <Badge tone="red">{t("files missing")}</Badge>}
                     <OffsiteBadges copies={list.data?.offsite?.[b.id]} />
                     <span className="font-mono">{b.dir}</span>
@@ -335,7 +357,7 @@ export function BackupsTab({ project }: { project: Project }) {
               onChange={(e) => setRDb(e.target.checked)}
               description={
                 (restoreTarget.meta.addonVolumes?.length ?? 0) > 0
-                  ? t("With the addon volumes: {{files}}", { files: restoreTarget.meta.addonVolumes!.join(", ") })
+                  ? t("With the addon volumes: {{files}}", { files: addonVolumeNames(restoreTarget.meta, project).join(", ") })
                   : !hasDumps(restoreTarget.meta)
                     ? t("not in this backup")
                     : !hasDb

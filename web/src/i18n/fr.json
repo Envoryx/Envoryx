@@ -2283,7 +2283,6 @@
   "Databases of the project": "Bases de données du projet",
   "Primary": "Principale",
   "Inside the project network at the host “{{host}}”. The application containers (PHP, Python, Go, Ruby, Java, .NET, Node) receive these values as {{prefix}}_DB_* and {{prefix}}_DATABASE_URL.": "Dans le réseau du projet, sur l'hôte « {{host}} ». Les conteneurs d'application (PHP, Python, Go, Ruby, Java, .NET, Node) reçoivent ces valeurs sous {{prefix}}_DB_* et {{prefix}}_DATABASE_URL.",
-  "Logical dumps of all {{number}} databases of the project": "Dumps logiques des {{number}} bases de données du projet",
   "Additional databases": "Bases de données supplémentaires",
   "Another database server next to the first one - for example PostgreSQL for reporting next to MariaDB. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Un autre serveur de base de données à côté du premier - par exemple PostgreSQL pour le reporting à côté de MariaDB. Chacun est joignable sous son nom comme hôte et injecte des variables qui commencent par son nom (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).",
   "database": "base de données",
@@ -3761,5 +3760,6 @@
   "Backup imported": "Sauvegarde importée",
   "this backup was made by Envoryx {{version}} in a newer format; update this Envoryx to restore it": "cette sauvegarde a été créée par Envoryx {{version}} dans un format plus récent ; mettez à jour cet Envoryx pour la restaurer",
   "Envoryx {{version}} made this backup, a newer version than this one. Settings that version added are left out; update this Envoryx first to keep them.": "Envoryx {{version}} a créé cette sauvegarde, une version plus récente que celle-ci. Les réglages ajoutés par cette version sont laissés de côté ; mettez d'abord à jour cet Envoryx pour les garder.",
-  "the key could not be replaced and stays as it was": "La clé n'a pas pu être remplacée et reste inchangée"
+  "the key could not be replaced and stays as it was": "La clé n'a pas pu être remplacée et reste inchangée",
+  "Logical dumps of the project's {{number}} databases": "Dumps logiques des {{number}} bases de données du projet"
 }

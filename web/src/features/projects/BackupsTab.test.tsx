@@ -91,7 +91,7 @@ describe("BackupsTab", () => {
       [`POST /projects/${id}/backups/b1/restore`]: () => ({ body: { backup: withAddon } }),
       [`POST /projects/${id}/backups`]: () => ({ status: 201, body: { backup: withAddon } }),
     });
-    const project = makeProject({ services: [...makeProject().services, { kind: "addon-keycloak", variant: "keycloak", version: "26", image: "quay.io/keycloak/keycloak:26.7", enabled: true, config: { backupVolumes: 1 } }] });
+    const project = makeProject({ services: [...makeProject().services, { kind: "addon-keycloak", variant: "keycloak", version: "26", image: "quay.io/keycloak/keycloak:26.7", enabled: true, config: { backupVolumes: 1, title: "Keycloak" } }] });
     renderApp(<BackupsTab project={project} />);
     const user = userEvent.setup();
 
@@ -100,7 +100,7 @@ describe("BackupsTab", () => {
     expect(db).toBeEnabled();
     expect(db).toBeChecked();
     await user.click((await screen.findAllByRole("button", { name: "Restore" }))[0]!);
-    expect(await screen.findByText("With the addon volumes: addon-keycloak-data.tar.gz")).toBeInTheDocument();
+    expect(await screen.findByText("With the addon volumes: Keycloak (data)")).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: /^Restore database/ })).toBeEnabled();
     void api;
   });

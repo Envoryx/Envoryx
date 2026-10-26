@@ -2319,7 +2319,6 @@
   "Databases of the project": "Базы данных проекта",
   "Primary": "Основная",
   "Inside the project network at the host “{{host}}”. The application containers (PHP, Python, Go, Ruby, Java, .NET, Node) receive these values as {{prefix}}_DB_* and {{prefix}}_DATABASE_URL.": "В сети проекта по хосту «{{host}}». Контейнеры приложения (PHP, Python, Go, Ruby, Java, .NET, Node) получают эти значения как {{prefix}}_DB_* и {{prefix}}_DATABASE_URL.",
-  "Logical dumps of all {{number}} databases of the project": "Логические дампы всех баз данных проекта ({{number}})",
   "Additional databases": "Дополнительные базы данных",
   "Another database server next to the first one - for example PostgreSQL for reporting next to MariaDB. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Ещё один сервер баз данных рядом с первым - например PostgreSQL для отчётов рядом с MariaDB. Каждый доступен по своему имени как хост и задаёт переменные, начинающиеся с его имени (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).",
   "database": "база данных",
@@ -3827,5 +3826,6 @@
   "Backup imported": "Резервная копия импортирована",
   "this backup was made by Envoryx {{version}} in a newer format; update this Envoryx to restore it": "эта резервная копия создана Envoryx {{version}} в более новом формате; обновите этот Envoryx, чтобы её восстановить",
   "Envoryx {{version}} made this backup, a newer version than this one. Settings that version added are left out; update this Envoryx first to keep them.": "Эту резервную копию создал Envoryx {{version}}, более новая версия, чем эта. Настройки, добавленные в той версии, будут пропущены; сначала обновите этот Envoryx, чтобы их сохранить.",
-  "the key could not be replaced and stays as it was": "Не удалось заменить ключ, он остаётся прежним"
+  "the key could not be replaced and stays as it was": "Не удалось заменить ключ, он остаётся прежним",
+  "Logical dumps of the project's {{number}} databases": "Логические дампы баз данных проекта ({{number}})"
 }
