@@ -46,6 +46,27 @@ describe("UsersCard", () => {
     expect(await screen.findByText("http://envoryx.test/invite/abc")).toBeInTheDocument();
     expect(api.calls.find((c) => c.method === "POST")!.body).toEqual({ username: "eve", role: "developer" });
   });
+
+  it("says when an invitation link has expired", async () => {
+    const day = 24 * 3600 * 1000;
+    mockApi({
+      ...authedRoutes,
+      "GET /projects": () => ({ body: { projects: [shop] } }),
+      "GET /users": () => ({
+        body: {
+          users: [
+            { ...dana, id: "u4", username: "old", invited: true, inviteExpiresAt: new Date(Date.now() - day).toISOString() },
+            { ...dana, id: "u5", username: "new", invited: true, inviteExpiresAt: new Date(Date.now() + day).toISOString() },
+          ],
+        },
+      }),
+    });
+    renderApp(<UsersCard />);
+    const old = (await screen.findByText("old")).closest("li") as HTMLElement;
+    expect(within(old).getByText(/The link expired .*\. Send a new one with “New invitation”\./)).toBeInTheDocument();
+    const fresh = screen.getByText("new").closest("li") as HTMLElement;
+    expect(within(fresh).getByText(/The link works until/)).toBeInTheDocument();
+  });
 });
 
 describe("UsersCard and OidcCard for the hoster's support", () => {

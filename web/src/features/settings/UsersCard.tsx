@@ -244,7 +244,12 @@ export function UsersCard({ readOnly = false }: { readOnly?: boolean }) {
                         ))}
                     </span>
                   </div>
-                  {u.inviteExpiresAt && <p className="text-xs text-subtle">{t("The link works until {{when}}.", { when: formatDateTime(u.inviteExpiresAt) })}</p>}
+                  {u.inviteExpiresAt &&
+                    (new Date(u.inviteExpiresAt).getTime() <= Date.now() ? (
+                      <p className="text-xs text-amber-700 dark:text-amber-400">{t("The link expired {{when}}. Send a new one with “{{action}}”.", { when: formatDateTime(u.inviteExpiresAt), action: u.invited ? t("New invitation") : t("Reset password") })}</p>
+                    ) : (
+                      <p className="text-xs text-subtle">{t("The link works until {{when}}.", { when: formatDateTime(u.inviteExpiresAt) })}</p>
+                    ))}
                   {open === u.id && (
                     <div className="space-y-2 rounded-md bg-muted/40 p-3">
                       <p className="text-xs text-muted">{u.role === "admin" ? t("An admin may do everything in every project; project roles apply once the role changes.") : t("A role here replaces the user's role in that project; “from the role” leaves the global role.")}</p>

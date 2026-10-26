@@ -3729,5 +3729,6 @@
   "Its file is deleted from /config/addons. Projects can't add it any more until it is installed again.": "Seine Datei wird aus /config/addons gelöscht. Projekte können es erst wieder hinzufügen, wenn es erneut installiert ist.",
   "Remove the custom certificate?": "Eigenes Zertifikat entfernen?",
   "The names it covers get certificates from the local CA again. The private key isn't shown anywhere, so to use the certificate again you need its files.": "Die Namen, die es abdeckt, bekommen wieder Zertifikate der lokalen CA. Der private Schlüssel wird nirgends angezeigt: Um das Zertifikat wieder zu nutzen, brauchst du seine Dateien.",
-  "this passkey is not registered here (any more)": "Dieser Passkey ist hier nicht (mehr) registriert"
+  "this passkey is not registered here (any more)": "Dieser Passkey ist hier nicht (mehr) registriert",
+  "The link expired {{when}}. Send a new one with “{{action}}”.": "Der Link ist am {{when}} abgelaufen. Schicke mit „{{action}}“ einen neuen."
 }

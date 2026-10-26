@@ -3795,5 +3795,6 @@
   "Its file is deleted from /config/addons. Projects can't add it any more until it is installed again.": "Его файл удаляется из /config/addons. Проекты не смогут его добавить, пока он не будет установлен снова.",
   "Remove the custom certificate?": "Удалить собственный сертификат?",
   "The names it covers get certificates from the local CA again. The private key isn't shown anywhere, so to use the certificate again you need its files.": "Имена, которые он покрывает, снова получат сертификаты локального CA. Закрытый ключ нигде не показывается, поэтому чтобы снова использовать сертификат, понадобятся его файлы.",
-  "this passkey is not registered here (any more)": "Этот ключ доступа здесь не зарегистрирован (или уже удалён)"
+  "this passkey is not registered here (any more)": "Этот ключ доступа здесь не зарегистрирован (или уже удалён)",
+  "The link expired {{when}}. Send a new one with “{{action}}”.": "Ссылка истекла {{when}}. Отправьте новую кнопкой «{{action}}»."
 }
