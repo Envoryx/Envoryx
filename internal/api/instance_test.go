@@ -184,3 +184,21 @@ func TestTokenRestoresOnlyOwnInstanceBackups(t *testing.T) {
 		t.Fatalf("session restores an upload: %d %s", r.status, r.raw)
 	}
 }
+
+// A hosted instance restores only its own instance backups: another Envoryx's would
+// bring its projects with services the plan doesn't include.
+func TestHostedInstanceRestoresOnlyItsOwnInstanceBackups(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	own, uploaded := a.ownAndUploadedInstanceBackups()
+	a.setPlan(`{"name":"Small","services":["mariadb","redis"]}`)
+	a.engine.Instance = "another-instance"
+	r := a.do(http.MethodPost, "/api/v1/instance/backups/"+uploaded+"/restore", map[string]string{"confirm": "restore"}, true)
+	if r.status != http.StatusForbidden || errCode(r) != "plan_limit" {
+		t.Fatalf("foreign backup on a hosted instance: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/instance/backups/"+own+"/restore", map[string]string{"confirm": "restore"}, true)
+	if r.status != http.StatusAccepted {
+		t.Fatalf("own backup on a hosted instance: %d %s", r.status, r.raw)
+	}
+}

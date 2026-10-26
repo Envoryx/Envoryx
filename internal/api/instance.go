@@ -10,6 +10,7 @@ import (
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/instance"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -189,6 +190,10 @@ func (a *API) restoreInstanceBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.PathValue("id")
+	if err := a.checkInstanceRestorePlan(s, id); err != nil {
+		writeError(w, r, err)
+		return
+	}
 	p, _ := auth.PrincipalFrom(r.Context())
 	if err := s.ScheduleRestore(id, audit.Actor(p), req.Key); err != nil {
 		writeError(w, r, err)
@@ -199,6 +204,32 @@ func (a *API) restoreInstanceBackup(w http.ResponseWriter, r *http.Request) {
 	if a.d.Restart != nil {
 		a.d.Restart()
 	}
+}
+
+// errForeignInstanceBackup refuses another instance's backup on a hosted instance.
+const errForeignInstanceBackup = "on a hosted instance only its own instance backups can be restored; bring projects from elsewhere over as project backups (New project → Existing website), where the plan is checked"
+
+// checkInstanceRestorePlan keeps a hosted instance within its plan: an instance backup of
+// another Envoryx brings that instance's projects with whatever services they run, past
+// the checks a project, a service or a project backup goes through. Its own backups
+// bring back what it had, which the plan already allowed or left in place.
+func (a *API) checkInstanceRestorePlan(s *instance.Store, id string) error {
+	if a.d.Projects == nil || a.d.Projects.Plan() == nil {
+		return nil
+	}
+	info, err := s.Get(id)
+	if err != nil {
+		return err
+	}
+	if info.Own() {
+		return nil
+	}
+	if a.d.Engine != nil {
+		if own := a.d.Engine.InstanceID(); own != "" && info.Meta.InstanceID == own {
+			return nil // made here, then downloaded or fetched from an offsite target
+		}
+	}
+	return plan.Quota("%s", errForeignInstanceBackup)
 }
 
 func (a *API) cancelInstanceRestore(w http.ResponseWriter, r *http.Request) {

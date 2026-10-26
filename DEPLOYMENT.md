@@ -1879,6 +1879,10 @@ one Docker host*); a restore keeps the current key and ID.
   re-encrypted with this instance's key. Only the current key counts: after a
   replacement, older backups need the old key, so keep a copy of it as long as
   you may restore one of them.
+- On a **hosted** instance (one with a plan) only its own instance backups can be
+  restored, including its own downloaded and fetched ones. Another Envoryx's would
+  bring that instance's projects with services the plan may not include; projects
+  from elsewhere come over as project backups, where the plan is checked.
 
 Manual restore without the UI (e.g. Envoryx doesn't start): stop the
 container, unpack the archive (`envoryx.db` to `/config/envoryx.db`, deleting
