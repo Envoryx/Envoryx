@@ -234,8 +234,10 @@ func summaryToContainer(c container.Summary) Container {
 		ports = append(ports, PortMapping{HostIP: ip, HostPort: int(p.PublicPort), ContainerPort: int(p.PrivatePort), Protocol: p.Type})
 	}
 	// Docker reports "none" for containers without a healthcheck; treat that as no health.
+	// A container that doesn't run has none either: Docker keeps its last result, so a
+	// stopped one would read "unhealthy".
 	health := ""
-	if c.Health != nil && c.Health.Status != "none" {
+	if c.Health != nil && c.Health.Status != "none" && c.State == container.StateRunning {
 		health = string(c.Health.Status)
 	}
 	return Container{

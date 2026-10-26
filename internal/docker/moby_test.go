@@ -19,6 +19,16 @@ func TestSummaryToContainerListsDualStackBindingOnce(t *testing.T) {
 	}
 }
 
+func TestSummaryToContainerReportsHealthOnlyWhileRunning(t *testing.T) {
+	unhealthy := &container.HealthSummary{Status: container.Unhealthy}
+	if c := summaryToContainer(container.Summary{State: container.StateRunning, Health: unhealthy}); c.Health != "unhealthy" {
+		t.Fatalf("running: %q", c.Health)
+	}
+	if c := summaryToContainer(container.Summary{State: container.StateExited, Health: unhealthy}); c.Health != "" {
+		t.Fatalf("exited: %q", c.Health)
+	}
+}
+
 func TestPullSummary(t *testing.T) {
 	s := pullSummary{layers: map[string]*layerProgress{}}
 	if got := s.observe("", "Pulling from envoryx/envoryx-php", 0, 0); got != "Pulling from envoryx/envoryx-php" {
