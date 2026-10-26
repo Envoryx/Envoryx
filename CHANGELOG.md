@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-10-26
+
 ### Added
 - A project backup made by another Envoryx can be restored into a new project here.
   Before, its project settings only opened on an instance with the same secret key,
@@ -2722,7 +2724,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.44.4...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.45.0...HEAD
+[0.45.0]: https://github.com/envoryx/envoryx/compare/v0.44.4...v0.45.0
 [0.44.4]: https://github.com/envoryx/envoryx/compare/v0.44.3...v0.44.4
 [0.44.3]: https://github.com/envoryx/envoryx/compare/v0.44.2...v0.44.3
 [0.44.2]: https://github.com/envoryx/envoryx/compare/v0.44.1...v0.44.2
