@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/validate"
@@ -184,6 +185,35 @@ func TestExtractArchiveRejectsTarSlip(t *testing.T) {
 		t.Fatal("file written through symlink outside the target")
 	}
 	_ = err
+}
+
+// Restored files and directories keep the modification time they had in the backup.
+func TestExtractArchiveKeepsModificationTimes(t *testing.T) {
+	src := t.TempDir()
+	then := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
+	if err := os.MkdirAll(filepath.Join(src, "public"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(src, "public", "marker.txt")
+	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.Chtimes(file, then, then)
+	_ = os.Chtimes(filepath.Join(src, "public"), then.Add(time.Hour), then.Add(time.Hour))
+	archive := filepath.Join(t.TempDir(), "files.tar.gz")
+	if _, _, err := archiveDir(src, archive, false); err != nil {
+		t.Fatal(err)
+	}
+	target := t.TempDir()
+	if err := extractArchive(archive, target, os.Getuid(), os.Getgid()); err != nil {
+		t.Fatal(err)
+	}
+	if fi, err := os.Stat(filepath.Join(target, "public", "marker.txt")); err != nil || !fi.ModTime().Equal(then) {
+		t.Fatalf("file time: %v %v", fi.ModTime(), err)
+	}
+	if fi, err := os.Stat(filepath.Join(target, "public")); err != nil || !fi.ModTime().Equal(then.Add(time.Hour)) {
+		t.Fatalf("directory time: %v %v", fi.ModTime(), err)
+	}
 }
 
 func TestExtractArchiveOverReadOnlyFiles(t *testing.T) {

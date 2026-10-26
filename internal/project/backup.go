@@ -1480,10 +1480,17 @@ func extractArchive(archive, target string, uid, gid int) error {
 		}
 		_ = root.Chmod(dir, info.Mode().Perm()|0o700)
 	}
+	// Files and directories keep the modification time of the archive, so rsync, make
+	// and caches don't take every restored file for a changed one. A directory's time is
+	// set last: every file written into it changes it.
+	dirTimes := map[string]time.Time{}
 	defer func() {
 		// Deepest first, so a parent made read-only again does not block its children.
 		for i := len(dirOrder) - 1; i >= 0; i-- {
 			_ = root.Chmod(dirOrder[i], dirModes[dirOrder[i]])
+		}
+		for dir, mtime := range dirTimes {
+			_ = root.Chtimes(dir, mtime, mtime)
 		}
 	}()
 	var links []string
@@ -1519,6 +1526,9 @@ func extractArchive(archive, target string, uid, gid int) error {
 			}
 			keepMode(name, mode)
 			chown(name)
+			if !hdr.ModTime.IsZero() {
+				dirTimes[name] = hdr.ModTime
+			}
 		case tar.TypeSymlink:
 			linkDest := hdr.Linkname
 			if !filepath.IsAbs(linkDest) {
@@ -1561,6 +1571,9 @@ func extractArchive(archive, target string, uid, gid int) error {
 				return err
 			}
 			chown(name)
+			if !hdr.ModTime.IsZero() {
+				_ = root.Chtimes(name, hdr.ModTime, hdr.ModTime)
+			}
 		default:
 			// hard links, devices, fifos: not restored
 		}
