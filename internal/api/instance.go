@@ -10,6 +10,7 @@ import (
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/instance"
+	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
@@ -69,6 +70,11 @@ func (a *API) createInstanceBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	info, err := s.Create(r.Context(), a.d.DB, instance.KindManual, req.Note)
 	if err != nil {
+		// Like a failed project backup, and like the daily one for the offsite targets:
+		// whoever watches the notifications learns of it, not only the one who asked.
+		if a.d.Notify != nil && !errors.Is(err, validate.ErrInvalid) && !errors.Is(err, instance.ErrPending) {
+			a.d.Notify.Notify(r.Context(), notify.Event{Kind: "backup.failed", Level: notify.Error, Title: "Instance backup failed", Message: err.Error()})
+		}
 		writeError(w, r, err)
 		return
 	}
