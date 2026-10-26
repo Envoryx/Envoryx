@@ -1554,6 +1554,18 @@ func (e *MobyEngine) SetRegistryCredentials(creds RegistryCredentials) {
 }
 
 // CheckRegistryLogin implements Engine.
+// loginRefusedText recognises a refusal the daemon passes on without a type: some
+// registries (ghcr.io from some networks) answer "denied: denied".
+func loginRefusedText(msg string) bool {
+	msg = strings.ToLower(msg)
+	for _, s := range []string{"denied", "unauthorized", "incorrect username or password", "authentication required"} {
+		if strings.Contains(msg, s) {
+			return true
+		}
+	}
+	return false
+}
+
 func (e *MobyEngine) CheckRegistryLogin(ctx context.Context, host, username, password string) error {
 	addr := host
 	if host == "docker.io" {
@@ -1563,7 +1575,7 @@ func (e *MobyEngine) CheckRegistryLogin(ctx context.Context, host, username, pas
 	switch {
 	case err == nil:
 		return nil
-	case cerrdefs.IsUnauthorized(err), cerrdefs.IsPermissionDenied(err):
+	case cerrdefs.IsUnauthorized(err), cerrdefs.IsPermissionDenied(err), loginRefusedText(err.Error()):
 		return fmt.Errorf("%w: %v", ErrLoginRefused, err)
 	}
 	return err
