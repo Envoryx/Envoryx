@@ -35,6 +35,7 @@ export function RestoreNewDialog({ projectId, projectName, backup, onClose }: { 
   const [path, setPath] = useState("");
   const [pathTouched, setPathTouched] = useState(false);
   const [parts, setParts] = useState({ database: true, files: true, storage: true, start: false });
+  const [key, setKey] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const suggestion = t("{{name}} Restored", { name: projectName });
@@ -48,6 +49,7 @@ export function RestoreNewDialog({ projectId, projectName, backup, onClose }: { 
     setPath("");
     setPathTouched(false);
     setParts({ database: true, files: true, storage: true, start: false });
+    setKey("");
     setError(null);
     onClose();
   };
@@ -63,6 +65,7 @@ export function RestoreNewDialog({ projectId, projectName, backup, onClose }: { 
       start: parts.start,
     };
     if (dir !== slug) body.path = dir;
+    if (backup.sealedWith) body.key = key.trim();
     restore.mutate(
       { projectId, backupId: backup.id, body },
       {
@@ -86,7 +89,7 @@ export function RestoreNewDialog({ projectId, projectName, backup, onClose }: { 
           <Button onClick={close} disabled={restore.isPending}>
             {t("Cancel")}
           </Button>
-          <Button variant="primary" onClick={submit} loading={restore.isPending} disabled={slug === ""} icon={<ArchiveRestore className="size-4" />}>
+          <Button variant="primary" onClick={submit} loading={restore.isPending} disabled={slug === "" || (!!backup?.sealedWith && !key.trim())} icon={<ArchiveRestore className="size-4" />}>
             {t("Restore into a new project")}
           </Button>
         </>
@@ -97,6 +100,15 @@ export function RestoreNewDialog({ projectId, projectName, backup, onClose }: { 
           {error && <Alert tone="red">{error}</Alert>}
           {madeBefore025(backup.meta) && (
             <Alert tone="amber">{t("Envoryx {{version}} made this backup, before backups carried the workers, cron jobs, resource limits, health check and proxy rules. The new project starts without them; add them again afterwards.", { version: madeBefore025(backup.meta) })}</Alert>
+          )}
+          {backup.sealedWith && (
+            <Field
+              label={t("Secret key of the backup")}
+              htmlFor="restore-new-key"
+              hint={t("Another Envoryx made this backup: its project settings are encrypted with key {{id}}, not with this instance's. Enter that key (Settings → Secret key on the Envoryx that made it); afterwards the backup is encrypted with this instance's key, and the key you enter isn't stored.", { id: backup.sealedWith })}
+            >
+              <Input id="restore-new-key" type="password" value={key} onChange={(e) => setKey(e.target.value)} autoComplete="off" spellCheck={false} />
+            </Field>
           )}
           <Field label={t("Name of the new project")} htmlFor="restore-new-name" hint={t("Identifier: {{slug}}", { slug: slug || "-" })}>
             <Input id="restore-new-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={suggestion} autoComplete="off" spellCheck={false} />

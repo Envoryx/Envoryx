@@ -167,6 +167,7 @@ type restoreNewRequest struct {
 	Files    *bool  `json:"files"`
 	Storage  *bool  `json:"storage"`
 	Start    bool   `json:"start"`
+	Key      string `json:"key"`
 }
 
 // restoreBackupNew restores a backup into a new project: POST
@@ -181,7 +182,7 @@ func (a *API) restoreBackupNew(w http.ResponseWriter, r *http.Request) {
 	on := func(b *bool) bool { return b == nil || *b }
 	p, _ := auth.PrincipalFrom(r.Context())
 	view, err := a.d.Projects.RestoreIntoNewProject(r.Context(), r.PathValue("project"), r.PathValue("backup"), project.RestoreNewRequest{
-		Name: req.Name, Path: req.Path, Database: on(req.Database), Files: on(req.Files), Storage: on(req.Storage), Start: req.Start,
+		Name: req.Name, Path: req.Path, Database: on(req.Database), Files: on(req.Files), Storage: on(req.Storage), Start: req.Start, Key: req.Key,
 		// The support may not set a custom image, so it may not restore one either: the
 		// backup may be an upload, or of a project an admin has since moved off it.
 		NoCustomImages: p.Support,

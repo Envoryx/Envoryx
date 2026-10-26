@@ -1242,7 +1242,9 @@ analysis, `GET`/`DELETE /site-imports/{id}`, and `POST /projects` with
 `"import": {"id": "…", "adaptConfig": true}` creates the project; both need an
 `admin` token. An Envoryx backup as `site` is answered with `{"backup": {…}}`
 instead (`projectId`, `backup.id`, `projectExists`), the IDs for
-`POST /backups/{project}/{backup}/restore-new`. An instance backup is kept with
+`POST /backups/{project}/{backup}/restore-new`. `backup.sealedWith` names the key
+of another Envoryx the backup's settings are sealed with; that key goes along as
+`"key"` in the restore request. An instance backup is kept with
 the instance backups and answered with `{"instanceBackup": {…}}`. From the command line:
 
 ```sh
@@ -1802,16 +1804,23 @@ name) or deletes it. Restoring into a new project needs admin access to the
 whole instance. Backups made before 0.25 carry the services, variables and
 repository but not the workers, cron jobs, limits, health check, proxy rules
 and custom images; a project restored from one starts without those. The
-project settings in a backup are sealed with the instance key, so a backup
-restores into a new project only on an instance with that key.
+project settings in a backup are sealed with the instance key. A backup sealed
+with a key this instance doesn't hold (one made by another Envoryx, or before a
+key replacement) asks for that key in the restore dialog: Envoryx checks it
+against the key ID the backup records, opens the settings with it and seals them
+with its own key. The key you enter is stored nowhere, and from then on the
+backup restores like one made here.
 
 A backup downloaded with *Download* (the `.tar`, also gzipped) comes back
 through *New project → Existing website*: Envoryx recognises it there instead of
 analysing it as a website, keeps it as a backup of its project (or, when that
 project is gone, with the backups of deleted projects) and offers to restore it
-into a new project. That is also how a project moves to another Envoryx with
-the same instance key. `envoryx import <backup>.tar` does the same from the
-command line.
+into a new project. That is also how a project moves to another Envoryx, say
+from a home server to a hosted instance: give the secret key of the Envoryx that
+made the backup (*Settings → Secret key → Show key* there) when restoring it, as
+above; nobody needs access to the container for that. `envoryx import
+<backup>.tar` does the same from the command line, with `--key-file FILE` (`-`
+reads stdin) for another Envoryx's key.
 
 An instance backup uploaded there by mistake isn't taken for a website either:
 it lands with the instance backups (below), where it can be restored.
@@ -1968,7 +1977,8 @@ the target, and *Restore into a new project* fetches the backup and restores it
 with the settings it was made with (`envoryx backup recover` lists them,
 `envoryx backup recover <slug>[/<backup>] [name]` restores one). The project
 settings in a backup are sealed with the instance key, so this needs the old
-key (`ENVORYX_SECRET_KEY` or `/config/secret.key`). The API is
+key: the restore dialog asks for it (`--key-file` for `envoryx backup recover`).
+The API is
 `GET /api/v1/offsite/targets/{target}/projects` and
 `POST /api/v1/offsite/targets/{target}/projects/fetch` with `{"key": "…"}`,
 which answers like the site import of a backup (`{"backup": {…}}`); both need

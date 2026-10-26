@@ -121,6 +121,9 @@ export function ImportSiteCard({
             ? t("Envoryx made this backup. It is one of the backups of {{name}} now and is restored into a new project with the settings it was made with.", { name })
             : t("Envoryx made this backup. It is listed under Settings → Backups → Backups of deleted projects now and is restored into a new project with the settings it was made with.")}
         </p>
+        {backup.backup.sealedWith && (
+          <p className="text-sm text-muted">{t("Another Envoryx made it, so restoring it asks for that Envoryx's secret key.")}</p>
+        )}
         <Button variant="primary" onClick={() => setRestoring(true)} icon={<ArchiveRestore className="size-4" />}>
           {t("Restore into a new project")}
         </Button>

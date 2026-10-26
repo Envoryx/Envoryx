@@ -289,6 +289,9 @@ type BackupInfo struct {
 	CreatedAt time.Time  `json:"createdAt"`
 	Meta      BackupMeta `json:"meta"`
 	Missing   bool       `json:"missing"`
+	// SealedWith is the id of the key the backup's project settings are sealed with when
+	// this Envoryx doesn't hold it; restoring it into a new project needs that key.
+	SealedWith string `json:"sealedWith,omitempty"`
 }
 
 // BackupLocation is the directory a project's backups are stored in, as Envoryx sees it
@@ -369,9 +372,8 @@ func (m *Manager) ListBackups(ctx context.Context, id string) ([]BackupInfo, err
 	for _, b := range rows {
 		info := BackupInfo{ID: b.ID, Dir: b.Filename, Kind: b.Kind, SizeBytes: b.SizeBytes, CreatedAt: b.CreatedAt}
 		_ = json.Unmarshal(b.Metadata, &info.Meta)
-		if _, err := os.Stat(filepath.Join(root, b.Filename, backupMetaFile)); err != nil {
-			info.Missing = true
-		}
+		sealedWith, err := foreignKeyOf(filepath.Join(root, b.Filename, backupMetaFile))
+		info.SealedWith, info.Missing = sealedWith, err != nil
 		out = append(out, info)
 	}
 	return out, nil
@@ -1522,6 +1524,9 @@ func (m *Manager) ResealBackups(ctx context.Context) (int, error) {
 				return changed, err
 			}
 			bf.Export = nil
+		case bf.foreignKey() != "":
+			// Made by another Envoryx: it waits for that key (unsealBackupWith).
+			continue
 		case r.NeedsReseal(bf.SealedExport):
 			v, _, err := r.Reseal(bf.SealedExport)
 			if err != nil {
@@ -1531,21 +1536,29 @@ func (m *Manager) ResealBackups(ctx context.Context) (int, error) {
 		default:
 			continue
 		}
-		out, err := json.MarshalIndent(bf, "", "  ")
-		if err != nil {
-			return changed, err
-		}
-		tmp := f + ".tmp"
-		if err := os.WriteFile(tmp, out, 0o600); err != nil {
-			return changed, err
-		}
-		if err := os.Rename(tmp, f); err != nil {
-			_ = os.Remove(tmp)
+		if err := writeBackupFile(f, bf); err != nil {
 			return changed, err
 		}
 		changed++
 	}
 	return changed, nil
+}
+
+// writeBackupFile replaces a backup.json file with bf.
+func writeBackupFile(file string, bf backupFile) error {
+	out, err := json.MarshalIndent(bf, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := file + ".tmp"
+	if err := os.WriteFile(tmp, out, 0o600); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, file); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
 }
 
 // flushRedis empties the Redis that Envoryx runs for the project. A stopped Redis keeps

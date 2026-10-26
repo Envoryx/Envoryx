@@ -10,6 +10,17 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- A project backup made by another Envoryx can be restored into a new project here.
+  Before, its project settings only opened on an instance with the same secret key,
+  so a move from a home server to a hosted instance needed access to the container.
+  Now the restore dialog asks for the other Envoryx's key (*Settings → Secret key* there),
+  checks it against the key ID in the backup and seals the settings with this
+  instance's key; the key you enter isn't stored. This works for downloaded backups
+  uploaded through *New project → Existing website*, for backups fetched from an
+  offsite target and for those from before a key replacement. On the command line,
+  `envoryx import` and `envoryx backup recover` take the key with `--key-file`.
+
 ## [0.44.4] - 2026-10-25
 
 ### Security

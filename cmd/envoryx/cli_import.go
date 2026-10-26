@@ -31,7 +31,8 @@ the flags below override what it suggests. The name defaults to the folder's.
 
 A backup downloaded from Envoryx (the .tar of a project backup) is restored into a new
 project with the settings it was made with; the name defaults to the backup's project,
-and only --path and --start apply.
+and only --path, --start and --key-file apply. A backup made by another Envoryx needs
+that Envoryx's secret key (Settings → Secret key there), given with --key-file.
 
   --db FILE            SQL dump (.sql or .sql.gz) to import into the project database
   --no-adapt           leave the site's configuration files exactly as uploaded
@@ -42,6 +43,7 @@ and only --path and --start apply.
   --web SERVER         apache, nginx or caddy
   --docroot DIR        document root
   --start              start the project once it is created
+  --key-file FILE      secret key of the Envoryx that made the backup ("-" reads stdin)
   --dry-run            only upload and show what Envoryx recognised
 `
 
@@ -84,8 +86,9 @@ type uploadedBackup struct {
 	ProjectName   string `json:"projectName"`
 	ProjectExists bool   `json:"projectExists"`
 	Backup        struct {
-		ID        string `json:"id"`
-		CreatedAt string `json:"createdAt"`
+		ID         string `json:"id"`
+		CreatedAt  string `json:"createdAt"`
+		SealedWith string `json:"sealedWith"`
 	} `json:"backup"`
 }
 
@@ -111,6 +114,7 @@ func (c *cli) importSite(ctx context.Context, args []string) error {
 		web      = fs.String("web", "", "web server")
 		docroot  = fs.String("docroot", "", "document root")
 		start    = fs.Bool("start", false, "start the project")
+		keyFile  = fs.String("key-file", "", "secret key of the backup's Envoryx")
 		dryRun   = fs.Bool("dry-run", false, "only analyse")
 	)
 	pos, err := parse(fs, args)
@@ -136,6 +140,10 @@ func (c *cli) importSite(ctx context.Context, args []string) error {
 		if _, err := os.Stat(*dump); err != nil {
 			return fileError(err)
 		}
+	}
+	key, err := c.readKeyFile(*keyFile)
+	if err != nil {
+		return err
 	}
 
 	api, err := c.connect()
@@ -163,7 +171,7 @@ func (c *cli) importSite(ctx context.Context, args []string) error {
 		return nil
 	}
 	if backup != nil {
-		return c.restoreUploadedBackup(ctx, api, *backup, givenName, *path, *start, *dryRun)
+		return c.restoreUploadedBackup(ctx, api, *backup, givenName, *path, key, *start, *dryRun)
 	}
 	a := staged.Analysis
 	discard := func() {
@@ -323,7 +331,7 @@ func orDefault(v string) string {
 // restoreUploadedBackup restores a backup the server recognised in the upload into a new
 // project. The server keeps the backup either way: with its project, or with the backups
 // of deleted projects.
-func (c *cli) restoreUploadedBackup(ctx context.Context, api *client, b uploadedBackup, name, path string, start, dryRun bool) error {
+func (c *cli) restoreUploadedBackup(ctx context.Context, api *client, b uploadedBackup, name, path, key string, start, dryRun bool) error {
 	if name == "" {
 		name = b.ProjectName
 	}
@@ -332,8 +340,14 @@ func (c *cli) restoreUploadedBackup(ctx context.Context, api *client, b uploaded
 			return c.printJSON(map[string]any{"backup": b})
 		}
 		c.printf("Recognised a backup of %s from %s\n", b.ProjectName, b.Backup.CreatedAt)
+		if b.Backup.SealedWith != "" {
+			c.printf("  made by another Envoryx: restoring it needs that Envoryx's secret key %s (--key-file)\n", b.Backup.SealedWith)
+		}
 		c.printf("Dry run: no project was created; the backup is kept on the server.\n")
 		return nil
+	}
+	if b.Backup.SealedWith != "" && key == "" {
+		return fmt.Errorf("the backup of %s was made by another Envoryx, and its settings are sealed with that Envoryx's secret key %s: pass that key with --key-file (Settings → Secret key there); the backup is kept on the server", b.ProjectName, b.Backup.SealedWith)
 	}
 	var body struct {
 		Project projectSummary `json:"project"`
@@ -341,6 +355,9 @@ func (c *cli) restoreUploadedBackup(ctx context.Context, api *client, b uploaded
 	req := map[string]any{"name": name, "start": start}
 	if path != "" {
 		req["path"] = path
+	}
+	if key != "" {
+		req["key"] = key
 	}
 	if err := api.post(ctx, "/api/v1/backups/"+b.ProjectID+"/"+b.Backup.ID+"/restore-new", req, &body); err != nil {
 		return err
@@ -356,6 +373,18 @@ func (c *cli) restoreUploadedBackup(ctx context.Context, api *client, b uploaded
 		c.printf("  Start it with: envoryx project start %s\n", body.Project.Slug)
 	}
 	return nil
+}
+
+// readKeyFile reads a secret key from file, "-" for stdin; no file gives no key.
+func (c *cli) readKeyFile(file string) (string, error) {
+	if file == "" {
+		return "", nil
+	}
+	b, err := c.readFileOrStdin(file)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(b)), nil
 }
 
 // uploadSite streams the site (a folder packed on the fly, or an archive as it is) and

@@ -248,7 +248,12 @@ func (c *cli) backupRecover(ctx context.Context, args []string) error {
 	target := fs.String("target", "", "offsite target name or id")
 	path := fs.String("path", "", "directory of the new project")
 	start := fs.Bool("start", false, "start the new project")
+	keyFile := fs.String("key-file", "", "secret key of the Envoryx that made the backup (\"-\" reads stdin)")
 	pos, err := parse(fs, args)
+	if err != nil {
+		return err
+	}
+	secretKey, err := c.readKeyFile(*keyFile)
 	if err != nil {
 		return err
 	}
@@ -323,5 +328,5 @@ func (c *cli) backupRecover(ctx context.Context, args []string) error {
 	if fetched.Backup.ProjectName == "" {
 		fetched.Backup.ProjectName = slug
 	}
-	return c.restoreUploadedBackup(ctx, api, fetched.Backup, arg(pos, 1), *path, *start, false)
+	return c.restoreUploadedBackup(ctx, api, fetched.Backup, arg(pos, 1), *path, secretKey, *start, false)
 }

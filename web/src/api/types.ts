@@ -1976,6 +1976,8 @@ export interface BackupInfo {
   createdAt: string;
   meta: BackupMeta;
   missing: boolean;
+  /** ID of the key the project settings are sealed with when this Envoryx doesn't hold it (a backup of another Envoryx). */
+  sealedWith?: string;
 }
 
 /** Restores a backup into a new project; database, files and storage default to on. */
@@ -1986,6 +1988,8 @@ export interface RestoreNewRequest {
   files?: boolean;
   storage?: boolean;
   start?: boolean;
+  /** Secret key of the Envoryx that made the backup, for one with sealedWith. */
+  key?: string;
 }
 
 /** A backup whose project was deleted. */

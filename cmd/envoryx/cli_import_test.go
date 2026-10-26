@@ -178,6 +178,42 @@ func TestImportRestoresAnUploadedBackup(t *testing.T) {
 	}
 }
 
+// A backup of another Envoryx needs that Envoryx's key: without --key-file the CLI says
+// so instead of restoring, with it the key goes along with the restore.
+func TestImportPassesTheKeyOfAnotherEnvoryx(t *testing.T) {
+	archive := filepath.Join(t.TempDir(), "shop-20261010-084321-4ed7a89e.tar")
+	_ = os.WriteFile(archive, []byte("tar"), 0o644)
+	const restoreURL = "/api/v1/backups/66666666-6666-4666-8666-666666666666/77777777-7777-4777-8777-777777777777/restore-new"
+	srv := newFakeServer(t, map[string]func(http.ResponseWriter, *http.Request){
+		"POST /api/v1/site-imports": func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusCreated)
+			writeJSON(w, map[string]any{"backup": map[string]any{
+				"projectId": "66666666-6666-4666-8666-666666666666", "projectName": "Shop", "slug": "shop", "projectExists": false,
+				"backup": map[string]any{"id": "77777777-7777-4777-8777-777777777777", "createdAt": "2026-10-10T08:43:21Z", "sealedWith": "1a2b3c4d"},
+			}})
+		},
+		"POST " + restoreURL: func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusCreated)
+			writeJSON(w, map[string]any{"project": map[string]any{"id": "88888888-8888-4888-8888-888888888888", "name": "Shop", "slug": "shop"}})
+		},
+	})
+	c, _, _ := newTestCLI(t, srv, "the-source-key\n")
+	if err := c.run(context.Background(), []string{"import", archive}); err == nil || !strings.Contains(err.Error(), "--key-file") || !strings.Contains(err.Error(), "1a2b3c4d") {
+		t.Fatalf("without the key: %v", err)
+	}
+	if slices.Contains(srv.requests, "POST "+restoreURL) {
+		t.Fatal("restored without the key")
+	}
+	if err := c.run(context.Background(), []string{"import", archive, "--key-file", "-"}); err != nil {
+		t.Fatal(err)
+	}
+	var restored map[string]any
+	_ = json.Unmarshal(srv.bodies[restoreURL], &restored)
+	if restored["key"] != "the-source-key" {
+		t.Fatalf("restore request: %v", restored)
+	}
+}
+
 func TestImportKeepsAnInstanceBackup(t *testing.T) {
 	archive := filepath.Join(t.TempDir(), "manual-20261011-120000-ab12.tar.gz")
 	_ = os.WriteFile(archive, []byte("tgz"), 0o644)

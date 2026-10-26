@@ -38,6 +38,9 @@ type RestoreNewRequest struct {
 	// NoCustomImages refuses a backup whose project ran a runtime on a custom image
 	// (ErrCustomImageRefused): the hoster's support may not bring one onto the instance.
 	NoCustomImages bool
+	// Key is the secret key of the Envoryx that made the backup, needed when its project
+	// settings are sealed with a key this Envoryx doesn't hold (BackupInfo.SealedWith).
+	Key string
 }
 
 // OrphanedBackup is a backup of a project that no longer exists.
@@ -58,8 +61,10 @@ func (m *Manager) OrphanedBackups(ctx context.Context) ([]OrphanedBackup, error)
 	for _, b := range rows {
 		info := BackupInfo{ID: b.ID, Dir: b.Filename, Kind: b.Kind, SizeBytes: b.SizeBytes, CreatedAt: b.CreatedAt}
 		_ = json.Unmarshal(b.Metadata, &info.Meta)
-		if _, err := m.locateBackup(ctx, b, info.Meta); err != nil {
+		if dir, err := m.locateBackup(ctx, b, info.Meta); err != nil {
 			info.Missing = true
+		} else {
+			info.SealedWith, _ = foreignKeyOf(filepath.Join(dir, backupMetaFile))
 		}
 		out = append(out, OrphanedBackup{ProjectID: b.ProjectID, ProjectName: info.Meta.ProjectName, Slug: info.Meta.Slug, Backup: info})
 	}
@@ -156,7 +161,7 @@ func (bf backupFile) export() (projectExport, error) {
 		if errors.Is(err, secrets.ErrUnknownKey) {
 			// After a rotation this is this very Envoryx's retired key: copies already on an
 			// offsite target keep the key they were made with.
-			return projectExport{}, fmt.Errorf("%w: the backup's project settings are sealed with secret key %s, which this Envoryx does not hold (a key replaced by a rotation, or the key of another Envoryx); to use this backup, run Envoryx with that key (ENVORYX_SECRET_KEY or /config/secret.key)", validate.ErrInvalid, secrets.KeyIDOf(bf.SealedExport))
+			return projectExport{}, fmt.Errorf("%w: the backup's project settings are sealed with secret key %s, which this Envoryx does not hold (a key replaced by a rotation, or the key of another Envoryx); give that key to restore the backup (Settings → Secret key on the Envoryx that made it)", validate.ErrInvalid, secrets.KeyIDOf(bf.SealedExport))
 		}
 		if err != nil {
 			return projectExport{}, fmt.Errorf("%w: the backup's project settings can't be opened: %v", validate.ErrInvalid, err)
@@ -170,6 +175,75 @@ func (bf backupFile) export() (projectExport, error) {
 		return *bf.Export, nil
 	}
 	return projectExport{}, fmt.Errorf("%w: this backup holds no project settings", validate.ErrInvalid)
+}
+
+// foreignKey returns the id of the key the project settings are sealed with when this
+// Envoryx doesn't hold it: a backup made by another Envoryx, or before a key rotation.
+func (bf backupFile) foreignKey() string {
+	if bf.SealedExport == "" {
+		return ""
+	}
+	id := secrets.KeyIDOf(bf.SealedExport)
+	if r := secrets.Default(); r != nil && r.Has(id) {
+		return ""
+	}
+	return id
+}
+
+// foreignKeyOf reads the backup.json file and returns its foreignKey.
+func foreignKeyOf(file string) (string, error) {
+	raw, err := os.ReadFile(file)
+	if err != nil {
+		return "", err
+	}
+	var bf backupFile
+	if json.Unmarshal(raw, &bf) != nil {
+		return "", nil
+	}
+	return bf.foreignKey(), nil
+}
+
+// unsealBackupWith opens the project settings of the backup in dir with key, the key of
+// the Envoryx that made it, and seals them with this Envoryx's key: from then on the
+// backup is like one made here. The key itself is kept nowhere. It returns the id of the
+// key it opened the settings with, "" when they open here anyway.
+func unsealBackupWith(dir, key string) (string, error) {
+	file := filepath.Join(dir, backupMetaFile)
+	raw, err := os.ReadFile(file)
+	if err != nil {
+		return "", err
+	}
+	var bf backupFile
+	if err := json.Unmarshal(raw, &bf); err != nil {
+		return "", fmt.Errorf("read %s: %w", backupMetaFile, err)
+	}
+	id := bf.foreignKey()
+	if id == "" {
+		return "", nil
+	}
+	k, err := secrets.ParseKey(key)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", validate.ErrInvalid, err)
+	}
+	if k.ID() != id {
+		return "", fmt.Errorf("%w: that is key %s, the backup needs key %s", validate.ErrInvalid, k.ID(), id)
+	}
+	plain, err := secrets.NewRing(k).Open(bf.SealedExport)
+	if err != nil {
+		return "", fmt.Errorf("%w: the backup's project settings can't be opened: %v", validate.ErrInvalid, err)
+	}
+	var ex projectExport
+	if err := json.Unmarshal([]byte(plain), &ex); err != nil {
+		return "", fmt.Errorf("%w: the backup's project settings are unreadable: %v", validate.ErrInvalid, err)
+	}
+	if r := secrets.Default(); r != nil {
+		if bf.SealedExport, err = r.Seal(plain); err != nil {
+			return "", err
+		}
+	} else {
+		bf.Export, bf.SealedExport = &ex, ""
+	}
+	return id, writeBackupFile(file, bf)
 }
 
 // projectFromExport turns an export back into a project, the original a duplicate is
@@ -234,6 +308,12 @@ func (m *Manager) restoreIntoNew(ctx context.Context, projectID, backupID string
 	dir, err := m.locateBackup(ctx, b, meta)
 	if err != nil {
 		return View{}, err
+	}
+	sourceKey := ""
+	if req.Key != "" {
+		if sourceKey, err = unsealBackupWith(dir, req.Key); err != nil {
+			return View{}, err
+		}
 	}
 	ex, err := readExport(dir)
 	if err != nil {
@@ -435,6 +515,9 @@ func (m *Manager) restoreIntoNew(ctx context.Context, projectID, backupID string
 	}
 	for k, v := range restored {
 		details[k] = v
+	}
+	if sourceKey != "" {
+		details["sourceKey"] = sourceKey
 	}
 	m.audit.Log(ctx, audit.ActionBackupRestoredNew, "project", proj.ID, details)
 	return m.Get(ctx, proj.ID)
