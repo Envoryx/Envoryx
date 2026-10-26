@@ -23,6 +23,7 @@ const networkPrefixBits = 24
 // /24 no network on the host uses; one Docker still refuses (another host route, a create
 // that picked it at the same moment) is skipped for the next.
 func (m *Manager) createNetwork(ctx context.Context, name string, labels map[string]string) error {
+	defer m.forgetProjectSubnets()
 	pool := m.cfg.NetworkPool
 	if !pool.IsValid() {
 		_, err := m.engine.CreateNetwork(ctx, name, labels, "")

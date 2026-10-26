@@ -372,10 +372,11 @@ secrets, and a backup outlives the roles in the project it came from.
   arbitrary upstreams: the targets are container names derived from the project slug (or
   `127.0.0.1:<port>` on bare metal).
 - Envoryx's own container is attached to every project network so the proxy can reach the
-  web containers. As a result, project containers can reach Envoryx's listeners (UI port,
-  proxy) by IP on that network. That's the same exposure as any LAN client: the API
-  requires an authenticated session and passes the CSRF checks, and the proxy only routes
-  known names. Code you run in a project is trusted as much as code on your workstation.
+  web containers. Its listeners are on that network too, but requests from a project
+  network's addresses get no interface and no API (403), neither on the UI port nor
+  through the UI's host name on the proxy; the proxy still routes them to projects. The
+  network's gateway, the host's side, is not affected. Since 0.45.1; before, a project's
+  code could reach the sign-in and the API like any LAN client.
 - The local CA key (`/config/ca/ca.key`, mode 0600) can sign certificates for **any** name,
   so anyone with that file can impersonate websites on clients that trust the CA. Keep
   `/config` private and install the CA only on machines you control. The CA is meant for a
