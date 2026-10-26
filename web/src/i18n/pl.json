@@ -3742,5 +3742,18 @@
   "debugpy accepts everyone who reaches the port and can run any code in the container. Switch it off when you are not debugging.": "debugpy przyjmuje każdego, kto dotrze do portu, i może uruchomić dowolny kod w kontenerze. Wyłącz go, gdy nie debugujesz.",
   "Remove the stored password": "Usuń zapisane hasło",
   "The hoster's support can't change this: where the backups go stays with the instance's admins.": "Wsparcie hostera nie może tego zmienić: o tym, dokąd trafiają kopie, decydują administratorzy instancji.",
-  "on a hosted instance only its own instance backups can be restored; bring projects from elsewhere over as project backups (New project → Existing website), where the plan is checked": "na hostowanej instancji można przywrócić tylko jej własne kopie instancji; przenieś projekty z innego miejsca jako kopie projektów (Nowy projekt → Istniejąca strona), gdzie plan jest sprawdzany"
+  "on a hosted instance only its own instance backups can be restored; bring projects from elsewhere over as project backups (New project → Existing website), where the plan is checked": "na hostowanej instancji można przywrócić tylko jej własne kopie instancji; przenieś projekty z innego miejsca jako kopie projektów (Nowy projekt → Istniejąca strona), gdzie plan jest sprawdzany",
+  "Confirm the reset with your second factor; the new password applies once it is confirmed.": "Potwierdź reset drugim składnikiem; nowe hasło zacznie obowiązywać po potwierdzeniu.",
+  "Remove the copy from {{date}}": "Usuń kopię z {{date}}",
+  "Remove this copy from the target? It can't be fetched again afterwards; the local backup, if there is one, stays.": "Usunąć tę kopię z celu? Potem nie da się jej już pobrać; lokalna kopia, jeśli istnieje, zostaje.",
+  "Remove copy": "Usuń kopię",
+  "Your password": "Twoje hasło",
+  "Accounts that sign in through single sign-on leave it empty; they need a sign-in within the last 10 minutes.": "Konta logujące się przez logowanie jednokrotne zostawiają je puste; potrzebują logowania w ciągu ostatnich 10 minut.",
+  "the project network is gone, so the proxy and the services can't reach the containers; restart the project to recreate it": "sieć projektu zniknęła, więc proxy i usługi nie docierają do kontenerów; uruchom projekt ponownie, aby ją odtworzyć",
+  "restoring the backup of {{date}} was interrupted by an Envoryx restart, so the project holds only part of it; restore the backup again": "przywracanie kopii z {{date}} przerwał restart Envoryx, projekt zawiera tylko jej część; przywróć kopię jeszcze raz",
+  "the containers of this project carry the instance ID {{id}}, not this instance's; if this Envoryx lost its /config, write that ID into /config/instance-id and restart Envoryx": "kontenery tego projektu mają ID instancji {{id}}, nie tej instancji; jeśli ten Envoryx stracił /config, wpisz to ID do /config/instance-id i uruchom Envoryx ponownie",
+  "the archive is incomplete or damaged (cut off during the upload?): {{error}}": "archiwum jest niekompletne lub uszkodzone (przerwane podczas wysyłania?): {{error}}",
+  "the archive is incomplete (cut off during the upload?): {{name}} is missing": "archiwum jest niekompletne (przerwane podczas wysyłania?): brakuje {{name}}",
+  "Project containers would mount an empty directory from the wrong host path. Remove the variable or set it to the path the bind mount uses.": "Kontenery projektu zamontowałyby pusty katalog ze złej ścieżki hosta. Usuń zmienną lub ustaw ją na ścieżkę montowania.",
+  "this account has no password to confirm with; sign in again and retry within 10 minutes": "to konto nie ma hasła do potwierdzenia; zaloguj się ponownie i spróbuj w ciągu 10 minut"
 }

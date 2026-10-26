@@ -3692,5 +3692,18 @@
   "debugpy accepts everyone who reaches the port and can run any code in the container. Switch it off when you are not debugging.": "debugpy accepteert iedereen die de poort bereikt en kan willekeurige code in de container uitvoeren. Zet het uit als je niet debugt.",
   "Remove the stored password": "Opgeslagen wachtwoord verwijderen",
   "The hoster's support can't change this: where the backups go stays with the instance's admins.": "De support van de hoster kan dit niet wijzigen: waar de back-ups heen gaan blijft bij de beheerders van de instantie.",
-  "on a hosted instance only its own instance backups can be restored; bring projects from elsewhere over as project backups (New project → Existing website), where the plan is checked": "op een gehoste instantie kunnen alleen de eigen instantieback-ups worden teruggezet; breng projecten van elders over als projectback-ups (Nieuw project → Bestaande website), waar het abonnement wordt gecontroleerd"
+  "on a hosted instance only its own instance backups can be restored; bring projects from elsewhere over as project backups (New project → Existing website), where the plan is checked": "op een gehoste instantie kunnen alleen de eigen instantieback-ups worden teruggezet; breng projecten van elders over als projectback-ups (Nieuw project → Bestaande website), waar het abonnement wordt gecontroleerd",
+  "Confirm the reset with your second factor; the new password applies once it is confirmed.": "Bevestig het resetten met je tweede factor; het nieuwe wachtwoord geldt zodra het bevestigd is.",
+  "Remove the copy from {{date}}": "Kopie van {{date}} verwijderen",
+  "Remove this copy from the target? It can't be fetched again afterwards; the local backup, if there is one, stays.": "Deze kopie van het doel verwijderen? Hij kan daarna niet meer opgehaald worden; de lokale back-up, als die er is, blijft.",
+  "Remove copy": "Kopie verwijderen",
+  "Your password": "Je wachtwoord",
+  "Accounts that sign in through single sign-on leave it empty; they need a sign-in within the last 10 minutes.": "Accounts die via single sign-on inloggen laten het leeg; zij moeten in de laatste 10 minuten zijn ingelogd.",
+  "the project network is gone, so the proxy and the services can't reach the containers; restart the project to recreate it": "het projectnetwerk is weg, dus de proxy en de services bereiken de containers niet; herstart het project om het opnieuw aan te maken",
+  "restoring the backup of {{date}} was interrupted by an Envoryx restart, so the project holds only part of it; restore the backup again": "het terugzetten van de back-up van {{date}} werd onderbroken door een herstart van Envoryx, het project bevat er maar een deel van; zet de back-up opnieuw terug",
+  "the containers of this project carry the instance ID {{id}}, not this instance's; if this Envoryx lost its /config, write that ID into /config/instance-id and restart Envoryx": "de containers van dit project dragen instantie-ID {{id}}, niet die van deze instantie; is dit Envoryx zijn /config kwijt, schrijf dat ID dan in /config/instance-id en herstart Envoryx",
+  "the archive is incomplete or damaged (cut off during the upload?): {{error}}": "het archief is onvolledig of beschadigd (afgebroken tijdens het uploaden?): {{error}}",
+  "the archive is incomplete (cut off during the upload?): {{name}} is missing": "het archief is onvolledig (afgebroken tijdens het uploaden?): {{name}} ontbreekt",
+  "Project containers would mount an empty directory from the wrong host path. Remove the variable or set it to the path the bind mount uses.": "De projectcontainers zouden een lege map van het verkeerde hostpad koppelen. Verwijder de variabele of zet hem op het pad dat de bind mount gebruikt.",
+  "this account has no password to confirm with; sign in again and retry within 10 minutes": "dit account heeft geen wachtwoord om mee te bevestigen; log opnieuw in en probeer het binnen 10 minuten nog eens"
 }

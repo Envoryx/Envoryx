@@ -3742,5 +3742,18 @@
   "debugpy accepts everyone who reaches the port and can run any code in the container. Switch it off when you are not debugging.": "debugpy принимает любого, кто доберётся до порта, и может выполнить любой код в контейнере. Выключайте его, когда не отлаживаете.",
   "Remove the stored password": "Удалить сохранённый пароль",
   "The hoster's support can't change this: where the backups go stays with the instance's admins.": "Поддержка хостера не может это изменить: куда идут резервные копии, решают администраторы экземпляра.",
-  "on a hosted instance only its own instance backups can be restored; bring projects from elsewhere over as project backups (New project → Existing website), where the plan is checked": "на размещённом экземпляре можно восстановить только его собственные резервные копии экземпляра; переносите проекты из других мест как резервные копии проектов (Новый проект → Существующий сайт), где проверяется тариф"
+  "on a hosted instance only its own instance backups can be restored; bring projects from elsewhere over as project backups (New project → Existing website), where the plan is checked": "на размещённом экземпляре можно восстановить только его собственные резервные копии экземпляра; переносите проекты из других мест как резервные копии проектов (Новый проект → Существующий сайт), где проверяется тариф",
+  "Confirm the reset with your second factor; the new password applies once it is confirmed.": "Подтвердите сброс вторым фактором; новый пароль начнёт действовать после подтверждения.",
+  "Remove the copy from {{date}}": "Удалить копию от {{date}}",
+  "Remove this copy from the target? It can't be fetched again afterwards; the local backup, if there is one, stays.": "Удалить эту копию из цели? Потом её уже не получить; локальная копия, если есть, останется.",
+  "Remove copy": "Удалить копию",
+  "Your password": "Ваш пароль",
+  "Accounts that sign in through single sign-on leave it empty; they need a sign-in within the last 10 minutes.": "Учётные записи, входящие через единый вход, оставляют поле пустым; им нужен вход в течение последних 10 минут.",
+  "the project network is gone, so the proxy and the services can't reach the containers; restart the project to recreate it": "сеть проекта пропала, поэтому прокси и сервисы не достают до контейнеров; перезапустите проект, чтобы создать её заново",
+  "restoring the backup of {{date}} was interrupted by an Envoryx restart, so the project holds only part of it; restore the backup again": "восстановление копии от {{date}} прервал перезапуск Envoryx, в проекте только её часть; восстановите копию ещё раз",
+  "the containers of this project carry the instance ID {{id}}, not this instance's; if this Envoryx lost its /config, write that ID into /config/instance-id and restart Envoryx": "контейнеры этого проекта несут ID экземпляра {{id}}, а не этого экземпляра; если этот Envoryx потерял /config, запишите этот ID в /config/instance-id и перезапустите Envoryx",
+  "the archive is incomplete or damaged (cut off during the upload?): {{error}}": "архив неполный или повреждён (оборвался при загрузке?): {{error}}",
+  "the archive is incomplete (cut off during the upload?): {{name}} is missing": "архив неполный (оборвался при загрузке?): нет {{name}}",
+  "Project containers would mount an empty directory from the wrong host path. Remove the variable or set it to the path the bind mount uses.": "Контейнеры проекта подключили бы пустой каталог с неверного пути хоста. Удалите переменную или укажите путь bind-монтирования.",
+  "this account has no password to confirm with; sign in again and retry within 10 minutes": "у этой учётной записи нет пароля для подтверждения; войдите заново и повторите в течение 10 минут"
 }
