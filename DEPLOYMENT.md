@@ -420,6 +420,14 @@ keystore and is not covered.
 
 **Force HTTPS** redirects `http://` requests for known names to HTTPS.
 
+**Slow requests.** Through the proxy (host names, HTTP and HTTPS) a project has
+5 minutes to start its answer; a request whose first byte takes longer ends with
+*502 Bad Gateway*. Once the answer has started there is no limit, so downloads,
+streamed responses and server-sent events run as long as they need. A long
+report, export or import that works for minutes before it answers is best moved
+into a worker or a cron job, or called on the project's direct port, which has
+no such limit.
+
 ### Let's Encrypt instead of the local CA (no installation on clients)
 
 If you own a domain, Envoryx can obtain and renew a **public wildcard
@@ -1167,7 +1175,7 @@ not to the directly published port, which bypasses the proxy.
 
 *Settings → Domains & HTTPS → Who sees new projects* decides whether a new
 project starts with *Only people signed in to Envoryx* (`newProjectsPrivate`
-in `PATCH /settings`, `envoryx settings set new-projects-private`). Until an
+in `PATCH /settings`, `envoryx settings set new-projects-private=true`). Until an
 admin decides, that is on for an instance a hoster manages and off on a
 machine of your own; projects that exist keep their rules either way.
 
