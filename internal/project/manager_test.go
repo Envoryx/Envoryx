@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/envoryx/envoryx/internal/audit"
@@ -1291,5 +1292,30 @@ func TestFailedStartKeepsTheHTTPPort(t *testing.T) {
 	}
 	if p, _ := e.store.Projects.Get(ctx, id); p.HTTPPort != port {
 		t.Fatalf("a failed start moved the port from %d to %d", port, p.HTTPPort)
+	}
+}
+
+// A nested project directory hands the folders it creates on the way to the project
+// user, not only the project directory itself; folders that were there stay as they are.
+func TestNestedProjectDirectoryIsOwnedAllTheWay(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("needs root to hand directories to another user")
+	}
+	root := t.TempDir()
+	if err := mkdirAllOwned(filepath.Join(root, "custom", "shop"), 0o755, 4321, 4321); err != nil {
+		t.Fatal(err)
+	}
+	for _, dir := range []string{"custom", filepath.Join("custom", "shop")} {
+		fi, err := os.Stat(filepath.Join(root, dir))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if st, ok := fi.Sys().(*syscall.Stat_t); !ok || st.Uid != 4321 {
+			t.Fatalf("%s is not owned by the project user", dir)
+		}
+	}
+	fi, _ := os.Stat(root)
+	if st, ok := fi.Sys().(*syscall.Stat_t); ok && st.Uid == 4321 {
+		t.Fatal("the existing root was handed over")
 	}
 }

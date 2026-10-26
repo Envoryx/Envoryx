@@ -363,7 +363,7 @@ func moveProjectDir(planner *Planner, from, to string) error {
 	if _, err := os.Stat(dst); err == nil {
 		return fmt.Errorf("%w: %s already exists", ErrConflict, to)
 	}
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := mkdirAllOwned(filepath.Dir(dst), 0o755, planner.paths.PUID, planner.paths.PGID); err != nil {
 		return err
 	}
 	return os.Rename(src, dst)

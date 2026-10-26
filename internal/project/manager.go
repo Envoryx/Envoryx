@@ -1759,7 +1759,7 @@ func (m *Manager) ensureProjectDir(planner *Planner, proj store.Project, starter
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := mkdirAllOwned(dir, 0o755, planner.paths.PUID, planner.paths.PGID); err != nil {
 		return fmt.Errorf("create project directory: %w", err)
 	}
 	// Symlink escape check after creation.
@@ -1804,6 +1804,28 @@ func (m *Manager) ensureProjectDir(planner *Planner, proj store.Project, starter
 				return fmt.Errorf("write starter page: %w", err)
 			}
 			_ = os.Chown(target, planner.paths.PUID, planner.paths.PGID)
+		}
+	}
+	return nil
+}
+
+// mkdirAllOwned is os.MkdirAll that hands the directories it creates to uid:gid, so a
+// nested project directory (custom/shop) doesn't leave custom/ to root, where the
+// host user can't add anything. Directories that exist already are left alone.
+func mkdirAllOwned(dir string, perm os.FileMode, uid, gid int) error {
+	var created []string
+	for d := filepath.Clean(dir); ; d = filepath.Dir(d) {
+		if _, err := os.Lstat(d); err == nil || filepath.Dir(d) == d {
+			break
+		}
+		created = append(created, d)
+	}
+	if err := os.MkdirAll(dir, perm); err != nil {
+		return err
+	}
+	if os.Geteuid() == 0 {
+		for _, d := range created {
+			_ = os.Lchown(d, uid, gid)
 		}
 	}
 	return nil
