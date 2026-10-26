@@ -37,6 +37,32 @@ describe("RestoreNewDialog", () => {
   });
 });
 
+describe("RestoreNewDialog for a backup of another Envoryx", () => {
+  it("asks for that Envoryx's key and sends it along", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      [`POST /backups/${pid}/${backup.id}/restore-new`]: () => ({ status: 201, body: { project: makeProject({ id: "new-id", name: "Acme Shop Restored", slug: "acme-shop-restored" }) } }),
+    });
+    renderApp(<RestoreNewDialog projectId={pid} projectName="Acme Shop" backup={{ ...backup, sealedWith: "1a2b3c4d" }} onClose={() => {}} />);
+    const user = userEvent.setup();
+
+    expect(await screen.findByText(/encrypted with key 1a2b3c4d/)).toBeInTheDocument();
+    const submit = screen.getByRole("button", { name: "Restore into a new project" });
+    expect(submit).toBeDisabled();
+    await user.type(screen.getByLabelText("Secret key of the backup"), " source-key ");
+    await user.click(submit);
+
+    await waitFor(() => expect(api.calls.some((c) => c.url.endsWith("/restore-new"))).toBe(true));
+    expect(api.calls.find((c) => c.url.endsWith("/restore-new"))!.body).toMatchObject({ key: "source-key" });
+  });
+  it("asks for no key for its own backups", async () => {
+    mockApi({ ...authedRoutes });
+    renderApp(<RestoreNewDialog projectId={pid} projectName="Acme Shop" backup={backup} onClose={() => {}} />);
+    expect(await screen.findByPlaceholderText("Acme Shop Restored")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Secret key of the backup")).not.toBeInTheDocument();
+  });
+});
+
 describe("RestoreNewDialog for an old backup", () => {
   it("says what a backup from before 0.25 leaves out", async () => {
     mockApi({ ...authedRoutes });

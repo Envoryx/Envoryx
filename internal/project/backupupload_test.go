@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/envoryx/envoryx/internal/secrets"
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
@@ -92,7 +93,8 @@ func TestImportBackupFile(t *testing.T) {
 }
 
 // A backup whose project settings can't be read here is refused with the reason, not as
-// an internal error.
+// an internal error. One sealed with another Envoryx's key is kept: the restore asks for
+// that key.
 func TestImportBackupFileRefusesUnreadableSettings(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
@@ -107,13 +109,89 @@ func TestImportBackupFileRefusesUnreadableSettings(t *testing.T) {
 		_ = os.WriteFile(f, buf.Bytes(), 0o600)
 		return f
 	}
-	for sealed, want := range map[string]string{
-		"envoryx:v1:deadbeef:AAAA": "sealed with secret key deadbeef, which this Envoryx does not hold",
-		"{not json":                "unreadable",
-	} {
-		_, err := e.m.ImportBackupFile(ctx, archive(sealed))
-		if !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), want) {
-			t.Fatalf("%s: %v", sealed, err)
-		}
+	if _, err := e.m.ImportBackupFile(ctx, archive("{not json")); !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "unreadable") {
+		t.Fatalf("unreadable: %v", err)
+	}
+	up, err := e.m.ImportBackupFile(ctx, archive("envoryx:v1:deadbeef:AAAA"))
+	if err != nil || up.Backup.SealedWith != "deadbeef" {
+		t.Fatalf("another key: %+v %v", up, err)
+	}
+	_, err = e.m.RestoreIntoNewProject(ctx, up.ProjectID, up.Backup.ID, RestoreNewRequest{Name: "Gone"})
+	if !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "sealed with secret key deadbeef, which this Envoryx does not hold") {
+		t.Fatalf("restore without the key: %v", err)
+	}
+}
+
+// A backup made by another Envoryx comes over with that Envoryx's key: the restore opens
+// its settings with it and seals them with this Envoryx's key, which keeps the backup
+// usable without it.
+func TestRestoreBackupSealedWithAnotherKey(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	defer secrets.SetDefault(nil)
+	source, _ := secrets.GenerateKey()
+	secrets.SetDefault(secrets.NewRing(source))
+	v, err := e.m.Create(ctx, phpRequest("Shop", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := v.Project.ID
+	_ = os.WriteFile(filepath.Join(e.projDir, "shop", "public", "index.php"), []byte("v1"), 0o644)
+	b, err := e.m.CreateBackup(ctx, id, BackupOptions{Files: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rc, _, err := e.m.OpenBackupArchive(ctx, id, b.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := io.ReadAll(rc)
+	rc.Close()
+	file := filepath.Join(t.TempDir(), "shop.tar")
+	_ = os.WriteFile(file, raw, 0o600)
+	if err := e.m.Delete(ctx, id, DeleteOptions{Confirm: "shop", DeleteFiles: true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.m.DeleteOrphanedBackup(ctx, id, b.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	// Another Envoryx, with a key of its own.
+	own, _ := secrets.GenerateKey()
+	secrets.SetDefault(secrets.NewRing(own))
+	up, err := e.m.ImportBackupFile(ctx, file)
+	if err != nil || up.Backup.SealedWith != source.ID() {
+		t.Fatalf("import: %+v %v", up, err)
+	}
+	if orphans, _ := e.m.OrphanedBackups(ctx); len(orphans) != 1 || orphans[0].Backup.SealedWith != source.ID() {
+		t.Fatalf("orphans: %+v", orphans)
+	}
+	// Resealing leaves it alone instead of failing on it.
+	if n, err := e.m.ResealBackups(ctx); err != nil || n != 0 {
+		t.Fatalf("reseal: %d %v", n, err)
+	}
+	if _, err := e.m.RestoreIntoNewProject(ctx, id, up.Backup.ID, RestoreNewRequest{Name: "Shop", Files: true, Key: own.Encode()}); !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "the backup needs key "+source.ID()) {
+		t.Fatalf("wrong key: %v", err)
+	}
+	if _, err := e.m.RestoreIntoNewProject(ctx, id, up.Backup.ID, RestoreNewRequest{Name: "Shop", Files: true, Key: "nope"}); !errors.Is(err, validate.ErrInvalid) {
+		t.Fatalf("no key at all: %v", err)
+	}
+	back, err := e.m.RestoreIntoNewProject(ctx, id, up.Backup.ID, RestoreNewRequest{Name: "Shop", Files: true, Key: source.Encode()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(filepath.Join(e.projDir, "shop", "public", "index.php")); back.Project.Slug != "shop" || string(got) != "v1" {
+		t.Fatalf("restored: %+v %q", back.Project, got)
+	}
+	// The backup is sealed with this Envoryx's key now and restores without the other.
+	orphans, _ := e.m.OrphanedBackups(ctx)
+	if len(orphans) != 1 || orphans[0].Backup.SealedWith != "" {
+		t.Fatalf("after the restore: %+v", orphans)
+	}
+	if again, err := e.m.ImportBackupFile(ctx, file); err != nil || again.Backup.ID != up.Backup.ID || again.Backup.SealedWith != "" {
+		t.Fatalf("uploaded again: %+v %v", again, err)
+	}
+	if _, err := e.m.RestoreIntoNewProject(ctx, id, up.Backup.ID, RestoreNewRequest{Name: "Shop Again"}); err != nil {
+		t.Fatal(err)
 	}
 }

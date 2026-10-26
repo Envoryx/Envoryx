@@ -85,7 +85,8 @@ Backups:
   backup recover <slug>[/<backup>] [name]
                                         fetch one (the newest without <backup>) and
                                         restore it into a new project (--path DIR,
-                                        --start; needs an admin token)
+                                        --start, --key-file FILE for a backup of
+                                        another Envoryx; needs an admin token)
 
 Instance backups (Envoryx's own database and configuration; admin token):
   instance backups                      the instance backups and a scheduled restore

@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/envoryx/envoryx/internal/validate"
@@ -80,15 +81,18 @@ func (m *Manager) ImportBackupFile(ctx context.Context, file string) (UploadedBa
 // ImportBackupStream stores a backup tar as a backup of its project: of the project it
 // was made of when that is on this instance, otherwise of the deleted project, whose
 // backups can be restored into a new project as well. Its project settings must be
-// readable here, since a restore into a new project is made from them.
+// readable here, since a restore into a new project is made from them, or sealed with
+// another Envoryx's key (BackupInfo.SealedWith), which the restore then asks for.
 func (m *Manager) ImportBackupStream(ctx context.Context, r io.Reader) (UploadedBackup, error) {
 	var out UploadedBackup
 	info, err := m.storeBackupArchive(ctx, r, func(bf backupFile) (backupOwner, error) {
 		if validate.UUID(bf.ProjectID) != nil || validate.Slug(bf.Slug) != nil {
 			return backupOwner{}, notABackup("backup.json names no project")
 		}
-		if _, err := bf.export(); err != nil {
-			return backupOwner{}, err
+		if bf.foreignKey() == "" {
+			if _, err := bf.export(); err != nil {
+				return backupOwner{}, err
+			}
 		}
 		owner := backupOwner{ID: bf.ProjectID, Slug: bf.Slug, Name: bf.ProjectName}
 		if p, err := m.store.Projects.Get(ctx, bf.ProjectID); err == nil {
@@ -102,5 +106,12 @@ func (m *Manager) ImportBackupStream(ctx context.Context, r io.Reader) (Uploaded
 		return UploadedBackup{}, err
 	}
 	out.Backup = info
+	// Uploaded once more, the backup is the one already here, which a restore may have
+	// sealed with this Envoryx's key since.
+	if b, err := m.store.Backups.Get(ctx, out.ProjectID, info.ID); err == nil {
+		if dir, err := m.locateBackup(ctx, b, info.Meta); err == nil {
+			out.Backup.SealedWith, _ = foreignKeyOf(filepath.Join(dir, backupMetaFile))
+		}
+	}
 	return out, nil
 }
