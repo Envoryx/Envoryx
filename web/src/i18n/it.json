@@ -3732,5 +3732,7 @@
   "this passkey is not registered here (any more)": "Questa passkey non è (più) registrata qui",
   "The link expired {{when}}. Send a new one with “{{action}}”.": "Il link è scaduto il {{when}}. Inviane uno nuovo con «{{action}}».",
   "No projects for you yet": "Ancora nessun progetto per te",
-  "You have no access to any project yet. An admin of this instance can give you a role in one.": "Non hai ancora accesso a nessun progetto. Un amministratore di questa istanza può darti un ruolo in uno."
+  "You have no access to any project yet. An admin of this instance can give you a role in one.": "Non hai ancora accesso a nessun progetto. Un amministratore di questa istanza può darti un ruolo in uno.",
+  "Your role allows tokens up to {{scope}}.": "Il tuo ruolo consente token fino a {{scope}}.",
+  "Your role allows no API tokens yet.": "Il tuo ruolo non consente ancora token API."
 }

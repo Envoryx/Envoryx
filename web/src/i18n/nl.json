@@ -3732,5 +3732,7 @@
   "this passkey is not registered here (any more)": "Deze passkey is hier niet (meer) geregistreerd",
   "The link expired {{when}}. Send a new one with “{{action}}”.": "De link is verlopen op {{when}}. Stuur een nieuwe met „{{action}}”.",
   "No projects for you yet": "Nog geen projecten voor jou",
-  "You have no access to any project yet. An admin of this instance can give you a role in one.": "Je hebt nog geen toegang tot een project. Een beheerder van deze instantie kan je een rol in een project geven."
+  "You have no access to any project yet. An admin of this instance can give you a role in one.": "Je hebt nog geen toegang tot een project. Een beheerder van deze instantie kan je een rol in een project geven.",
+  "Your role allows tokens up to {{scope}}.": "Je rol staat tokens toe tot en met {{scope}}.",
+  "Your role allows no API tokens yet.": "Je rol staat nog geen API-tokens toe."
 }

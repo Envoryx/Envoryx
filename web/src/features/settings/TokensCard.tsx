@@ -10,10 +10,27 @@ import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Field, Input, S
 import { copyText } from "@/lib/clipboard";
 import { formatDateTime } from "@/lib/format";
 import { errorText } from "@/lib/errors";
+import { covers, type Access } from "@/lib/access";
 
 const key = ["tokens"] as const;
 
 const scopeTone: Record<TokenScope, Tone> = { read: "gray", operate: "blue", admin: "amber" };
+
+// The scope a global role gives on the instance (auth.Role.Scope); none gives nothing.
+const roleScope: Record<string, Access | undefined> = { admin: "admin", developer: "operate", viewer: "read" };
+
+/**
+ * The highest scope the user can give a token, as the server's Principal.MaxScope: the
+ * global role, or a higher role in one of the projects. The server refuses anything above.
+ */
+export function maxTokenScope(admin: boolean, role: string | undefined, projectAccess: (string | undefined)[]): Access | undefined {
+  if (admin) return "admin";
+  let best = role ? roleScope[role] : undefined;
+  for (const a of projectAccess) {
+    if (a && !covers(best, a as Access)) best = a as Access;
+  }
+  return best;
+}
 
 /** Lifetimes offered for a new token, in days; 0 never expires. */
 const lifetimes = [7, 30, 90, 365, 0] as const;
@@ -24,7 +41,7 @@ function mcpConfig(url: string, secret: string): string {
 
 export function TokensCard() {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, admin } = useAuth();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: key, queryFn: api.tokens.list });
   const projects = useProjects();
@@ -63,7 +80,7 @@ export function TokensCard() {
     e.preventDefault();
     setMsg(null);
     setCreated(null);
-    create.mutate({ name: name.trim(), scope, projects: confine ? selected : [], expiresInDays: lifetime });
+    create.mutate({ name: name.trim(), scope: chosen, projects: confine ? selected : [], expiresInDays: lifetime });
   }
 
   const scopes: { value: TokenScope; label: string; description: string }[] = [
@@ -72,6 +89,10 @@ export function TokensCard() {
     { value: "admin", label: t("Admin"), description: t("Everything the browser can do: create and delete projects, settings, TLS, instance backups, image clean-up, restores.") },
   ];
   const projectName = (id: string) => projects.data?.find((p) => p.id === id)?.name ?? id.slice(0, 8);
+  const max = maxTokenScope(admin, user?.role, (projects.data ?? []).map((p) => p.access));
+  const allowed = (s: TokenScope) => covers(max, s);
+  // The default (operate) may be above what the role gives: take the highest allowed one.
+  const chosen = allowed(scope) ? scope : ([...scopes].reverse().find((s) => allowed(s.value))?.value ?? scope);
   const scopeLabel = (s: TokenScope) => scopes.find((x) => x.value === s)?.label ?? s;
   const lifetimeLabel = (days: number) => (days === 0 ? t("Never") : days === 365 ? t("1 year") : t("{{count}} days", { count: days }));
   const now = Date.now();
@@ -150,15 +171,16 @@ export function TokensCard() {
             <legend className="mb-2 text-sm font-medium">{t("Scope")}</legend>
             <div className="grid gap-2 sm:grid-cols-3">
               {scopes.map((s) => (
-                <label key={s.value} className={`flex cursor-pointer flex-col gap-1 rounded-md border p-3 text-sm ${scope === s.value ? "border-accent-500 bg-accent-500/5" : "border-default"}`}>
+                <label key={s.value} className={`flex flex-col gap-1 rounded-md border p-3 text-sm ${allowed(s.value) ? "cursor-pointer" : "cursor-not-allowed opacity-50"} ${chosen === s.value ? "border-accent-500 bg-accent-500/5" : "border-default"}`}>
                   <span className="flex items-center gap-2 font-medium">
-                    <input type="radio" name="token-scope" value={s.value} checked={scope === s.value} onChange={() => setScope(s.value)} className="accent-[var(--color-accent-500)]" />
+                    <input type="radio" name="token-scope" value={s.value} checked={chosen === s.value} disabled={!allowed(s.value)} onChange={() => setScope(s.value)} className="accent-[var(--color-accent-500)]" />
                     {s.label}
                   </span>
                   <span className="text-xs text-muted">{s.description}</span>
                 </label>
               ))}
             </div>
+            {max !== "admin" && projects.data && <p className="mt-2 text-xs text-muted">{max ? t("Your role allows tokens up to {{scope}}.", { scope: scopeLabel(max) }) : t("Your role allows no API tokens yet.")}</p>}
           </fieldset>
           <Field label={t("Expires after")} htmlFor="token-lifetime" hint={t("An expired token stops working; create a new one then. A token that never expires stays valid until it is revoked.")}>
             <Select id="token-lifetime" value={String(lifetime)} onChange={(e) => setLifetime(Number(e.target.value))} className="sm:w-56">
@@ -185,7 +207,7 @@ export function TokensCard() {
               </div>
             )}
           </div>
-          <Button type="submit" variant="primary" loading={create.isPending} disabled={!name.trim() || (confine && selected.length === 0)} icon={<Plus className="size-4" />}>
+          <Button type="submit" variant="primary" loading={create.isPending} disabled={!name.trim() || !max || (confine && selected.length === 0)} icon={<Plus className="size-4" />}>
             {t("Create token")}
           </Button>
         </form>
