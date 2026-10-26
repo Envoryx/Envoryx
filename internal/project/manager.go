@@ -274,6 +274,11 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 			if req.Node == nil {
 				return store.Project{}, fmt.Errorf("%w: template %s needs Node.js", validate.ErrInvalid, tpl.ID)
 			}
+			// On an older Node the scaffold fails with the framework's own cryptic error,
+			// or leaves a project whose dev server can't start.
+			if v, err := m.catalog.Resolve("node", req.Node.Version); err == nil && tpl.MinNode != "" && runtime.CompareVersions(v.Version, tpl.MinNode) < 0 {
+				return store.Project{}, fmt.Errorf("%w: template %s needs Node.js %s or newer, not %s", validate.ErrInvalid, tpl.ID, tpl.MinNode, v.Version)
+			}
 			if tpl.Node != nil {
 				// Merge per field: a request that only sets e.g. devServer or the package
 				// manager must still get the template's preset, port and script (a Next

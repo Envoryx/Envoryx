@@ -23,7 +23,7 @@ import { PhpConfigForm } from "./PhpConfigForm";
 import { TemplateGallery, runtimeNames, templateRuntime } from "./TemplateGallery";
 import { WizardSummary, type SummaryRow } from "./WizardSummary";
 import { webServerHint } from "./webServers";
-import { unavailableHint, versionOptions } from "./versionOptions";
+import { unavailableHint, versionBelow, versionOptions } from "./versionOptions";
 import { errorText, translateMessage } from "@/lib/errors";
 import { slugify } from "@/lib/format";
 import { gitUrlError } from "@/lib/gitUrl";
@@ -484,6 +484,11 @@ export function NewProjectPage() {
           patch.nodeEnabled = true;
           const n = tpl.node;
           patch.nodeDev = { ...form.nodeDev, devServer: true, preset: n?.preset ?? form.nodeDev.preset, port: n?.port ? String(n.port) : form.nodeDev.port, script: n?.script ?? form.nodeDev.script };
+          // A version too old for the template moves to the default, or the newest that fits.
+          if (versionBelow(form.nodeVersion, tpl.minNode)) {
+            const fits = (node?.versions ?? []).filter((v) => !versionBelow(v.version, tpl.minNode) && !v.unavailable && !v.notInPlan);
+            patch.nodeVersion = (fits.find((v) => v.default) ?? fits[0])?.version ?? form.nodeVersion;
+          }
           break;
         }
         case "python": {
@@ -601,7 +606,7 @@ export function NewProjectPage() {
         <>
           <Field label={t("Node.js version")} htmlFor="node-version">
             <Select id="node-version" value={form.nodeVersion} onChange={(e) => set({ nodeVersion: e.target.value })}>
-              {versionOptions(node.versions, t)}
+              {versionOptions(node.versions, t, { min: form.source === "template" ? selectedTemplate?.minNode : undefined })}
             </Select>
           </Field>
           <NodeDevServerFields value={form.nodeDev} onChange={setNodeDev} idPrefix="wizard-node" presets={nodePresets} primary={form.stack === "node"} />

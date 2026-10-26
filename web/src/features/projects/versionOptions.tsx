@@ -7,19 +7,34 @@ import { translateMessage } from "@/lib/errors";
  * it unavailable, e.g. MongoDB 8.0 on Linux 6.19) or the instance's plan leaves out (an
  * end-of-life or preview version) is disabled, except `keep`: the version a service already
  * has stays selectable so its form still saves. `anyHost` lifts the host lock where the
- * version only picks client tools (an external server).
+ * version only picks client tools (an external server). Versions below `min` (a template's
+ * oldest runtime) are disabled, too.
  */
-export function versionOptions(versions: RuntimeVersion[], t: TFunction, opts: { keep?: string | undefined; anyHost?: boolean } = {}) {
+export function versionOptions(versions: RuntimeVersion[], t: TFunction, opts: { keep?: string | undefined; anyHost?: boolean; min?: string | undefined } = {}) {
   return versions.map((v) => {
     const unavailable = !opts.anyHost && !!v.unavailable;
+    const tooOld = versionBelow(v.version, opts.min);
     return (
-      <option key={v.version} value={v.version} disabled={(unavailable || !!v.notInPlan) && v.version !== opts.keep}>
+      <option key={v.version} value={v.version} disabled={(unavailable || !!v.notInPlan || tooOld) && v.version !== opts.keep}>
         {v.label}
         {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
-        {unavailable ? t(" (not on this host)") : v.notInPlan ? t(" (not in your plan)") : ""}
+        {unavailable ? t(" (not on this host)") : v.notInPlan ? t(" (not in your plan)") : tooOld ? t(" (too old for this template)") : ""}
       </option>
     );
   });
+}
+
+/** Whether a dotted numeric version is below `min`; false without a minimum. */
+export function versionBelow(version: string, min: string | undefined): boolean {
+  if (!min) return false;
+  const a = version.split(".").map(Number);
+  const b = min.split(".").map(Number);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const x = a[i] || 0;
+    const y = b[i] || 0;
+    if (x !== y) return x < y;
+  }
+  return false;
 }
 
 /**

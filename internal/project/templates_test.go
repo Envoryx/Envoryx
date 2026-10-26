@@ -205,6 +205,13 @@ func TestNodeTemplatesScaffoldFromTheNodeImage(t *testing.T) {
 	if _, err := e.m.Create(ctx, CreateRequest{Name: "Nextless", Template: "next", PHP: &PHPRequest{Version: "8.4"}}); !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "needs Node.js") {
 		t.Fatalf("next without Node: %v", err)
 	}
+	// A Node version the template can't run on is refused up front, not by the scaffold.
+	for tpl, old := range map[string]string{"vite": "20", "nuxt": "20", "next": "18"} {
+		_, err := e.m.Create(ctx, CreateRequest{Name: "Old " + tpl, Template: tpl, Node: &NodeRequest{Version: old}})
+		if !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "template "+tpl+" needs Node.js") || !strings.Contains(err.Error(), "not "+old) {
+			t.Errorf("%s on Node %s: %v", tpl, old, err)
+		}
+	}
 	if len(runs) != 0 {
 		t.Fatalf("no scaffold may run for a refused template: %+v", runs)
 	}

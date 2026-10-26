@@ -470,7 +470,10 @@ accordingly, or let Vite's `server.hmr` config point at the dev host name.
 
 PHP is optional. Start from a Vite, Next.js or Nuxt template, or pick **Node.js
 application** for an empty project or a repository (or `phpVersion: "none"`
-over MCP/REST), and the dev server *is* the project:
+over MCP/REST), and the dev server *is* the project. The templates scaffold
+the frameworks' latest releases and need a recent Node.js (Vite and Nuxt 22
+or newer, Next.js 20 or newer); the wizard disables older versions for them,
+and a create on one is refused. In short:
 
 - **What answers where.** `https://<project>.<base>`, every extra domain and
   `https://<project>-dev.<base>` all reach the dev server

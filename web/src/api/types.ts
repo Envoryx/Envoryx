@@ -515,6 +515,8 @@ export interface ProjectTemplate {
   runtime?: AppKind;
   /** Dev-server defaults of a Node template (preset, port, script). */
   node?: NodeConfig;
+  /** The oldest Node.js major the template runs on. */
+  minNode?: string;
   /** Server defaults of a Python template (preset, port, app). */
   python?: PythonConfig;
   /** Server defaults of a Go template (package, port). */

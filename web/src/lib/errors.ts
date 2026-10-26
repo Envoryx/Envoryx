@@ -23,6 +23,7 @@ const templates: (string | [string, string])[] = [
   "the {{service}} container is not running",
   "the {{service}} container does not exist; start the project",
   "template {{template}} needs Node.js",
+  "template {{template}} needs Node.js {{min}} or newer, not {{version}}",
   "template {{template}} needs Python",
   "template {{template}} needs a Node service",
   "template {{template}} needs a Python service",

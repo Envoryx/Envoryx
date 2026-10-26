@@ -36,6 +36,9 @@ type Template struct {
 	// Node carries dev-server defaults merged field by field into the request's NodeConfig
 	// (preset, port and script where empty; DevServer when the request set none of them).
 	Node *runtime.NodeConfig `json:"node,omitempty"`
+	// MinNode is the oldest Node.js major the template runs on ("" for any): the
+	// scaffolds use the frameworks' latest releases, which drop old versions.
+	MinNode string `json:"minNode,omitempty"`
 	// Python carries server defaults merged the same way into the request's PythonConfig
 	// (preset, port and app where empty; Server when the request set none of them).
 	Python *runtime.PythonConfig `json:"python,omitempty"`
@@ -514,9 +517,11 @@ var templates = []Template{
 	// --template when no TTY answers and --no-gitInit (never --gitInit false). Each one
 	// scaffolds with the project's package manager (nodeSteps), so only that manager's
 	// lockfile is written and the dev server installs with the manager it runs.
+	// MinNode: create-vite and Nuxt need Node 20.19 or 22.12, and the npm of the Node 20
+	// image fails their install ("reading 'edgesOut'"); Next.js runs on 20.9 and later.
 	{
 		ID: "vite", Name: "Vite + React (TypeScript)", Description: "Vite scaffold with React and TypeScript - dev server with HMR on the project URL.",
-		Runtime: "node", Docroot: "dist",
+		Runtime: "node", Docroot: "dist", MinNode: "22",
 		Node:      &runtime.NodeConfig{DevServer: true, Preset: "vite", Port: 5173, Script: "dev"},
 		Notes:     "The dev server answers on the project URL. Turn the dev server off and run the build script (“npm run build”, “pnpm build” or “yarn build”) to serve dist/ statically (enable the SPA fallback for client-side routing).",
 		steps:     viteSteps("npm"),
@@ -524,7 +529,7 @@ var templates = []Template{
 	},
 	{
 		ID: "next", Name: "Next.js (App Router, TypeScript)", Description: "create-next-app with the App Router and TypeScript.",
-		Runtime: "node", Docroot: "",
+		Runtime: "node", Docroot: "", MinNode: "20",
 		Node:      &runtime.NodeConfig{DevServer: true, Preset: "next", Port: 3000, Script: "dev"},
 		Notes:     "next.config.ts lists the project's host names in allowedDevOrigins, which Fast Refresh needs behind the proxy: add a domain you attach later there, too. For a production-like run switch the Runtime mode to “Production build”.",
 		steps:     nextSteps("npm"),
@@ -532,7 +537,7 @@ var templates = []Template{
 	},
 	{
 		ID: "nuxt", Name: "Nuxt", Description: "Nuxt starter (minimal template) created by nuxi.",
-		Runtime: "node", Docroot: "",
+		Runtime: "node", Docroot: "", MinNode: "22",
 		Node:      &runtime.NodeConfig{DevServer: true, Preset: "nuxt", Port: 3000, Script: "dev"},
 		Notes:     "For a production-like run switch the Runtime mode to “Production build”: every start builds the app, then serves it with “nuxt preview”.",
 		steps:     nuxtSteps("npm"),
