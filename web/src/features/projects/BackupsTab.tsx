@@ -8,7 +8,7 @@ import type { BackupInfo, BackupMeta, BackupSchedule, Project } from "@/api/type
 import { databaseServices } from "./databases";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, ErrorState, Field, Input, Select, Spinner } from "@/components/ui";
 import { formatBytes, formatDateTime } from "@/lib/format";
-import { errorText, translateSentence } from "@/lib/errors";
+import { backupNote, errorText, translateSentence } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
 import { OffsiteBadges, OffsiteUploadButton, RemoteBackups, offsiteTargetName, uploading } from "@/features/offsite/OffsiteParts";
 import { useAuth } from "@/features/auth/AuthContext";
@@ -215,7 +215,7 @@ export function BackupsTab({ project }: { project: Project }) {
                     {formatDateTime(b.createdAt)}
                     {b.meta.source === "scheduled" && <Badge tone="blue" className="ml-2">{t("scheduled")}</Badge>}
                     {b.meta.source === "upgrade" && <Badge tone="amber" className="ml-2">{t("before upgrade")}</Badge>}
-                    {b.meta.note && <span className="ml-2 font-normal text-muted">- {b.meta.note}</span>}
+                    {b.meta.note && <span className="ml-2 font-normal text-muted">- {backupNote(b.meta.note, t)}</span>}
                   </p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-subtle">
                     {b.meta.database && <Badge tone="amber">{b.meta.database.type} {b.meta.database.version} · {formatBytes(b.meta.database.bytes)}</Badge>}
@@ -309,7 +309,7 @@ export function BackupsTab({ project }: { project: Project }) {
         open={restoreTarget !== null}
         onClose={() => setRestoreTarget(null)}
         title={t("Restore backup?")}
-        description={restoreTarget ? `${t("From {{date}}", { date: formatDateTime(restoreTarget.createdAt) })}${restoreTarget.meta.note ? ` - ${restoreTarget.meta.note}` : ""}` : undefined}
+        description={restoreTarget ? `${t("From {{date}}", { date: formatDateTime(restoreTarget.createdAt) })}${restoreTarget.meta.note ? ` - ${backupNote(restoreTarget.meta.note, t)}` : ""}` : undefined}
         footer={
           <>
             <Button onClick={() => setRestoreTarget(null)}>{t("Cancel")}</Button>

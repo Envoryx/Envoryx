@@ -1,4 +1,5 @@
 import { screen } from "@testing-library/react";
+import i18n from "@/i18n";
 import { PlanCard } from "./PlanCard";
 import { DomainsCard } from "@/features/settings/DomainsCard";
 import { OffsiteTargetsCard } from "@/features/offsite/OffsiteTargetsCard";
@@ -28,6 +29,20 @@ describe("PlanCard", () => {
     expect(screen.getByText("Offsite targets")).toBeInTheDocument();
     expect(screen.getByText("IDE gateway")).toBeInTheDocument();
     expect(screen.getByText("Base domain")).toBeInTheDocument();
+  });
+
+  it("writes the sizes with the language's decimal separator", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /plan": () => ({ body: { plan: { ...plan, limits: { ...plan.limits, diskGb: 5 } }, usage: { projects: 0, users: 1, diskBytes: 0 } } }),
+    });
+    await i18n.changeLanguage("de");
+    try {
+      renderApp(<PlanCard />);
+      expect(await screen.findByText("0 B von 5,0 GiB")).toBeInTheDocument();
+    } finally {
+      await i18n.changeLanguage("en");
+    }
   });
 
   it("shows the services, the running projects and the container limits", async () => {

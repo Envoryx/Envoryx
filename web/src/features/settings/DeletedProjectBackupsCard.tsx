@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import type { OrphanedBackup, RemoteBackup } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Dialog, ErrorState, Select, Spinner } from "@/components/ui";
-import { errorText } from "@/lib/errors";
+import { backupNote, errorText } from "@/lib/errors";
 import { backupKindLabel, formatBytes, formatDateTime } from "@/lib/format";
 import { RestoreNewDialog } from "@/features/projects/RestoreNewDialog";
 import { offsiteKey } from "@/features/offsite/OffsiteTargetsCard";
@@ -65,7 +65,7 @@ export function DeletedProjectBackupsCard() {
                 <p className="text-sm font-medium text-fg">
                   {o.projectName || o.slug}
                   <span className="ml-2 font-normal text-muted">{formatDateTime(o.backup.createdAt)}</span>
-                  {o.backup.meta.note && <span className="ml-2 font-normal text-muted">- {o.backup.meta.note}</span>}
+                  {o.backup.meta.note && <span className="ml-2 font-normal text-muted">- {backupNote(o.backup.meta.note, t)}</span>}
                 </p>
                 <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-subtle">
                   {o.backup.meta.database && <Badge tone="amber">{o.backup.meta.database.type} {o.backup.meta.database.version}</Badge>}

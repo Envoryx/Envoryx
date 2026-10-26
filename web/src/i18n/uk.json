@@ -3814,5 +3814,11 @@
   "Chapters": "Розділи",
   "Reduced motion is on. The scene holds a still frame; start it deliberately or pick a chapter.": "Увімкнено зменшення руху. Сцена показує стоп-кадр; запустіть її самі або виберіть розділ.",
   "Another database server next to the first one - for example one for reporting. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Ще один сервер баз даних поруч із першим - наприклад для звітів. Кожен доступний за своєю назвою як хост і задає змінні, що починаються з його назви (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).",
-  "SHA256 fingerprints or public keys, one per line. Test records the key the server offers when none is set; a changed key stops the uploads. Clear it after replacing the server on purpose.": "Відбитки SHA256 або відкриті ключі, по одному в рядку. Якщо нічого не задано, Перевірка запам'ятовує ключ, який пропонує сервер; змінений ключ зупиняє завантаження. Очистіть поле після навмисної заміни сервера."
+  "SHA256 fingerprints or public keys, one per line. Test records the key the server offers when none is set; a changed key stops the uploads. Clear it after replacing the server on purpose.": "Відбитки SHA256 або відкриті ключі, по одному в рядку. Якщо нічого не задано, Перевірка запам'ятовує ключ, який пропонує сервер; змінений ключ зупиняє завантаження. Очистіть поле після навмисної заміни сервера.",
+  "daily, for the offsite targets": "щодня, для зовнішніх сховищ",
+  "requested by the hoster": "на запит хостера",
+  "scheduled daily": "за розкладом, щодня",
+  "scheduled weekly": "за розкладом, щотижня",
+  "before restoring {{id}}": "перед відновленням {{id}}",
+  "before schema {{from}} → {{to}} (Envoryx {{version}})": "перед схемою {{from}} → {{to}} (Envoryx {{version}})"
 }

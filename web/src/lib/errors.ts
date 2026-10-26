@@ -398,6 +398,9 @@ const templates: (string | [string, string])[] = [
   "the {{preset}} server waits for a pom.xml or build.gradle but nothing creates one - pick a Java template, clone a repository or scaffold from the Java terminal; until then the container waits",
   "image {{image}} will be pulled on first start",
   "{{failed}} of {{total}} images could not be checked ({{list}}): {{error}}",
+  // Notes Envoryx gives the backups it takes itself (backupNote).
+  "before restoring {{id}}",
+  "before schema {{from}} → {{to}} (Envoryx {{version}})",
   // Wide patterns last, so the specific ones above win.
   "{{path}} already exists",
   "{{name}} is still running",
@@ -495,6 +498,15 @@ export function translateMessage(msg: string | undefined | null, t: TFunction): 
 }
 
 const sentinels = new Set(["conflict", "not found", "invalid input"]);
+
+/**
+ * A backup's note: the ones Envoryx writes itself ("scheduled daily", "daily, for the
+ * offsite targets") in the UI language, a note someone typed as it is. Only a whole note is
+ * looked up, so a typed one is never translated in parts.
+ */
+export function backupNote(note: string, t: TFunction): string {
+  return translateSegment(note, t) ?? note;
+}
 
 const english = () => (i18n.resolvedLanguage ?? i18n.language ?? "en").startsWith("en");
 

@@ -1,6 +1,6 @@
 import i18n from "@/i18n";
 import { ApiError } from "@/api/client";
-import { errorText, localClock, translateMessage, translateSentence } from "./errors";
+import { backupNote, errorText, localClock, translateMessage, translateSentence } from "./errors";
 
 describe("translateMessage", () => {
   beforeAll(() => i18n.changeLanguage("de"));
@@ -188,6 +188,12 @@ describe("translateMessage", () => {
     expect(translateMessage("invalid input: worker name must be 1-32 lowercase letters", t)).toBe("invalid input: worker name must be 1-32 lowercase letters");
     expect(errorText(new ApiError(403, "wrong_password", "the current password is wrong"), t)).toBe("the current password is wrong");
     await i18n.changeLanguage("de");
+  });
+
+  it("translates the backup notes Envoryx writes, never a typed one in parts", () => {
+    expect(backupNote("daily, for the offsite targets", t)).toBe("täglich, für die Offsite-Ziele");
+    expect(backupNote("before schema 41 → 42 (Envoryx 0.46.0)", t)).toBe("vor Schema 41 → 42 (Envoryx 0.46.0)");
+    expect(backupNote("fix: conflict", t)).toBe("fix: conflict");
   });
 
   it("starts a translated message shown on its own with a capital letter", () => {

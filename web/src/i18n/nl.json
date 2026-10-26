@@ -3748,5 +3748,11 @@
   "Chapters": "Hoofdstukken",
   "Reduced motion is on. The scene holds a still frame; start it deliberately or pick a chapter.": "Verminderde beweging staat aan. De scène toont een stilstaand beeld; start hem bewust of kies een hoofdstuk.",
   "Another database server next to the first one - for example one for reporting. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Nog een databaseserver naast de eerste - bijvoorbeeld een voor rapportages. Elke server is bereikbaar onder zijn naam als host en stelt variabelen in die met zijn naam beginnen (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).",
-  "SHA256 fingerprints or public keys, one per line. Test records the key the server offers when none is set; a changed key stops the uploads. Clear it after replacing the server on purpose.": "SHA256-vingerafdrukken of publieke sleutels, één per regel. Staat er geen, dan legt Testen de sleutel vast die de server aanbiedt; een gewijzigde sleutel stopt de uploads. Maak het veld leeg nadat je de server bewust hebt vervangen."
+  "SHA256 fingerprints or public keys, one per line. Test records the key the server offers when none is set; a changed key stops the uploads. Clear it after replacing the server on purpose.": "SHA256-vingerafdrukken of publieke sleutels, één per regel. Staat er geen, dan legt Testen de sleutel vast die de server aanbiedt; een gewijzigde sleutel stopt de uploads. Maak het veld leeg nadat je de server bewust hebt vervangen.",
+  "daily, for the offsite targets": "dagelijks, voor de offsite-doelen",
+  "requested by the hoster": "aangevraagd door de hoster",
+  "scheduled daily": "gepland, dagelijks",
+  "scheduled weekly": "gepland, wekelijks",
+  "before restoring {{id}}": "voor het herstellen van {{id}}",
+  "before schema {{from}} → {{to}} (Envoryx {{version}})": "voor schema {{from}} → {{to}} (Envoryx {{version}})"
 }

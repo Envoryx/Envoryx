@@ -6,7 +6,7 @@ import { api } from "@/api/client";
 import type { InstanceBackup } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Code, Dialog, Field, Input, Spinner } from "@/components/ui";
 import { backupKindLabel, formatBytes, formatDateTime } from "@/lib/format";
-import { errorText } from "@/lib/errors";
+import { backupNote, errorText } from "@/lib/errors";
 import { useAuth } from "@/features/auth/AuthContext";
 import { OffsiteBadges, OffsiteUploadButton, RemoteBackups, uploading } from "@/features/offsite/OffsiteParts";
 
@@ -211,7 +211,7 @@ export function InstanceBackupsCard() {
                     </p>
                     <p className="font-mono text-[11px] wrap-anywhere text-subtle">
                       {b.id} · {formatBytes(b.sizeBytes)} · Envoryx {b.meta.envoryx} · {t("schema {{n}}", { n: b.meta.schema })}
-                      {b.meta.note ? ` · ${b.meta.note}` : ""}
+                      {b.meta.note ? ` · ${backupNote(b.meta.note, t)}` : ""}
                     </p>
                     {q.data.offsite?.[b.id] && (
                       <p className="mt-1 flex flex-wrap gap-1">

@@ -3748,5 +3748,11 @@
   "Chapters": "Chapitres",
   "Reduced motion is on. The scene holds a still frame; start it deliberately or pick a chapter.": "Le mouvement réduit est activé. La scène reste sur une image fixe ; lancez-la vous-même ou choisissez un chapitre.",
   "Another database server next to the first one - for example one for reporting. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Un autre serveur de base de données à côté du premier - par exemple un pour le reporting. Chacun est joignable sous son nom comme hôte et injecte des variables qui commencent par son nom (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).",
-  "SHA256 fingerprints or public keys, one per line. Test records the key the server offers when none is set; a changed key stops the uploads. Clear it after replacing the server on purpose.": "Empreintes SHA256 ou clés publiques, une par ligne. Si aucune n'est saisie, Tester enregistre la clé proposée par le serveur ; une clé modifiée arrête les envois. Videz le champ après avoir remplacé le serveur volontairement."
+  "SHA256 fingerprints or public keys, one per line. Test records the key the server offers when none is set; a changed key stops the uploads. Clear it after replacing the server on purpose.": "Empreintes SHA256 ou clés publiques, une par ligne. Si aucune n'est saisie, Tester enregistre la clé proposée par le serveur ; une clé modifiée arrête les envois. Videz le champ après avoir remplacé le serveur volontairement.",
+  "daily, for the offsite targets": "quotidienne, pour les cibles hors site",
+  "requested by the hoster": "demandée par l'hébergeur",
+  "scheduled daily": "planifiée, quotidienne",
+  "scheduled weekly": "planifiée, hebdomadaire",
+  "before restoring {{id}}": "avant la restauration de {{id}}",
+  "before schema {{from}} → {{to}} (Envoryx {{version}})": "avant le schéma {{from}} → {{to}} (Envoryx {{version}})"
 }
