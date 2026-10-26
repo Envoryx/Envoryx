@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -329,6 +330,37 @@ func TestLoginStoresTheTokenOnlyAfterCheckingIt(t *testing.T) {
 	_ = json.Unmarshal(raw, &stored)
 	if stored.Token != "stq_good" || stored.URL != srv.URL {
 		t.Fatalf("stored: %+v", stored)
+	}
+
+	// A certificate named relative to the current directory is stored with its full
+	// path, so commands run elsewhere still find it.
+	dir := t.TempDir()
+	tlsSrv := httptest.NewTLSServer(http.NotFoundHandler())
+	tlsSrv.Close()
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: tlsSrv.Certificate().Raw})
+	if err := os.WriteFile(filepath.Join(dir, "ca.crt"), certPEM, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(dir)
+	c, _, _ = newTestCLI(t, srv, "")
+	t.Setenv("ENVORYX_TOKEN", "")
+	path = os.Getenv("ENVORYX_CLI_CONFIG")
+	if err := c.run(context.Background(), []string{"login", "--token", "stq_good", "--ca-cert", "ca.crt"}); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ = os.ReadFile(path)
+	stored = cliConfig{}
+	_ = json.Unmarshal(raw, &stored)
+	if stored.CACert != filepath.Join(dir, "ca.crt") {
+		t.Fatalf("stored CA certificate %q", stored.CACert)
+	}
+
+	// No token at all: the message must not send the user back to "envoryx login".
+	c, _, _ = newTestCLI(t, srv, "")
+	t.Setenv("ENVORYX_TOKEN", "")
+	err = c.run(context.Background(), []string{"login"})
+	if err == nil || strings.Contains(err.Error(), "run \"envoryx login\"") {
+		t.Fatalf("login without a token: %v", err)
 	}
 }
 

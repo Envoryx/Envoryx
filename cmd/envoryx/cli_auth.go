@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"golang.org/x/term"
@@ -44,6 +45,10 @@ func (c *cli) login(ctx context.Context, args []string) error {
 	}
 	api, err := c.connect()
 	if err != nil {
+		if c.cfg.Token == "" {
+			// stdin was no terminal and brought nothing: "run envoryx login" would be no help.
+			return errors.New("no API token: pipe it in (--token - < file), set ENVORYX_TOKEN, or run envoryx login in a terminal, where it asks for it")
+		}
 		return err
 	}
 	ctx, cancel := c.context(ctx)
@@ -51,6 +56,15 @@ func (c *cli) login(ctx context.Context, args []string) error {
 	var me meResponse
 	if err := api.get(ctx, "/api/v1/auth/me", nil, &me); err != nil {
 		return err
+	}
+	// Later commands run from other directories: a relative certificate path would no
+	// longer point at the file.
+	if c.cfg.CACert != "" {
+		abs, err := filepath.Abs(c.cfg.CACert)
+		if err != nil {
+			return err
+		}
+		c.cfg.CACert = abs
 	}
 	if err := saveCLIConfig(c.cfg); err != nil {
 		return fmt.Errorf("saving %s: %w", cliConfigPath(), err)
