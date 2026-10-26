@@ -834,6 +834,7 @@ var dotnetTemplates = []Template{
 		Notes:  "dotnet watch applies code changes with hot reload and restarts the application when it can't. Envoryx injects ConnectionStrings__DefaultConnection for the project database; AppDatabase.cs creates the tables with EnsureCreated. To switch to migrations once the model settles, replace EnsureCreated with Migrate in AppDatabase.cs, run “dotnet ef migrations add Initial” in the terminal and drop the tables EnsureCreated made (or start from an empty database), then run the \"dotnet ef database update\" action: a migration can't create tables that already exist.",
 		steps: []templateStep{
 			{label: "dotnet new webapi", cmdFor: dotnetNew("webapi")},
+			dotnetGitignore,
 			{label: "EF Core for the project database", cmdFor: dotnetEFCore},
 			{label: "dotnet build", cmd: dotnetPrebuild},
 		},
@@ -845,6 +846,7 @@ var dotnetTemplates = []Template{
 		Notes:  "dotnet watch applies code and Razor view changes with hot reload. Envoryx injects ConnectionStrings__DefaultConnection when the project has a database.",
 		steps: []templateStep{
 			{label: "dotnet new mvc", cmdFor: dotnetNew("mvc")},
+			dotnetGitignore,
 			{label: "dotnet build", cmd: dotnetPrebuild},
 		},
 	},
@@ -855,6 +857,7 @@ var dotnetTemplates = []Template{
 		Notes:  "dotnet watch applies component changes with hot reload. Interactive components talk to the server over a WebSocket, which the Envoryx proxy passes through.",
 		steps: []templateStep{
 			{label: "dotnet new blazor", cmdFor: dotnetNew("blazor")},
+			dotnetGitignore,
 			{label: "dotnet build", cmd: dotnetPrebuild},
 		},
 	},
@@ -865,6 +868,7 @@ var dotnetTemplates = []Template{
 		Notes:  "dotnet watch applies code and page changes with hot reload. Envoryx injects ConnectionStrings__DefaultConnection when the project has a database.",
 		steps: []templateStep{
 			{label: "dotnet new webapp", cmdFor: dotnetNew("webapp")},
+			dotnetGitignore,
 			{label: "dotnet build", cmd: dotnetPrebuild},
 		},
 	},
@@ -880,6 +884,10 @@ func dotnetNew(template string) func(store.Project) []string {
 		return []string{"dotnet", "new", template, "--name", p.Slug, "--output", ".", "--no-https"}
 	}
 }
+
+// dotnetGitignore writes the SDK's .gitignore for .NET (bin/, obj/, the IDEs' files), which
+// the web templates leave out, so a first commit doesn't take the build output along.
+var dotnetGitignore = templateStep{label: "dotnet new gitignore", cmd: []string{"dotnet", "new", "gitignore"}}
 
 // dotnetPrebuild builds the fresh project once.
 var dotnetPrebuild = []string{"dotnet", "build", "--nologo"}

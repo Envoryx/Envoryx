@@ -990,7 +990,8 @@ folder and HTTP cache live in the package cache (see
   and *ASP.NET Core Razor Pages* come from `dotnet new` (`webapi`, `mvc`,
   `blazor`, `webapp`) with `--no-https`, since the Envoryx proxy terminates
   TLS; they need no network until the NuGet restore. The project is named
-  after the project's slug and built once. With a PostgreSQL, MySQL or MariaDB
+  after the project's slug, gets the SDK's `.gitignore` (`dotnet new
+  gitignore`: `bin/`, `obj/`) and is built once. With a PostgreSQL, MySQL or MariaDB
   database the Web API template adds EF Core: the provider (Npgsql, or
   Oracle's `MySql.EntityFrameworkCore` for MySQL and MariaDB, since Pomelo has
   no release for EF Core 10) and `Microsoft.EntityFrameworkCore.Design` in the

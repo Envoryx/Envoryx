@@ -172,10 +172,17 @@ func TestDotnetTemplateWorkersTestsAndManifest(t *testing.T) {
 			steps = append(steps, s.Cmd)
 		}
 	}
-	if len(steps) != 3 || !slices.Equal(steps[0], []string{"dotnet", "new", "webapi", "--name", "my-shop", "--output", ".", "--no-https"}) ||
-		steps[1][2] != dotnetEFCoreScript || !slices.Equal(steps[1][4:], []string{"10", "Npgsql.EntityFrameworkCore.PostgreSQL", "UseNpgsql"}) ||
-		!slices.Equal(steps[2], dotnetPrebuild) {
+	if len(steps) != 4 || !slices.Equal(steps[0], []string{"dotnet", "new", "webapi", "--name", "my-shop", "--output", ".", "--no-https"}) ||
+		!slices.Equal(steps[1], []string{"dotnet", "new", "gitignore"}) ||
+		steps[2][2] != dotnetEFCoreScript || !slices.Equal(steps[2][4:], []string{"10", "Npgsql.EntityFrameworkCore.PostgreSQL", "UseNpgsql"}) ||
+		!slices.Equal(steps[3], dotnetPrebuild) {
 		t.Fatalf("template steps: %q", steps)
+	}
+	// Every .NET template writes the .gitignore that keeps bin/ and obj/ out of Git.
+	for _, tpl := range dotnetTemplates {
+		if !slices.ContainsFunc(tpl.steps, func(s templateStep) bool { return s.label == dotnetGitignore.label }) {
+			t.Errorf("%s: no .gitignore", tpl.ID)
+		}
 	}
 	proj, _ := e.m.loadProject(ctx, v.Project.ID)
 	cfg, _ := dotnetConfig(proj)
