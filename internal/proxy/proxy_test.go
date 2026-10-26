@@ -2,6 +2,8 @@ package proxy
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"io"
 	"log/slog"
@@ -9,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -245,6 +248,80 @@ func TestServerListenAlso(t *testing.T) {
 		}
 		if body != "envoryx ui" {
 			t.Errorf("%s answered %q", addr, body)
+		}
+	}
+}
+
+// A name under the base domain that nothing routes to gets the "Unknown host" page over
+// HTTPS as well, with a certificate that stays in memory; other names get none.
+func TestUnknownNameUnderTheBaseDomainGetsThePageOverHTTPS(t *testing.T) {
+	dir := t.TempDir()
+	certs, err := tlsca.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := ln.Addr().String()
+	ln.Close()
+	source := func(context.Context) (Table, error) {
+		return Table{BaseDomain: "test", UIHosts: map[string]bool{"envoryx.test": true}, Routes: map[string]Target{}}, nil
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	router := NewRouter(source, time.Second, log)
+	ui := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = io.WriteString(w, "envoryx ui") })
+	s := NewServer(NewHandler(router, ui, true, log), router, certs, "", addr, nil, log)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- s.Run(ctx) }()
+	defer func() {
+		cancel()
+		<-done
+	}()
+	roots := x509.NewCertPool()
+	roots.AppendCertsFromPEM(certs.CAPEM())
+	get := func(host string) (*http.Response, error) {
+		client := &http.Client{Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{RootCAs: roots, ServerName: host},
+			DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+				return (&net.Dialer{}).DialContext(ctx, network, addr)
+			},
+		}}
+		var res *http.Response
+		var err error
+		for range 50 {
+			if res, err = client.Get("https://" + host + "/"); err == nil || !strings.Contains(err.Error(), "connection refused") {
+				break
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+		return res, err
+	}
+	res, err := get("typo.test")
+	if err != nil {
+		t.Fatalf("unknown name under the base domain: %v", err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("status %d, want the Unknown host page", res.StatusCode)
+	}
+	entries, _ := os.ReadDir(filepath.Join(dir, "certs"))
+	for _, e := range entries {
+		if strings.Contains(e.Name(), "typo") {
+			t.Fatalf("the passing certificate was stored: %s", e.Name())
+		}
+	}
+	if res, err := get("www.gone.test"); err != nil {
+		t.Fatalf("a deeper name under the base domain: %v", err)
+	} else {
+		res.Body.Close()
+	}
+	for _, host := range []string{"example.com", "nottest"} {
+		if res, err := get(host); err == nil {
+			res.Body.Close()
+			t.Fatalf("%s got a certificate", host)
 		}
 	}
 }

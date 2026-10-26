@@ -4,6 +4,7 @@ package proxy
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"html"
@@ -69,6 +70,8 @@ type Table struct {
 	// ProbeToken is sent in the probe answer so the server's own DNS check can tell its
 	// proxy from another Envoryx's that the name points at.
 	ProbeToken string
+	// BaseDomain is the domain the project names are under (test).
+	BaseDomain string
 }
 
 // Source produces the current routing table.
@@ -393,6 +396,14 @@ func (s *Server) allowHost(host string) bool {
 	return s.allowedIn(s.router.Table(context.Background()), host)
 }
 
+// underBaseDomain reports whether host is a name below the base domain (typo.test,
+// www.gone.test), where wildcard DNS sends every name to this proxy.
+func (s *Server) underBaseDomain(host string) bool {
+	base := s.router.Table(context.Background()).BaseDomain
+	host = strings.ToLower(strings.TrimSuffix(host, "."))
+	return base != "" && strings.HasSuffix(host, "."+base) && len(host) > len(base)+1
+}
+
 func (s *Server) allowedIn(t Table, host string) bool {
 	if t.UIHosts[host] || (t.ProbeHost != "" && host == t.ProbeHost) {
 		return true
@@ -459,6 +470,17 @@ func (s *Server) Run(ctx context.Context) error {
 	withTLS := func() *http.Server {
 		srv := base()
 		srv.TLSConfig = s.certs.TLSConfig(s.allowHost)
+		// A name under the base domain that nothing routes to (a deleted or renamed
+		// project's bookmark) gets a passing certificate, so the browser shows the
+		// "Unknown host" page as over plain HTTP rather than a failed handshake.
+		known := srv.TLSConfig.GetCertificate
+		srv.TLSConfig.GetCertificate = func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			c, err := known(hello)
+			if err != nil && s.underBaseDomain(hello.ServerName) {
+				return s.certs.EphemeralCertificate(hello.ServerName)
+			}
+			return c, err
+		}
 		return srv
 	}
 	if start(s.httpAddr, base) {

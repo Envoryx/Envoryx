@@ -49,6 +49,40 @@ type Store struct {
 
 	custom *tls.Certificate // operator supplied; nil if absent
 	leafs  map[string]*tls.Certificate
+	// passing holds the certificates of EphemeralCertificate, in memory only.
+	passing map[string]*tls.Certificate
+}
+
+// maxPassing bounds the in-memory certificates of EphemeralCertificate; when it is
+// reached the next one starts the set afresh.
+const maxPassing = 64
+
+// EphemeralCertificate returns a certificate for a name nothing routes to (a bookmark of
+// a deleted project under the base domain), so the browser gets the "Unknown host" page
+// instead of a broken handshake. Anyone can ask for any such name, so these certificates
+// stay in memory, a bounded few, and never land in the CA directory or a backup.
+func (s *Store) EphemeralCertificate(host string) (*tls.Certificate, error) {
+	host = strings.ToLower(strings.TrimSuffix(host, "."))
+	if host == "" {
+		return nil, errors.New("empty server name")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.custom != nil && s.custom.Leaf != nil && s.custom.Leaf.VerifyHostname(host) == nil {
+		return s.custom, nil
+	}
+	if c, ok := s.passing[host]; ok && time.Until(c.Leaf.NotAfter) > renewBefore {
+		return c, nil
+	}
+	c, err := s.newLeaf(host)
+	if err != nil {
+		return nil, err
+	}
+	if s.passing == nil || len(s.passing) >= maxPassing {
+		s.passing = map[string]*tls.Certificate{}
+	}
+	s.passing[host] = c
+	return c, nil
 }
 
 // Open loads (or creates) the CA under dir and loads a custom certificate if present.
@@ -316,7 +350,29 @@ func (s *Store) loadLeaf(host string) (*tls.Certificate, error) {
 	return &cert, nil
 }
 
+// issue makes a certificate for host and keeps it in the CA directory.
 func (s *Store) issue(host string) (*tls.Certificate, error) {
+	c, err := s.newLeaf(host)
+	if err != nil {
+		return nil, err
+	}
+	key, ok := c.PrivateKey.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, errors.New("unexpected key type")
+	}
+	keyDER, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		return nil, err
+	}
+	pemData := append(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: c.Certificate[0]}), pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})...)
+	if err := os.WriteFile(s.leafPath(host), pemData, 0o600); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+// newLeaf makes a certificate for host signed by the CA.
+func (s *Store) newLeaf(host string) (*tls.Certificate, error) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, err
@@ -341,14 +397,6 @@ func (s *Store) issue(host string) (*tls.Certificate, error) {
 	}
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, s.caCert, &key.PublicKey, s.caKey)
 	if err != nil {
-		return nil, err
-	}
-	keyDER, err := x509.MarshalECPrivateKey(key)
-	if err != nil {
-		return nil, err
-	}
-	pemData := append(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})...)
-	if err := os.WriteFile(s.leafPath(host), pemData, 0o600); err != nil {
 		return nil, err
 	}
 	leaf, err := x509.ParseCertificate(der)

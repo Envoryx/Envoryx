@@ -2,6 +2,7 @@ package tlsca
 
 import (
 	"crypto/x509"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -58,6 +59,37 @@ func TestCAIssuesAndCachesCertificates(t *testing.T) {
 	tlsCfg := s.TLSConfig(func(h string) bool { return h == "shop.test" })
 	if tlsCfg.GetCertificate == nil {
 		t.Fatal("tls config")
+	}
+}
+
+// A passing certificate chains to the CA but never lands on disk, and only a bounded
+// number of them is kept.
+func TestEphemeralCertificatesStayInMemory(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roots := x509.NewCertPool()
+	roots.AppendCertsFromPEM(s.CAPEM())
+	c, err := s.EphemeralCertificate("Typo.test.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Leaf.Verify(x509.VerifyOptions{DNSName: "typo.test", Roots: roots}); err != nil {
+		t.Fatalf("passing certificate: %v", err)
+	}
+	if again, _ := s.EphemeralCertificate("typo.test"); again != c {
+		t.Fatal("a repeated request must get the same certificate")
+	}
+	if _, err := os.Stat(s.leafPath("typo.test")); !os.IsNotExist(err) {
+		t.Fatalf("stored on disk: %v", err)
+	}
+	for i := range 2 * maxPassing {
+		_, _ = s.EphemeralCertificate(fmt.Sprintf("n%d.test", i))
+	}
+	if len(s.passing) > maxPassing {
+		t.Fatalf("%d passing certificates kept", len(s.passing))
 	}
 }
 

@@ -227,6 +227,7 @@ type ProxyOptions struct {
 func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Table, error) {
 	t := proxy.Table{Routes: map[string]proxy.Target{}, UIHosts: map[string]bool{}, Redirects: map[string]string{}, ForceHTTPS: m.ForceHTTPS(ctx), HTTPSPort: opts.HTTPSPort, EnvoryxURL: opts.EnvoryxURL}
 	base := m.BaseDomain(ctx)
+	t.BaseDomain = base
 	t.UIHosts[UIHostname(base)] = true
 	t.ProbeHost, t.ProbeToken = ProbeHostname(base), probeToken
 	for _, h := range opts.ExtraUIHosts {

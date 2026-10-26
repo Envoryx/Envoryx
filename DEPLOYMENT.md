@@ -399,7 +399,10 @@ not at the Unraid IP (which is where the direct project ports live).
 On first start Envoryx creates a local certificate authority under
 `/config/ca/` (`ca.key` 0600, `ca.crt`). The proxy issues a certificate per
 host name on demand, so `https://shop.test` works as soon as the CA is
-trusted on the client:
+trusted on the client. A name under the base domain that nothing serves (the
+bookmark of a deleted or renamed project) gets a certificate as well, kept in
+memory only, and shows the *Unknown host* page; names outside the base domain
+get none:
 
 1. Settings → Domains & HTTPS → **Download envoryx-ca.crt**.
 2. Install it as a trusted root (instructions per OS are shown next to the
