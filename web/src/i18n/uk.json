@@ -3734,5 +3734,13 @@
   "Your plan doesn't include {{name}}, so it isn't preselected.": "{{name}} не входить у ваш тариф, тому не вибраний заздалегідь.",
   "Forgot the password? An admin of this instance can send you a reset link; if you are the only admin, ask your hoster.": "Забули пароль? Адміністратор цього екземпляра може надіслати вам посилання для скидання; якщо ви єдиний адміністратор, зверніться до свого хостера.",
   "Another Envoryx made this backup: its project settings are encrypted with key {{id}}, not with this instance's. Enter that key (Settings → Secret key on the Envoryx that made it); afterwards the backup is encrypted with this instance's key, and the key you enter isn't stored.": "Цю резервну копію створив інший Envoryx: її налаштування проєкту зашифровані ключем {{id}}, а не ключем цього екземпляра. Введіть цей ключ (Налаштування → Секретний ключ в Envoryx, який її створив); після цього копія буде зашифрована ключем цього екземпляра, а введений ключ ніде не зберігається.",
-  "Another Envoryx made it, so restoring it asks for that Envoryx's secret key.": "Її створив інший Envoryx, тому для відновлення потрібен секретний ключ того Envoryx."
+  "Another Envoryx made it, so restoring it asks for that Envoryx's secret key.": "Її створив інший Envoryx, тому для відновлення потрібен секретний ключ того Envoryx.",
+  "Single sign-on failed.": "Єдиний вхід не вдався.",
+  "Remove the volume {{name}} and the data in it? This can't be undone.": "Видалити том {{name}} разом із даними? Це не можна скасувати.",
+  "Remove volume": "Видалити том",
+  "The Node.js inspector accepts everyone who reaches the port and can run any code in the container. Switch it off when you are not debugging.": "Інспектор Node.js приймає будь-кого, хто дістанеться до порту, і може виконати будь-який код у контейнері. Вимикайте його, коли не налагоджуєте.",
+  "debugpy accepts everyone who reaches the port and can run any code in the container. Switch it off when you are not debugging.": "debugpy приймає будь-кого, хто дістанеться до порту, і може виконати будь-який код у контейнері. Вимикайте його, коли не налагоджуєте.",
+  "Remove the stored password": "Видалити збережений пароль",
+  "The hoster's support can't change this: where the backups go stays with the instance's admins.": "Підтримка хостера не може це змінити: куди йдуть резервні копії, вирішують адміністратори екземпляра.",
+  "on a hosted instance only its own instance backups can be restored; bring projects from elsewhere over as project backups (New project → Existing website), where the plan is checked": "на розміщеному екземплярі можна відновити лише його власні резервні копії екземпляра; переносьте проєкти з інших місць як резервні копії проєктів (Новий проєкт → Наявний сайт), де перевіряється тариф"
 }

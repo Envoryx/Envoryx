@@ -3684,5 +3684,13 @@
   "Your plan doesn't include {{name}}, so it isn't preselected.": "{{name}} no está incluido en tu plan, así que no se preselecciona.",
   "Forgot the password? An admin of this instance can send you a reset link; if you are the only admin, ask your hoster.": "¿Olvidaste la contraseña? Un administrador de esta instancia puede enviarte un enlace para restablecerla; si eres el único administrador, pregunta a tu proveedor de hosting.",
   "Another Envoryx made this backup: its project settings are encrypted with key {{id}}, not with this instance's. Enter that key (Settings → Secret key on the Envoryx that made it); afterwards the backup is encrypted with this instance's key, and the key you enter isn't stored.": "Otro Envoryx hizo esta copia: sus ajustes de proyecto están cifrados con la clave {{id}}, no con la de esta instancia. Introduce esa clave (Ajustes → Clave secreta en el Envoryx que la hizo); después la copia queda cifrada con la clave de esta instancia, y la clave que introduces no se guarda.",
-  "Another Envoryx made it, so restoring it asks for that Envoryx's secret key.": "La hizo otro Envoryx, así que restaurarla pide la clave secreta de ese Envoryx."
+  "Another Envoryx made it, so restoring it asks for that Envoryx's secret key.": "La hizo otro Envoryx, así que restaurarla pide la clave secreta de ese Envoryx.",
+  "Single sign-on failed.": "El inicio de sesión único ha fallado.",
+  "Remove the volume {{name}} and the data in it? This can't be undone.": "¿Quitar el volumen {{name}} y sus datos? No se puede deshacer.",
+  "Remove volume": "Quitar el volumen",
+  "The Node.js inspector accepts everyone who reaches the port and can run any code in the container. Switch it off when you are not debugging.": "El inspector de Node.js acepta a cualquiera que llegue al puerto y puede ejecutar cualquier código en el contenedor. Desactívalo cuando no estés depurando.",
+  "debugpy accepts everyone who reaches the port and can run any code in the container. Switch it off when you are not debugging.": "debugpy acepta a cualquiera que llegue al puerto y puede ejecutar cualquier código en el contenedor. Desactívalo cuando no estés depurando.",
+  "Remove the stored password": "Quitar la contraseña guardada",
+  "The hoster's support can't change this: where the backups go stays with the instance's admins.": "El soporte del proveedor no puede cambiar esto: el destino de las copias queda en manos de los administradores de la instancia.",
+  "on a hosted instance only its own instance backups can be restored; bring projects from elsewhere over as project backups (New project → Existing website), where the plan is checked": "en una instancia alojada solo se pueden restaurar sus propias copias de la instancia; trae los proyectos de otro sitio como copias de proyecto (Nuevo proyecto → Sitio existente), donde se comprueba el plan"
 }
