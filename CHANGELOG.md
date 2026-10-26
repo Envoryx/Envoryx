@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.45.1] - 2026-10-26
+
 ### Security
 - PHP projects under Apache served dotfiles such as `.env` and `.git/config`, which nginx
   and Caddy deny. Apache now denies every dot path too, except `/.well-known/`. The web
@@ -2768,7 +2770,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.45.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.45.1...HEAD
+[0.45.1]: https://github.com/envoryx/envoryx/compare/v0.45.0...v0.45.1
 [0.45.0]: https://github.com/envoryx/envoryx/compare/v0.44.4...v0.45.0
 [0.44.4]: https://github.com/envoryx/envoryx/compare/v0.44.3...v0.44.4
 [0.44.3]: https://github.com/envoryx/envoryx/compare/v0.44.2...v0.44.3
