@@ -103,6 +103,10 @@ type Service struct {
 	mfaOnce    sync.Once
 	mfaPending *mfaState
 	ceremonies ceremonies
+
+	// setupMu makes the setup's "no admin yet" check and the creation one step, so
+	// concurrent setup requests create one admin, not one each.
+	setupMu sync.Mutex
 }
 
 // SetPlan hands the service the instance's plan.
@@ -147,16 +151,18 @@ func (s *Service) NeedsSetup(ctx context.Context) (bool, error) {
 
 // CreateInitialAdmin creates the first user. It fails if a user already exists.
 func (s *Service) CreateInitialAdmin(ctx context.Context, username, password string) (store.User, error) {
+	hash, err := HashPassword(password)
+	if err != nil {
+		return store.User{}, err
+	}
+	s.setupMu.Lock()
+	defer s.setupMu.Unlock()
 	needs, err := s.NeedsSetup(ctx)
 	if err != nil {
 		return store.User{}, err
 	}
 	if !needs {
 		return store.User{}, fmt.Errorf("setup already completed: %w", store.ErrConflict)
-	}
-	hash, err := HashPassword(password)
-	if err != nil {
-		return store.User{}, err
 	}
 	return s.store.Users.Create(ctx, username, hash, "admin")
 }
