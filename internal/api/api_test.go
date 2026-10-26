@@ -304,6 +304,27 @@ func TestSetupAndLoginFlow(t *testing.T) {
 	}
 }
 
+// TestSetupAfterLockout: failed sign-ins before a reset must not make setup fail after
+// it created the admin (it answered 429, then 409 on a retry).
+func TestSetupAfterLockout(t *testing.T) {
+	a := newApp(t)
+	for i := 0; i < 10; i++ {
+		a.do(http.MethodPost, "/api/v1/auth/login", map[string]string{"username": "admin", "password": "wrong-password"}, true)
+	}
+	r := a.do(http.MethodPost, "/api/v1/auth/login", map[string]string{"username": "admin", "password": "wrong-password"}, true)
+	if r.status != http.StatusTooManyRequests {
+		t.Fatalf("the limiter should block by now: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/setup", map[string]string{"username": "admin", "password": "supersecret123"}, true)
+	if r.status != http.StatusCreated || r.cookie == nil {
+		t.Fatalf("setup: %d %s", r.status, r.raw)
+	}
+	a.cookie = r.cookie
+	if r = a.do(http.MethodGet, "/api/v1/auth/me", nil, false); r.status != http.StatusOK {
+		t.Fatalf("me after setup: %d %s", r.status, r.raw)
+	}
+}
+
 func TestCSRFProtection(t *testing.T) {
 	a := newApp(t)
 	a.setupAndLogin()

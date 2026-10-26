@@ -53,7 +53,10 @@ func (a *API) setup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.d.Audit.LogAs(r.Context(), user.Username, audit.ActionSetup, "user", user.ID, nil)
-	token, _, err := a.d.Auth.Login(r.Context(), req.Username, req.Password, auth.ClientIP(r), r.UserAgent())
+	// The account exists now: open its session directly. Going through Login would
+	// count against the sign-in limiter, which after a lockout may already refuse this
+	// address, and setup would fail although the admin was created.
+	token, err := a.d.Auth.StartSession(r.Context(), user, auth.MethodPassword, auth.ClientIP(r), r.UserAgent())
 	if err != nil {
 		writeError(w, r, err)
 		return
