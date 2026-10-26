@@ -309,7 +309,7 @@ func (m *Manager) checkUpdateServices(pl *plan.Plan, proj store.Project, req Upd
 			return
 		}
 		cur := proj.Service(kind)
-		typ := d.Type
+		typ := canonicalDBType(d.Type)
 		if typ == "" && cur != nil {
 			typ = cur.Variant
 		}

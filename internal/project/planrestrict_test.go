@@ -53,6 +53,15 @@ func TestPlanLimitsServices(t *testing.T) {
 	if _, err := e.m.Update(ctx, id, UpdateRequest{Redis: &ExtraUpdate{Enabled: &on}}); err != nil {
 		t.Errorf("Redis is in the plan: %v", err)
 	}
+	// "postgres" is PostgreSQL for the plan too, here refused as the plan has no PostgreSQL.
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Databases: map[string]DatabaseUpdate{"pg": {Enabled: true, Type: "postgres"}}}); !errors.Is(err, plan.ErrQuota) || !strings.Contains(err.Error(), "PostgreSQL") {
+		t.Errorf("adding postgres: %v", err)
+	}
+	e.m.SetPlan(plan.Static(&plan.Plan{Services: []string{"mariadb", "redis", "mailpit", "postgresql"}}))
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Databases: map[string]DatabaseUpdate{"pg": {Enabled: true, Type: "postgres"}}}); err != nil {
+		t.Errorf("postgres with PostgreSQL in the plan: %v", err)
+	}
+	e.m.SetPlan(plan.Static(&plan.Plan{Services: []string{"mariadb", "redis", "mailpit"}}))
 	// The project that had Ollama before the plan keeps it and can change other things.
 	name := "Old one"
 	if _, err := e.m.Update(ctx, old.Project.ID, UpdateRequest{Name: &name, Ollama: &ExtraUpdate{Enabled: &on}}); err != nil {
