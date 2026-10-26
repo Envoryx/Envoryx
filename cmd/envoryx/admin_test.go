@@ -178,10 +178,24 @@ func TestAdminLogoutAllRevokeTokensAndReset(t *testing.T) {
 func TestAdminUsageErrors(t *testing.T) {
 	cli, _, _ := newAdminCLI(t)
 	ctx := context.Background()
-	for _, args := range [][]string{{"bogus"}, {"reset-password", "extra"}, {"reset", "--nope"}} {
+	for _, args := range [][]string{{"bogus"}, {"reset-password", "extra"}, {"reset", "--nope"}, {"users", "extra"}, {"logout-all", "now"}} {
 		if err := cli.run(ctx, args); !errors.Is(err, errAdminUsage) {
 			t.Errorf("%v: expected usage error, got %v", args, err)
 		}
+	}
+}
+
+// Help is only help, wherever it stands: "logout-all --help" ends no session and needs no
+// database.
+func TestAdminHelpRunsNothing(t *testing.T) {
+	t.Setenv("ENVORYX_CONFIG_DIR", t.TempDir())
+	for _, args := range [][]string{{"--help"}, {"help"}, {"logout-all", "--help"}, {"reset", "-h"}, {"users", "--help"}} {
+		if code := adminCommand(args); code != 0 {
+			t.Errorf("%v: exit %d", args, code)
+		}
+	}
+	if code := adminCommand(nil); code != 2 {
+		t.Errorf("no command: exit %d", code)
 	}
 }
 
