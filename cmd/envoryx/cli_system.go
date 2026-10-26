@@ -187,7 +187,11 @@ func (c *cli) audit(ctx context.Context, args []string) error {
 	}
 	rows := make([][]string, 0, len(body.Entries))
 	for _, e := range body.Entries {
-		rows = append(rows, []string{e.CreatedAt.Local().Format("2006-01-02 15:04:05"), e.Username, e.Action, e.target(), e.IP})
+		user := e.Username
+		if user == "" {
+			user = "Envoryx" // what it did on its own, as the web UI says
+		}
+		rows = append(rows, []string{e.CreatedAt.Local().Format("2006-01-02 15:04:05"), user, e.Action, e.target(), e.IP})
 	}
 	c.table([]string{"TIME", "USER", "ACTION", "TARGET", "IP"}, rows)
 	if body.Next != "" {

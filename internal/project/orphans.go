@@ -94,7 +94,9 @@ func (m *Manager) cleanOrphans(ctx context.Context, orphans []Orphan) []Orphan {
 			names = append(names, o.Type+" "+o.Name)
 		}
 		m.log.Info("removed orphaned Envoryx resources", "count", len(removed), "resources", strings.Join(names, ", "))
-		m.audit.Log(ctx, audit.ActionOrphansRemoved, "docker", "", map[string]any{"automatic": true, "removed": names})
+		// Envoryx's own doing, also when a manual reconcile happened to be the second pass:
+		// the audit doesn't credit whoever asked for that pass.
+		m.audit.Log(context.Background(), audit.ActionOrphansRemoved, "docker", "", map[string]any{"automatic": true, "removed": names})
 		m.recordActivity(ActivityOrphansRemoved, names, "Orphaned resources removed",
 			fmt.Sprintf("Envoryx removed %d Envoryx-labelled %s that belonged to no project: %s. Volumes are never removed automatically.",
 				len(names), plural(len(names), "resource", "resources"), strings.Join(names, ", ")))
