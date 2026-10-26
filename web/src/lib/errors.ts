@@ -158,7 +158,7 @@ const templates: (string | [string, string])[] = [
   "the virtual environment was built for Python {{built}} but the container runs {{running}} - its packages are invisible to the new interpreter, so the application server and the workers wait; {{reason}}",
   "the virtual environment is broken (its python links to itself), so the application server and the workers wait; {{reason}}",
   "the virtual environment is broken (an install in it was interrupted), so its packages may fail to import; {{reason}}",
-  "node_modules is missing - the dev server runs \"{{install}}\" before it starts; if that fails, it waits until you run \"npm install\" (or pnpm / yarn install) from Actions",
+  "node_modules is missing - the dev server runs \"{{install}}\" before it starts; if that fails, it waits until you run \"{{manager}} install\" from Actions",
   // A service's trouble in the project status (status.go serviceProblem).
   "{{service}} keeps restarting - its main process exits shortly after each start; its logs say why",
   "the {{service}} server waits because bundle install failed - its logs show the error; it tries again every 30 seconds",

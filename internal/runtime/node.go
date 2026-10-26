@@ -100,14 +100,20 @@ const nodeDepsWait = `until [ -f node_modules/.package-lock.json ] || [ -f node_
 type NodeLockfile struct {
 	File    string
 	Install string
+	// Run is the shell line behind Install when the two differ.
+	Run string
 	// Manager is the package manager that writes the lockfile.
 	Manager string
 }
 
+// yarnFrozenInstall picks the flag the project's Yarn understands: Yarn 2 and later
+// deprecate --frozen-lockfile for --immutable (YN0050), which Yarn 1 doesn't know.
+const yarnFrozenInstall = `yarn install $(case "$(yarn --version 2>/dev/null)" in 1.*) echo --frozen-lockfile ;; *) echo --immutable ;; esac)`
+
 var nodeLockfiles = []NodeLockfile{
 	{File: "package-lock.json", Install: "npm ci", Manager: "npm"},
 	{File: "pnpm-lock.yaml", Install: "pnpm install --frozen-lockfile", Manager: "pnpm"},
-	{File: "yarn.lock", Install: "yarn install --frozen-lockfile", Manager: "yarn"},
+	{File: "yarn.lock", Install: "yarn install --immutable", Run: yarnFrozenInstall, Manager: "yarn"},
 }
 
 // NodeLockfiles lists the lockfiles in the order the dev server looks for them: the
@@ -142,7 +148,11 @@ func (c NodeConfig) DepsGuard() string {
 		if i > 0 {
 			b.WriteString(`el`)
 		}
-		fmt.Fprintf(&b, `if [ -f %s ]; then echo 'envoryx: no node_modules - running "%s"'; %s; `, l.File, l.Install, l.Install)
+		run := l.Install
+		if l.Run != "" {
+			run = l.Run
+		}
+		fmt.Fprintf(&b, `if [ -f %s ]; then echo 'envoryx: no node_modules - running "%s"'; %s; `, l.File, l.Install, run)
 	}
 	b.WriteString(`else false; fi || ` + nodeDepsWait + `; fi`)
 	return b.String()

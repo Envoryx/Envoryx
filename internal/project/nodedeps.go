@@ -58,7 +58,7 @@ func (m *Manager) nodeModulesWarning(p store.Project) string {
 	}
 	for _, l := range runtime.NodeLockfiles(cfg.PackageManager) {
 		if exists(filepath.Join(dir, l.File)) {
-			return fmt.Sprintf(`node_modules is missing - the dev server runs "%s" before it starts; if that fails, it waits until you run "npm install" (or pnpm / yarn install) from Actions`, l.Install)
+			return fmt.Sprintf(`node_modules is missing - the dev server runs "%s" before it starts; if that fails, it waits until you run "%s install" from Actions`, l.Install, l.Manager)
 		}
 	}
 	return `node_modules is missing and there is no lockfile - the dev server waits until you run "npm install" (or pnpm / yarn install) from Actions`

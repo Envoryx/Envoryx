@@ -1,8 +1,11 @@
 package runtime
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -220,6 +223,24 @@ func TestNodeDepsGuardPrefersPackageManager(t *testing.T) {
 		}
 		if out, err := exec.Command("sh", "-n", "-c", g).CombinedOutput(); err != nil {
 			t.Fatalf("%s: guard is no valid shell: %v %s", pm, err, out)
+		}
+	}
+}
+
+// Yarn 1 installs with --frozen-lockfile, later versions with --immutable, which spares
+// them the YN0050 deprecation.
+func TestYarnFrozenInstallFlag(t *testing.T) {
+	dir := t.TempDir()
+	fake := "#!/bin/sh\nif [ \"$1\" = --version ]; then echo \"$YARN_VERSION\"; else echo \"$@\"; fi\n"
+	if err := os.WriteFile(filepath.Join(dir, "yarn"), []byte(fake), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for version, want := range map[string]string{"1.22.22": "install --frozen-lockfile", "4.18.1": "install --immutable"} {
+		cmd := exec.Command("sh", "-c", yarnFrozenInstall)
+		cmd.Env = append(os.Environ(), "PATH="+dir+":"+os.Getenv("PATH"), "YARN_VERSION="+version)
+		out, err := cmd.Output()
+		if err != nil || strings.TrimSpace(string(out)) != want {
+			t.Fatalf("yarn %s: %q %v, want %q", version, out, err, want)
 		}
 	}
 }
