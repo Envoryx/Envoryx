@@ -735,8 +735,9 @@ func (m *Manager) waitForDatabase(ctx context.Context, p store.Project, svc *sto
 		reported := false
 		for {
 			err := probe()
-			if err == nil {
-				return nil
+			var refused *loginRefusedError
+			if err == nil || errors.As(err, &refused) {
+				return err
 			}
 			if time.Now().After(deadline) {
 				return fmt.Errorf("the database of %s did not become ready in time: %w%s", p.Slug, err, m.containerTail(ctx, c.ID))
@@ -766,10 +767,42 @@ func (m *Manager) waitForDatabase(ctx context.Context, p store.Project, svc *sto
 			return err
 		}
 	}
+	// A server that refuses the login (its password was changed inside the database)
+	// won't change its mind: after a short grace for a server still settling, that is
+	// the answer instead of three minutes of waiting.
+	var refusedSince time.Time
 	return wait(func() error {
 		_, err := m.runSQL(ctx, p, svc, cfg, dialect.ListDatabases)
+		if err == nil || !loginRefused(err) {
+			refusedSince = time.Time{}
+			return err
+		}
+		if refusedSince.IsZero() {
+			refusedSince = time.Now()
+		} else if time.Since(refusedSince) > databaseLoginGrace {
+			return &loginRefusedError{slug: p.Slug}
+		}
 		return err
 	})
+}
+
+// databaseLoginGrace is how long waitForDatabase accepts a refused login before it gives up.
+var databaseLoginGrace = 10 * time.Second
+
+// loginRefusedError ends waitForDatabase: the server keeps refusing the project's login.
+type loginRefusedError struct{ slug string }
+
+func (e *loginRefusedError) Error() string {
+	return fmt.Sprintf("%s: the database of %s refuses Envoryx's login; was the password changed inside the database?", ErrConflict, e.slug)
+}
+
+func (e *loginRefusedError) Unwrap() error { return ErrConflict }
+
+// loginRefused reports whether a database client failed because the server turned the
+// credentials down (MySQL/MariaDB, PostgreSQL, MongoDB).
+func loginRefused(err error) bool {
+	s := strings.ToLower(err.Error())
+	return strings.Contains(s, "access denied for user") || strings.Contains(s, "password authentication failed") || strings.Contains(s, "authentication failed")
 }
 
 // containerTail returns the last lines a container wrote, for an error that says why it

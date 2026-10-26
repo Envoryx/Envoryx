@@ -55,6 +55,7 @@ const templates: (string | [string, string])[] = [
   "the database browser cannot open {{type}} databases; use the published port with a desktop client",
   "the backup was made with a newer Envoryx (schema {{backup}}, this build supports {{supported}})",
   "this backup was made by Envoryx {{version}} in a newer format; update this Envoryx to restore it",
+  "the database of {{project}} refuses Envoryx's login; was the password changed inside the database?",
   "{{host}} is already the default host name of this project",
   "{{host}} is reserved for a service of project \"{{project}}\"",
   "{{host}} is reserved for Envoryx",

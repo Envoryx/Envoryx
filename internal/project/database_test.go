@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/runtime"
@@ -443,5 +444,34 @@ func TestDatabaseEnvReachesNodeApplication(t *testing.T) {
 	}
 	if info, err := e.m.DatabaseInfo(ctx, view.Project.ID, ""); err != nil || info.State != "running" {
 		t.Fatalf("info: %+v %v", info, err)
+	}
+}
+
+// A database that turns Envoryx's login down (its password changed inside the server)
+// fails the backup with that reason after a short grace, not after three minutes as an
+// internal error with the container's log.
+func TestBackupGivesUpOnARefusedDatabaseLogin(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	old := databaseLoginGrace
+	databaseLoginGrace = 200 * time.Millisecond
+	t.Cleanup(func() { databaseLoginGrace = old })
+	view, err := e.m.Create(ctx, dbRequest("Shop", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.engine.ExecHandler = func(container string, cmd []string, env []string) (docker.ExecResult, error) {
+		if strings.HasPrefix(cmd[len(cmd)-1], "SHOW DATABASES") {
+			return docker.ExecResult{ExitCode: 1, Stderr: "ERROR 1045 (28000): Access denied for user 'shop'@'localhost' (using password: YES)"}, nil
+		}
+		return docker.ExecResult{}, nil
+	}
+	begin := time.Now()
+	_, err = e.m.CreateBackup(ctx, view.Project.ID, BackupOptions{Database: true})
+	if !errors.Is(err, ErrConflict) || !strings.Contains(err.Error(), "refuses Envoryx's login") {
+		t.Fatalf("backup: %v", err)
+	}
+	if took := time.Since(begin); took > 30*time.Second {
+		t.Fatalf("gave up after %v", took)
 	}
 }
