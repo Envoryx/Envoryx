@@ -92,7 +92,6 @@ export function InstanceBackupsCard() {
       setDeleteTarget(null);
       invalidate();
     },
-    onError: fail(t("Deleting the backup failed")),
   });
   const secretKey = useQuery({ queryKey: ["secretKey"], queryFn: async () => (await api.secretKey.get()).secretKey });
   const [restoreKey, setRestoreKey] = useState("");
@@ -111,7 +110,6 @@ export function InstanceBackupsCard() {
         invalidate();
       }
     },
-    onError: fail(t("Scheduling the restore failed")),
   });
   const offsiteUpload = useMutation({
     mutationFn: (b: InstanceBackup) => api.instanceBackups.uploadOffsite(b.id),
@@ -131,6 +129,17 @@ export function InstanceBackupsCard() {
     onError: fail(t("Fetching the backup failed")),
     onSettled: () => setFetching(null),
   });
+  // The restore and delete dialogs show their own errors: one in the card would sit behind them.
+  const closeRestore = () => {
+    setRestoreTarget(null);
+    setConfirm("");
+    setRestoreKey("");
+    restore.reset();
+  };
+  const closeDelete = () => {
+    setDeleteTarget(null);
+    remove.reset();
+  };
   const cancel = useMutation({
     mutationFn: () => api.instanceBackups.cancelRestore(),
     onSuccess: invalidate,
@@ -267,22 +276,12 @@ export function InstanceBackupsCard() {
 
       <Dialog
         open={restoreTarget !== null}
-        onClose={() => {
-          setRestoreTarget(null);
-          setConfirm("");
-        }}
+        onClose={closeRestore}
         title={t("Restore instance backup?")}
         description={restoreTarget ? `${formatDateTime(restoreTarget.createdAt)} · Envoryx ${restoreTarget.meta.envoryx} · ${formatBytes(restoreTarget.sizeBytes)}` : undefined}
         footer={
           <>
-            <Button
-              onClick={() => {
-                setRestoreTarget(null);
-                setConfirm("");
-              }}
-            >
-              {t("Cancel")}
-            </Button>
+            <Button onClick={closeRestore}>{t("Cancel")}</Button>
             <Button variant="danger" loading={restore.isPending} disabled={confirm !== "restore" || (foreignKey(restoreTarget) && !restoreKey.trim())} onClick={() => restoreTarget && restore.mutate(restoreTarget)} icon={<RotateCcw className="size-4" />}>
               {t("Restore and restart")}
             </Button>
@@ -290,6 +289,7 @@ export function InstanceBackupsCard() {
         }
       >
         <div className="space-y-4">
+          {restore.error && <Alert tone="red">{errorText(restore.error, t, t("Scheduling the restore failed"))}</Alert>}
           <Alert tone="red" title={t("This replaces the Envoryx configuration")}>
             <p>{t("Database, CA, SSH keys, notification settings and project configuration are replaced by the backup; changes since then are lost. A backup of the current state is taken first (pre-restore).")}</p>
             <p className="mt-1">{t("Project files and Docker containers are not touched. Projects created after the backup show up as orphans and can be cleaned up afterwards.")}</p>
@@ -312,18 +312,20 @@ export function InstanceBackupsCard() {
 
       <Dialog
         open={deleteTarget !== null}
-        onClose={() => setDeleteTarget(null)}
+        onClose={closeDelete}
         title={t("Delete backup?")}
         description={deleteTarget ? `${deleteTarget.id} · ${formatBytes(deleteTarget.sizeBytes)}` : undefined}
         footer={
           <>
-            <Button onClick={() => setDeleteTarget(null)}>{t("Cancel")}</Button>
+            <Button onClick={closeDelete}>{t("Cancel")}</Button>
             <Button variant="danger" loading={remove.isPending} onClick={() => deleteTarget && remove.mutate(deleteTarget)} icon={<Trash2 className="size-4" />}>
               {t("Delete")}
             </Button>
           </>
         }
-      />
+      >
+        {remove.error && <Alert tone="red">{errorText(remove.error, t, t("Deleting the backup failed"))}</Alert>}
+      </Dialog>
     </Card>
   );
 }
