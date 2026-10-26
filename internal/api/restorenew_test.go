@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -78,6 +79,10 @@ func TestSiteImportTakesABackupArchive(t *testing.T) {
 
 	if r := uploadSite(t, a, dl.raw, "SELECT 1;"); r.status != http.StatusUnprocessableEntity {
 		t.Fatalf("backup with a dump: %d %s", r.status, r.raw)
+	}
+	// Cut off half way, it is an incomplete archive, not an internal error.
+	if r := uploadSite(t, a, dl.raw[:len(dl.raw)/2], ""); r.status != http.StatusUnprocessableEntity || !strings.Contains(string(r.raw), "incomplete") {
+		t.Fatalf("truncated backup: %d %s", r.status, r.raw)
 	}
 	r = uploadSite(t, a, dl.raw, "")
 	if r.status != http.StatusCreated || r.body["import"] != nil {

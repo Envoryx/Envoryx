@@ -1,6 +1,9 @@
 package api
 
 import (
+	"archive/tar"
+	"archive/zip"
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"io"
@@ -42,6 +45,7 @@ func (a *API) uploadSite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fail := func(err error) {
+		err = archiveError(err)
 		up.Abort()
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
@@ -80,7 +84,7 @@ func (a *API) uploadSite(w http.ResponseWriter, r *http.Request) {
 		}
 		backup, err := a.d.Projects.ImportBackupFile(r.Context(), up.SiteFile())
 		if err != nil {
-			writeError(w, r, err)
+			writeError(w, r, archiveError(err))
 			return
 		}
 		writeJSON(w, http.StatusCreated, map[string]any{"backup": backup})
@@ -96,7 +100,7 @@ func (a *API) uploadSite(w http.ResponseWriter, r *http.Request) {
 		}
 		info, err := a.d.Instance.ImportFile(up.SiteFile())
 		if err != nil {
-			writeError(w, r, err)
+			writeError(w, r, archiveError(err))
 			return
 		}
 		a.d.Audit.Log(r.Context(), audit.ActionInstanceBackupUploaded, "instance", info.ID, map[string]any{"bytes": info.SizeBytes, "envoryx": info.Meta.Envoryx, "via": "site import"})
@@ -105,10 +109,19 @@ func (a *API) uploadSite(w http.ResponseWriter, r *http.Request) {
 	}
 	staged, err := up.Finish(a.d.Projects.SiteImportOptions())
 	if err != nil {
-		writeError(w, r, err)
+		writeError(w, r, archiveError(err))
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"import": staged})
+}
+
+// archiveError says what an archive that ends too early or doesn't unpack is: incomplete
+// (cut off during the upload, say) or damaged, not an internal error.
+func archiveError(err error) error {
+	if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, gzip.ErrHeader) || errors.Is(err, gzip.ErrChecksum) || errors.Is(err, zip.ErrFormat) || errors.Is(err, tar.ErrHeader) {
+		return fmt.Errorf("%w: the archive is incomplete or damaged (cut off during the upload?): %v", validate.ErrInvalid, err)
+	}
+	return err
 }
 
 func (a *API) getSiteImport(w http.ResponseWriter, r *http.Request) {

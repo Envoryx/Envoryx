@@ -291,5 +291,15 @@ func unpackBackupArchive(r io.Reader, dir string) (string, backupFile, error) {
 	if err := json.Unmarshal(raw, &bf); err != nil {
 		return "", backupFile{}, notABackup("backup.json is unreadable")
 	}
+	// An archive cut off at a member boundary reads to its end without an error; the
+	// parts backup.json names show what is missing.
+	for _, part := range []struct {
+		has  bool
+		name string
+	}{{bf.Database != nil, backupDBFile}, {bf.Files != nil, backupFilesFile}, {bf.Storage != nil, backupStorageFile}} {
+		if _, err := os.Stat(filepath.Join(dir, part.name)); part.has && err != nil {
+			return "", backupFile{}, fmt.Errorf("%w: the archive is incomplete (cut off during the upload?): %s is missing", validate.ErrInvalid, part.name)
+		}
+	}
 	return dirName, bf, nil
 }
