@@ -2778,8 +2778,9 @@ without app or passkey (*New codes* replaces them). Adding or removing a factor 
 codes take the password again, so a session left open isn't enough.
 
 After the password, the sign-in asks for the code, the passkey or a recovery code; a
-password reset link asks for it too. Five wrong codes end the attempt, and the limiter
-of the sign-in applies.
+password reset link asks for it too, and the new password is set (and the other
+sessions signed out) only once it is proven. Five wrong codes end the attempt, and the
+limiter of the sign-in applies.
 
 *Settings → Users → Two-factor authentication* sets whom a second factor is **required**
 of: nobody (the default), the admins, or everyone. Whoever is covered and has none yet

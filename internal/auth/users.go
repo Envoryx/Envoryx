@@ -96,30 +96,36 @@ func (s *Service) Invitation(ctx context.Context, token string) (store.User, err
 }
 
 // AcceptInvite sets the password of an invited user, ends the invitation and signs the
-// user's other sessions out (a reset must lock out whoever knew the old password).
-func (s *Service) AcceptInvite(ctx context.Context, token, password string) (store.User, error) {
+// user's other sessions out (a reset must lock out whoever knew the old password). A user
+// with a second factor gets a second step instead, and the password waits for it: a reset
+// link alone changes nothing (finishTicket applies it).
+func (s *Service) AcceptInvite(ctx context.Context, token, password string) (store.User, *SecondStep, error) {
 	u, err := s.Invitation(ctx, token)
 	if err != nil {
-		return store.User{}, err
+		return store.User{}, nil, err
 	}
 	if err := ValidatePassword(password); err != nil {
-		return store.User{}, err
+		return store.User{}, nil, err
 	}
 	hash, err := HashPassword(password)
 	if err != nil {
-		return store.User{}, err
+		return store.User{}, nil, err
+	}
+	step, err := s.secondStepWith(ctx, u, &pendingPassword{inviteHash: u.InviteHash, hash: hash})
+	if err != nil || step != nil {
+		return u, step, err
 	}
 	if err := s.store.Users.AcceptInvite(ctx, u.ID, u.InviteHash, hash); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			return store.User{}, ErrInviteInvalid
+			return store.User{}, nil, ErrInviteInvalid
 		}
-		return store.User{}, err
+		return store.User{}, nil, err
 	}
 	if err := s.store.Sessions.DeleteByUser(ctx, u.ID); err != nil {
-		return store.User{}, err
+		return store.User{}, nil, err
 	}
 	u.PasswordHash, u.InviteHash = hash, ""
-	return u, nil
+	return u, nil, nil
 }
 
 // keepsAnAdmin fails when changing the user would leave no active admin.

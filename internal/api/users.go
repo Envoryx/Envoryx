@@ -251,23 +251,19 @@ func (a *API) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	u, err := a.d.Auth.AcceptInvite(r.Context(), r.PathValue("token"), req.Password)
-	if err != nil {
-		writeError(w, r, err)
-		return
-	}
-	a.d.Audit.LogAs(r.Context(), u.Username, audit.ActionUserJoined, "user", u.ID, nil)
 	// A password reset link doesn't stand in for the second factor: whoever got hold of
-	// the link still has to prove it.
-	step, err := a.d.Auth.SecondStepFor(r.Context(), u)
+	// the link still has to prove it, and only then is the password set.
+	u, step, err := a.d.Auth.AcceptInvite(r.Context(), r.PathValue("token"), req.Password)
 	if err != nil {
 		writeError(w, r, err)
 		return
 	}
 	if step != nil {
+		a.d.Audit.LogAs(r.Context(), u.Username, audit.ActionUserJoined, "user", u.ID, map[string]any{"secondFactor": "pending"})
 		writeJSON(w, http.StatusOK, map[string]any{"secondFactor": step})
 		return
 	}
+	a.d.Audit.LogAs(r.Context(), u.Username, audit.ActionUserJoined, "user", u.ID, nil)
 	token, err := a.d.Auth.StartSession(r.Context(), u, auth.MethodInvite, auth.ClientIP(r), r.UserAgent())
 	if err != nil {
 		writeError(w, r, err)

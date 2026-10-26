@@ -110,6 +110,14 @@ type mfaTicket struct {
 	userID  string
 	expires time.Time
 	tries   int
+	// password is the new password of a reset link, set only once the second factor is
+	// proven: the link alone mustn't change it or sign anyone out.
+	password *pendingPassword
+}
+
+// pendingPassword is a reset link's password waiting for the second factor.
+type pendingPassword struct {
+	inviteHash, hash string
 }
 
 type totpSetup struct {
@@ -217,11 +225,15 @@ func (s *Service) SecondStepFor(ctx context.Context, user store.User) (*SecondSt
 }
 
 func (s *Service) secondStep(ctx context.Context, user store.User) (*SecondStep, error) {
+	return s.secondStepWith(ctx, user, nil)
+}
+
+func (s *Service) secondStepWith(ctx context.Context, user store.User, password *pendingPassword) (*SecondStep, error) {
 	f, err := s.store.MFA.Factors(ctx, user.ID)
 	if err != nil || !f.Any() {
 		return nil, err
 	}
-	ticket, err := s.issueTicket(user.ID)
+	ticket, err := s.issueTicket(user.ID, password)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +250,7 @@ func (s *Service) secondStep(ctx context.Context, user store.User) (*SecondStep,
 	return &SecondStep{Ticket: ticket, Methods: methods}, nil
 }
 
-func (s *Service) issueTicket(userID string) (string, error) {
+func (s *Service) issueTicket(userID string, password *pendingPassword) (string, error) {
 	token, err := randomToken()
 	if err != nil {
 		return "", err
@@ -255,7 +267,7 @@ func (s *Service) issueTicket(userID string) (string, error) {
 	if len(m.tickets) >= maxPending {
 		return "", ErrTooManyAttempts
 	}
-	m.tickets[hashToken(token)] = &mfaTicket{userID: userID, expires: now.Add(ticketTTL)}
+	m.tickets[hashToken(token)] = &mfaTicket{userID: userID, expires: now.Add(ticketTTL), password: password}
 	return token, nil
 }
 
@@ -297,11 +309,29 @@ func (s *Service) ticketFailed(token string) {
 	}
 }
 
-func (s *Service) endTicket(token string) {
+func (s *Service) endTicket(token string) *mfaTicket {
 	m := s.mfa()
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	t := m.tickets[hashToken(token)]
 	delete(m.tickets, hashToken(token))
+	return t
+}
+
+// finishTicket ends a ticket whose second factor was proven and applies what waited for
+// it: the new password of a reset link, which signs the user's other sessions out.
+func (s *Service) finishTicket(ctx context.Context, token string) error {
+	t := s.endTicket(token)
+	if t == nil || t.password == nil {
+		return nil
+	}
+	if err := s.store.Users.AcceptInvite(ctx, t.userID, t.password.inviteHash, t.password.hash); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return ErrInviteInvalid
+		}
+		return err
+	}
+	return s.store.Sessions.DeleteByUser(ctx, t.userID)
 }
 
 // CompleteTOTP finishes a password sign-in with a TOTP code.
@@ -341,7 +371,9 @@ func (s *Service) completeWithCode(ctx context.Context, ticket, ip, userAgent, m
 		s.limiter.fail(ip, key, s.now())
 		return "", user, ErrInvalidCode
 	}
-	s.endTicket(ticket)
+	if err := s.finishTicket(ctx, ticket); err != nil {
+		return "", store.User{}, err
+	}
 	s.limiter.reset(ip, key)
 	token, err := s.StartSession(ctx, user, method, ip, userAgent)
 	return token, user, err

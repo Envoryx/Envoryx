@@ -402,7 +402,9 @@ func (s *Service) FinishPasskeyLogin(ctx context.Context, id string, response []
 		}
 	}
 	if cer.ticket != "" {
-		s.endTicket(cer.ticket)
+		if err := s.finishTicket(ctx, cer.ticket); err != nil {
+			return "", store.User{}, err
+		}
 	}
 	s.limiter.reset(ip, limitKey)
 	token, err := s.StartSession(ctx, u.user, MethodPasskey, ip, userAgent)

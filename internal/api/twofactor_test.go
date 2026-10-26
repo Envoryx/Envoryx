@@ -129,7 +129,12 @@ func TestTwoFactorSignIn(t *testing.T) {
 		t.Fatalf("own reset: %d %s", r.status, r.raw)
 	}
 	a.cookie = nil
-	if r := a.do(http.MethodPost, "/api/v1/auth/login", map[string]string{"username": "bob", "password": "bob-new-secret-1"}, true); r.status != http.StatusOK || r.cookie == nil {
+	// The reset link alone set no password: it waited for the second factor, which never
+	// came. The old one still works.
+	if r := a.do(http.MethodPost, "/api/v1/auth/login", map[string]string{"username": "bob", "password": "bob-new-secret-1"}, true); r.status != http.StatusUnauthorized {
+		t.Fatalf("the link's password without the second factor: %d %s", r.status, r.raw)
+	}
+	if r := a.do(http.MethodPost, "/api/v1/auth/login", map[string]string{"username": "bob", "password": "bob-secret-1234"}, true); r.status != http.StatusOK || r.cookie == nil {
 		t.Fatalf("Bob after the reset: %d %s", r.status, r.raw)
 	}
 }
@@ -166,5 +171,46 @@ func TestTwoFactorRequiredSetup(t *testing.T) {
 	// The last required factor stays.
 	if r := a.do(http.MethodDelete, "/api/v1/auth/2fa/totp", map[string]string{"password": "supersecret123"}, true); r.status != http.StatusUnprocessableEntity {
 		t.Fatalf("removing the last required factor: %d %s", r.status, r.raw)
+	}
+}
+
+// A reset link of a user with a second factor sets the password only once the code is
+// proven, and then signs the user's other sessions out.
+func TestResetLinkSetsThePasswordAfterTheSecondFactor(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodPost, "/api/v1/users", map[string]any{"username": "bob", "role": "developer"}, true)
+	bobID := r.body["user"].(map[string]any)["id"].(string)
+	url := r.body["inviteUrl"].(string)
+	admin := a.cookie
+	a.cookie = nil
+	r = a.do(http.MethodPost, "/api/v1/invites/"+url[strings.LastIndex(url, "/")+1:], map[string]string{"password": "bob-secret-1234"}, true)
+	a.cookie = r.cookie
+	secret, _ := a.enableTOTP("bob-secret-1234")
+	bobOld := a.cookie
+	a.cookie = admin
+	r = a.do(http.MethodPost, "/api/v1/users/"+bobID+"/invite", nil, true)
+	url = r.body["inviteUrl"].(string)
+	a.cookie = nil
+	r = a.do(http.MethodPost, "/api/v1/invites/"+url[strings.LastIndex(url, "/")+1:], map[string]string{"password": "bob-new-secret-1"}, true)
+	ticket := r.body["secondFactor"].(map[string]any)["ticket"].(string)
+	// Nothing changed yet: Bob's old session still works.
+	a.cookie = bobOld
+	if r := a.do(http.MethodGet, "/api/v1/auth/me", nil, false); r.status != http.StatusOK {
+		t.Fatalf("old session before the code: %d", r.status)
+	}
+	a.cookie = nil
+	r = a.do(http.MethodPost, "/api/v1/auth/login/code", map[string]string{"ticket": ticket, "code": totpNow(t, secret, 0)}, true)
+	if r.status != http.StatusOK || r.cookie == nil {
+		t.Fatalf("code: %d %s", r.status, r.raw)
+	}
+	a.cookie = bobOld
+	if r := a.do(http.MethodGet, "/api/v1/auth/me", nil, false); r.status != http.StatusUnauthorized {
+		t.Fatalf("old session after the reset: %d", r.status)
+	}
+	// The new password is Bob's now: it gets to the second step.
+	a.cookie = nil
+	if r := a.do(http.MethodPost, "/api/v1/auth/login", map[string]string{"username": "bob", "password": "bob-new-secret-1"}, true); r.status != http.StatusOK || r.body["secondFactor"] == nil {
+		t.Fatalf("the new password: %d %s", r.status, r.raw)
 	}
 }

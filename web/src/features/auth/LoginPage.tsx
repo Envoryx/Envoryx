@@ -35,7 +35,7 @@ export function LoginPage({ mode }: { mode: "login" | "setup" }) {
   // hands it over in the location state.
   const handed = location.state as { secondFactor?: SecondStep; passwordSet?: boolean } | null;
   const [step, setStep] = useState<SecondStep | null>(handed?.secondFactor ?? null);
-  const [notice, setNotice] = useState<string | null>(() => (handed?.passwordSet ? t("The new password is saved. Confirm the sign-in with your second factor.") : null));
+  const [notice, setNotice] = useState<string | null>(() => (handed?.passwordSet ? t("Confirm the reset with your second factor; the new password applies once it is confirmed.") : null));
   const passkeys = passkeysAvailable();
   const prepared = usePasskeyOptions(mode === "login" && passkeys && !step && !auth.user);
   useEffect(() => {
