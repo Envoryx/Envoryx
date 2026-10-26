@@ -151,6 +151,7 @@ func (m *Manager) ImportBackupStream(ctx context.Context, r io.Reader) (Uploaded
 		return UploadedBackup{}, err
 	}
 	out.Backup = info
+	out.Backup.NewerEnvoryx = m.newerEnvoryx(info.Meta)
 	// Uploaded once more, the backup is the one already here, which a restore may have
 	// sealed with this Envoryx's key since.
 	if b, err := m.store.Backups.Get(ctx, out.ProjectID, info.ID); err == nil {

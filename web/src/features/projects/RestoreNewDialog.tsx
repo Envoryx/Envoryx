@@ -98,6 +98,9 @@ export function RestoreNewDialog({ projectId, projectName, backup, onClose }: { 
       {backup && (
         <div className="space-y-4">
           {error && <Alert tone="red">{error}</Alert>}
+          {backup.newerEnvoryx && (
+            <Alert tone="amber">{t("Envoryx {{version}} made this backup, a newer version than this one. Settings that version added are left out; update this Envoryx first to keep them.", { version: backup.newerEnvoryx })}</Alert>
+          )}
           {madeBefore025(backup.meta) && (
             <Alert tone="amber">{t("Envoryx {{version}} made this backup, before backups carried the workers, cron jobs, resource limits, health check and proxy rules. The new project starts without them; add them again afterwards.", { version: madeBefore025(backup.meta) })}</Alert>
           )}

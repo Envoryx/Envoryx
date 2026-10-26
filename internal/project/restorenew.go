@@ -66,6 +66,7 @@ func (m *Manager) OrphanedBackups(ctx context.Context) ([]OrphanedBackup, error)
 		} else {
 			info.SealedWith, _ = foreignKeyOf(filepath.Join(dir, backupMetaFile))
 		}
+		info.NewerEnvoryx = m.newerEnvoryx(info.Meta)
 		out = append(out, OrphanedBackup{ProjectID: b.ProjectID, ProjectName: info.Meta.ProjectName, Slug: info.Meta.Slug, Backup: info})
 	}
 	return out, nil
@@ -305,6 +306,9 @@ func (m *Manager) restoreIntoNew(ctx context.Context, projectID, backupID string
 	}
 	var meta BackupMeta
 	_ = json.Unmarshal(b.Metadata, &meta)
+	if err := checkBackupFormat(meta); err != nil {
+		return View{}, err
+	}
 	dir, err := m.locateBackup(ctx, b, meta)
 	if err != nil {
 		return View{}, err

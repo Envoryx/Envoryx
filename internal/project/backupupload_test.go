@@ -103,6 +103,51 @@ func TestImportBackupFile(t *testing.T) {
 	}
 }
 
+// A backup a newer Envoryx made in a newer format is refused with the reason instead of
+// being restored without what that format added.
+func TestImportBackupRefusesANewerFormat(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	v, err := e.m.Create(ctx, phpRequest("Shop", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := e.m.CreateBackup(ctx, v.Project.ID, BackupOptions{Files: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rc, _, err := e.m.OpenBackupArchive(ctx, v.Project.ID, b.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := io.ReadAll(rc)
+	rc.Close()
+	var out bytes.Buffer
+	tw := tar.NewWriter(&out)
+	tr := tar.NewReader(bytes.NewReader(raw))
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		body, _ := io.ReadAll(tr)
+		if strings.HasSuffix(hdr.Name, "/"+backupMetaFile) {
+			var meta map[string]any
+			_ = json.Unmarshal(body, &meta)
+			meta["format"], meta["envoryx"] = backupFormat+1, "v9.0.0"
+			body, _ = json.Marshal(meta)
+			hdr.Size = int64(len(body))
+		}
+		_ = tw.WriteHeader(hdr)
+		_, _ = tw.Write(body)
+	}
+	_ = tw.Close()
+	_, err = e.m.ImportBackupStream(ctx, &out)
+	if !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "made by Envoryx v9.0.0 in a newer format") {
+		t.Fatalf("newer format: %v", err)
+	}
+}
+
 // repack writes the members of a backup tar again the way tar cf ./<folder> does: the
 // folder entry first, then the files in reverse order, all under "./".
 func repack(t *testing.T, raw []byte) []byte {

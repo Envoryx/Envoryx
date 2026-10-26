@@ -1987,6 +1987,8 @@ export interface BackupInfo {
   missing: boolean;
   /** ID of the key the project settings are sealed with when this Envoryx doesn't hold it (a backup of another Envoryx). */
   sealedWith?: string;
+  /** Version of a newer Envoryx that made the backup. */
+  newerEnvoryx?: string;
 }
 
 /** Restores a backup into a new project; database, files and storage default to on. */

@@ -3825,5 +3825,7 @@
   "before restoring {{id}}": "перед відновленням {{id}}",
   "before schema {{from}} → {{to}} (Envoryx {{version}})": "перед схемою {{from}} → {{to}} (Envoryx {{version}})",
   "Leave empty to use ENVORYX_PUBLIC_HOST ({{host}}). Host name or IP only, no port.": "Залиште порожнім, щоб використовувати ENVORYX_PUBLIC_HOST ({{host}}). Лише ім'я хоста або IP, без порту.",
-  "Backup imported": "Резервну копію імпортовано"
+  "Backup imported": "Резервну копію імпортовано",
+  "this backup was made by Envoryx {{version}} in a newer format; update this Envoryx to restore it": "цю резервну копію створив Envoryx {{version}} у новішому форматі; оновіть цей Envoryx, щоб її відновити",
+  "Envoryx {{version}} made this backup, a newer version than this one. Settings that version added are left out; update this Envoryx first to keep them.": "Цю резервну копію створив Envoryx {{version}}, новіша версія, ніж ця. Налаштування, додані в тій версії, буде пропущено; спочатку оновіть цей Envoryx, щоб їх зберегти."
 }

@@ -186,6 +186,9 @@ func (m *Manager) storeBackupArchive(ctx context.Context, r io.Reader, owner fun
 	if err != nil {
 		return BackupInfo{}, err
 	}
+	if err := checkBackupFormat(bf.BackupMeta); err != nil {
+		return BackupInfo{}, err
+	}
 	p, err := owner(bf)
 	if err != nil {
 		return BackupInfo{}, err

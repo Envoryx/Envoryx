@@ -3759,5 +3759,7 @@
   "before restoring {{id}}": "avant la restauration de {{id}}",
   "before schema {{from}} → {{to}} (Envoryx {{version}})": "avant le schéma {{from}} → {{to}} (Envoryx {{version}})",
   "Leave empty to use ENVORYX_PUBLIC_HOST ({{host}}). Host name or IP only, no port.": "Laisser vide pour utiliser ENVORYX_PUBLIC_HOST ({{host}}). Nom d'hôte ou IP uniquement, sans port.",
-  "Backup imported": "Sauvegarde importée"
+  "Backup imported": "Sauvegarde importée",
+  "this backup was made by Envoryx {{version}} in a newer format; update this Envoryx to restore it": "cette sauvegarde a été créée par Envoryx {{version}} dans un format plus récent ; mettez à jour cet Envoryx pour la restaurer",
+  "Envoryx {{version}} made this backup, a newer version than this one. Settings that version added are left out; update this Envoryx first to keep them.": "Envoryx {{version}} a créé cette sauvegarde, une version plus récente que celle-ci. Les réglages ajoutés par cette version sont laissés de côté ; mettez d'abord à jour cet Envoryx pour les garder."
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/envoryx/envoryx/internal/secrets"
 	"github.com/envoryx/envoryx/internal/siteimport"
 	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/update"
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
@@ -41,8 +42,29 @@ const (
 	backupMetaFile  = "backup.json"
 	backupDBFile    = "database.sql.gz"
 	backupFilesFile = "files.tar.gz"
-	backupFormat    = 1
+	// backupFormat is raised when a backup gains something an older Envoryx would
+	// restore wrongly without; such a backup is refused there (checkBackupFormat).
+	backupFormat = 1
 )
+
+// checkBackupFormat refuses a backup made in a newer format than this Envoryx reads.
+func checkBackupFormat(meta BackupMeta) error {
+	if meta.Format > backupFormat {
+		return fmt.Errorf("%w: this backup was made by Envoryx %s in a newer format; update this Envoryx to restore it", validate.ErrInvalid, meta.Envoryx)
+	}
+	return nil
+}
+
+// newerEnvoryx is the version of the Envoryx that made a backup when it is newer than
+// this one, "" otherwise. Its format may be the same, but a restore into a new project
+// leaves out the settings that version added.
+func (m *Manager) newerEnvoryx(meta BackupMeta) string {
+	paths, err := m.paths()
+	if err != nil || !update.Newer(meta.Envoryx, paths.EnvoryxVersion) {
+		return ""
+	}
+	return meta.Envoryx
+}
 
 // BackupOptions select what a backup contains.
 type BackupOptions struct {
@@ -292,6 +314,8 @@ type BackupInfo struct {
 	// SealedWith is the id of the key the backup's project settings are sealed with when
 	// this Envoryx doesn't hold it; restoring it into a new project needs that key.
 	SealedWith string `json:"sealedWith,omitempty"`
+	// NewerEnvoryx is the version of a newer Envoryx that made the backup (newerEnvoryx).
+	NewerEnvoryx string `json:"newerEnvoryx,omitempty"`
 }
 
 // BackupLocation is the directory a project's backups are stored in, as Envoryx sees it
@@ -374,6 +398,7 @@ func (m *Manager) ListBackups(ctx context.Context, id string) ([]BackupInfo, err
 		_ = json.Unmarshal(b.Metadata, &info.Meta)
 		sealedWith, err := foreignKeyOf(filepath.Join(root, b.Filename, backupMetaFile))
 		info.SealedWith, info.Missing = sealedWith, err != nil
+		info.NewerEnvoryx = m.newerEnvoryx(info.Meta)
 		out = append(out, info)
 	}
 	return out, nil
@@ -1088,6 +1113,9 @@ func (m *Manager) restoreBackup(ctx context.Context, id, backupID string, opts R
 	}
 	var meta BackupMeta
 	_ = json.Unmarshal(b.Metadata, &meta)
+	if err := checkBackupFormat(meta); err != nil {
+		return BackupInfo{}, err
+	}
 	paths, err := m.paths()
 	if err != nil {
 		return BackupInfo{}, fmt.Errorf("%w: %v", ErrNotConfigured, err)

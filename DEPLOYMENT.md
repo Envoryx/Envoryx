@@ -1869,11 +1869,15 @@ with a key this instance doesn't hold (one made by another Envoryx, or before a
 key replacement) asks for that key in the restore dialog: Envoryx checks it
 against the key ID the backup records, opens the settings with it and seals them
 with its own key. The key you enter is stored nowhere, and from then on the
-backup restores like one made here.
+backup restores like one made here. A backup made by a newer Envoryx restores
+as long as its format is one this version reads; the dialog then says which
+version made it, since settings that version added are left out. One in a newer
+format is refused until this Envoryx is updated.
 
 A backup downloaded with *Download* (the `.tar`, also gzipped) comes back
 through *New project → Existing website*: Envoryx recognises it there instead of
-analysing it as a website, keeps it as a backup of its project (or, when that
+analysing it as a website (also when the downloaded folder was unpacked and
+packed again, e.g. with `tar cf backup.tar <folder>`), keeps it as a backup of its project (or, when that
 project is gone, with the backups of deleted projects) and offers to restore it
 into a new project. That is also how a project moves to another Envoryx, say
 from a home server to a hosted instance: give the secret key of the Envoryx that
