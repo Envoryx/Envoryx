@@ -47,12 +47,13 @@ type Fake struct {
 	// HostPorts are the ports programs on the fake Docker host listen on.
 	HostPorts map[int]bool
 
-	seq        int
-	containers map[string]*FakeContainer
-	networks   map[string]docker.Network
-	volumes    map[string]docker.Volume
-	images     map[string]string // ref -> image id
-	dangling   map[string]bool   // image ids that lost their tag to a re-pull but still exist
+	seq         int
+	containers  map[string]*FakeContainer
+	networks    map[string]docker.Network
+	volumes     map[string]docker.Volume
+	images      map[string]string            // ref -> image id
+	dangling    map[string]bool              // image ids that lost their tag to a re-pull but still exist
+	imageLabels map[string]map[string]string // image id -> labels of a build
 	// StatsByName overrides ContainerStats for a container name.
 	StatsByName map[string]docker.Stats
 	// StatsErrByName makes ListedContainerStats fail for a container name.
@@ -1429,7 +1430,7 @@ func (f *Fake) ListImages(_ context.Context) ([]docker.Image, error) {
 	for ref, id := range f.images {
 		img, ok := byID[id]
 		if !ok {
-			img = &docker.Image{ID: id, Size: 100 << 20}
+			img = &docker.Image{ID: id, Size: 100 << 20, Labels: f.imageLabels[id]}
 			byID[id] = img
 		}
 		img.Tags = append(img.Tags, ref)
@@ -1558,6 +1559,10 @@ func (f *Fake) BuildImage(_ context.Context, opts docker.BuildOptions) error {
 		f.dropIfUnreferenced(old, false)
 	}
 	f.images[opts.Tag] = f.nextID("sha256:")
+	if f.imageLabels == nil {
+		f.imageLabels = map[string]map[string]string{}
+	}
+	f.imageLabels[f.images[opts.Tag]] = opts.Labels
 	if f.built == nil {
 		f.built = map[string]bool{}
 	}

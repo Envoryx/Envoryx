@@ -112,10 +112,13 @@ function OrphansAlert({ orphans }: { orphans: Orphan[] }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  // A volume holds data, so removing one asks first.
+  const [confirming, setConfirming] = useState<Orphan | null>(null);
   const remove = useMutation({
     mutationFn: ({ type, id }: Orphan) => api.removeOrphan(type, id),
     onSuccess: () => {
       setError(null);
+      setConfirming(null);
       void qc.invalidateQueries({ queryKey: keys.docker });
       void qc.invalidateQueries({ queryKey: keys.dashboard });
     },
@@ -143,13 +146,26 @@ function OrphansAlert({ orphans }: { orphans: Orphan[] }) {
                 icon={<Trash2 className="size-3" />}
                 loading={remove.isPending && remove.variables?.id === o.id}
                 disabled={remove.isPending}
-                onClick={() => remove.mutate(o)}
+                onClick={() => (o.type === "volume" ? setConfirming(o) : remove.mutate(o))}
               >
                 {t("Remove")}
               </Button>
             </li>
           ))}
         </ul>
+        {confirming && (
+          <div className="mt-3">
+            <p className="font-medium">{t("Remove the volume {{name}} and the data in it? This can't be undone.", { name: confirming.name })}</p>
+            <div className="mt-2 flex gap-2">
+              <Button size="sm" variant="danger" loading={remove.isPending} onClick={() => remove.mutate(confirming)}>
+                {t("Remove volume")}
+              </Button>
+              <Button size="sm" disabled={remove.isPending} onClick={() => setConfirming(null)}>
+                {t("Cancel")}
+              </Button>
+            </div>
+          </div>
+        )}
       </Alert>
     </div>
   );

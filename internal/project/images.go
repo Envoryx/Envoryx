@@ -124,24 +124,37 @@ func (m *Manager) ProtectRollbackTargets(ctx context.Context) {
 	}
 }
 
-// catalogueRepos returns the image repositories Envoryx itself pulls (without tags): the
-// catalogue's, its helpers' and those of the installed addons.
-func (m *Manager) catalogueRepos() map[string]bool {
-	repos := map[string]bool{imageRepo(DBToolImage): true, imageRepo(addonVolumeTool): true}
+// catalogueRefs returns the image references Envoryx itself pulls: the catalogue's, its
+// helpers' and those of the installed addons, normalised (see normalRef). Only these exact
+// references count, not every tag of their repositories: busybox:latest or mongo:latest
+// pulled by someone else are none of Envoryx's business.
+func (m *Manager) catalogueRefs() map[string]bool {
+	refs := map[string]bool{normalRef(DBToolImage): true, normalRef(addonVolumeTool): true}
 	for _, r := range m.catalog.All() {
 		for _, v := range r.Versions {
-			repos[imageRepo(v.Image)] = true
+			refs[normalRef(v.Image)] = true
 		}
 	}
 	// The images of installed addons are pulled by Envoryx, too.
 	if list, err := m.addons.List(); err == nil {
 		for _, a := range list {
 			for _, v := range a.Versions {
-				repos[imageRepo(v.Image)] = true
+				refs[normalRef(v.Image)] = true
 			}
 		}
 	}
-	return repos
+	return refs
+}
+
+// normalRef writes an image reference the way Docker lists its tags: without the
+// docker.io/library/ prefix and with :latest when no tag is given.
+func normalRef(ref string) string {
+	ref = strings.TrimPrefix(ref, "docker.io/")
+	ref = strings.TrimPrefix(ref, "library/")
+	if imageRepo(ref) == ref && !strings.Contains(ref, "@") {
+		ref += ":latest"
+	}
+	return ref
 }
 
 func imageRepo(ref string) string {
@@ -156,14 +169,14 @@ func imageRepo(ref string) string {
 	return ref
 }
 
-// UnusedImages lists local images that come from the Envoryx catalogue or were built from
-// a project's Dockerfile and are not used by any container on the host (Envoryx's or
-// anyone else's). Images from other sources are never reported, so nothing foreign can be
-// removed through Envoryx. Neither are the rollback targets of another Envoryx instance on
-// the same Docker daemon: its rollback history is in its own database, so a rollback tag
-// is kept while another instance's containers carry the project slug it names (slugs are
-// unique on a daemon, as the container names carry them). A tag of a project nobody runs
-// any more is a leftover and can go.
+// UnusedImages lists the local images this instance pulled or made and no container on
+// the host uses (Envoryx's or anyone else's): the exact catalogue and addon references,
+// the rollback tags of this instance's projects and the images it built. Several Envoryx
+// instances can share a Docker daemon, so another instance's rollback targets and builds
+// are never listed: rollback tags name the project, and only this instance's projects
+// count; built images carry the instance that built them (builds from before 0.45.1 carry
+// none and stay). Images from other sources are never reported, so nothing foreign can be
+// removed through Envoryx.
 func (m *Manager) UnusedImages(ctx context.Context) ([]UnusedImage, error) {
 	images, err := m.engine.ListImages(ctx)
 	if err != nil {
@@ -174,13 +187,9 @@ func (m *Manager) UnusedImages(ctx context.Context) ([]UnusedImage, error) {
 		return nil, err
 	}
 	inUse := map[string]bool{}
-	foreignSlugs := map[string]bool{}
 	for _, c := range containers {
 		inUse[c.ImageID] = true
 		inUse[c.Image] = true
-		if docker.IsManaged(c.Labels) && !c.Managed {
-			foreignSlugs[c.Labels[docker.LabelProjectName]] = true
-		}
 	}
 	// Images a project can still roll back to (or return to from a rollback) are kept.
 	history, err := m.store.Images.List(ctx)
@@ -195,7 +204,16 @@ func (m *Manager) UnusedImages(ctx context.Context) ([]UnusedImage, error) {
 			inUse[h.CurrentID] = true
 		}
 	}
-	repos := m.catalogueRepos()
+	projects, err := m.store.Projects.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ownSlugs := map[string]bool{}
+	for _, p := range projects {
+		ownSlugs[p.Slug] = true
+	}
+	instance := m.engine.InstanceID()
+	refs := m.catalogueRefs()
 	var out []UnusedImage
 	for _, img := range images {
 		if inUse[img.ID] || len(img.Tags) == 0 {
@@ -203,10 +221,20 @@ func (m *Manager) UnusedImages(ctx context.Context) ([]UnusedImage, error) {
 		}
 		ours, used := false, false
 		for _, t := range img.Tags {
-			if isRollbackRef(t) && foreignSlugs[rollbackSlug(t)] {
-				used = true // another instance's rollback target
-			}
-			if repos[imageRepo(t)] || isRollbackRef(t) || isBuildRef(t) {
+			switch {
+			case isRollbackRef(t):
+				if ownSlugs[rollbackSlug(t)] {
+					ours = true
+				} else {
+					used = true // another instance's rollback target
+				}
+			case isBuildRef(t):
+				if instance == "" || img.Labels[labelBuildInstance] == instance {
+					ours = true
+				} else {
+					used = true // built by another instance, or before builds were labelled
+				}
+			case refs[normalRef(t)]:
 				ours = true
 			}
 			if inUse[t] {

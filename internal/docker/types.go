@@ -328,6 +328,7 @@ type Image struct {
 	Tags    []string
 	Size    int64
 	Created time.Time
+	Labels  map[string]string
 }
 
 // Stats is a single resource usage sample.

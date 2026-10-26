@@ -44,6 +44,11 @@ const buildRepoPrefix = "envoryx-build/"
 // labelBuild marks the images Envoryx built; its value is the runtime.
 const labelBuild = "envoryx.build"
 
+// labelBuildInstance names the instance that built an image, so another Envoryx on the
+// same Docker daemon leaves it alone when pruning. Not envoryx.instance: containers
+// inherit image labels, and that one marks the resources an instance manages.
+const labelBuildInstance = "envoryx.build.instance"
+
 // labelRuntime is the label Envoryx's runtime images carry (value: the runtime).
 const labelRuntime = "envoryx.runtime"
 
@@ -68,6 +73,15 @@ var customImageKinds = map[store.ServiceKind]bool{
 func SupportsCustomImage(kind store.ServiceKind) bool { return customImageKinds[kind] }
 
 func isBuildRef(ref string) bool { return strings.HasPrefix(ref, buildRepoPrefix) }
+
+// buildLabels are the labels of an image Envoryx builds for a runtime.
+func (m *Manager) buildLabels(kind store.ServiceKind) map[string]string {
+	labels := map[string]string{labelBuild: string(kind)}
+	if id := m.engine.InstanceID(); id != "" {
+		labels[labelBuildInstance] = id
+	}
+	return labels
+}
 
 // buildsDockerfile reports whether a runtime of the project builds a Dockerfile.
 func buildsDockerfile(p store.Project) bool {
@@ -451,7 +465,7 @@ func (m *Manager) buildImage(ctx context.Context, proj store.Project, ref string
 		Tag:        ref,
 		// Not envoryx.managed: containers inherit image labels, and a foreign container from
 		// this image must not look like Envoryx's.
-		Labels:  map[string]string{labelBuild: string(spec.kind)},
+		Labels:  m.buildLabels(spec.kind),
 		Pull:    fresh,
 		NoCache: fresh,
 		Output: func(line string) {

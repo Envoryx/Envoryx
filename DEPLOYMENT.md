@@ -1416,6 +1416,13 @@ What the instances still share:
 - **The network pool.** Both may use the same `ENVORYX_NETWORK_POOL`: a new
   network takes a /24 that no network on the host uses, whoever created it.
   Separate ranges only give each instance its full 256 networks.
+- **Images.** *Remove unused images* only offers what this instance pulled or
+  made and no container on the host runs: the exact catalogue and addon images
+  (not other tags of their repositories), the rollback tags of its own projects
+  and the images it built (labelled `envoryx.build.instance`; builds from before
+  0.45.1 carry no label and are left alone). Another instance's rollback targets
+  and builds are never offered. A catalogue image that only another instance's
+  stopped project uses can be offered; that instance pulls it again when needed.
 - **Nothing for the database browser.** Its container and network are named
   after the instance ID (`envoryx-dbtool-<first 8 characters>`), so every
   instance can have it enabled.
