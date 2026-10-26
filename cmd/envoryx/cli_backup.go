@@ -265,7 +265,7 @@ func (c *cli) backupDownload(ctx context.Context, args []string) error {
 	}
 	defer resp.Body.Close()
 
-	return c.saveDownload(resp, *out, p.Slug+"-"+backup+".tar", 0o666)
+	return c.saveDownload(resp, *out, p.Slug+"-"+backup+".tar", 0o600)
 }
 
 func (c *cli) backupDelete(ctx context.Context, args []string) error {
