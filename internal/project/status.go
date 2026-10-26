@@ -31,6 +31,10 @@ func containerState(c docker.Container) string {
 	return c.State
 }
 
+// venvWaitProblem is serviceProblem's text for a server whose venv guard waits, after the
+// service name; addVenvWarning replaces it with its own, more specific one.
+const venvWaitProblem = " server waits because .venv was built for another Python version or its python does not run - run pip install -r requirements.txt or uv sync from Actions to rebuild it"
+
 // serviceProblem says what is wrong with a container that exists, for the status
 // warnings: a crash loop, or the note of a server guard that waits on the user (the
 // server health check prints it, see runtime.WaitingFile). "" when nothing is.
@@ -49,7 +53,7 @@ func serviceProblem(name string, c docker.Container) string {
 	case runtime.WaitNodeDeps:
 		return "the " + name + " dev server waits for node_modules - run npm install (or pnpm / yarn install) from Actions"
 	case runtime.WaitVenv:
-		return "the " + name + " server waits because .venv was built for another Python version or its python does not run - run pip install -r requirements.txt or uv sync from Actions to rebuild it"
+		return "the " + name + venvWaitProblem
 	case runtime.WaitPythonDeps:
 		if module != "" {
 			return "the " + name + " server waits for " + module + " in .venv - run pip install -r requirements.txt or uv sync from Actions"

@@ -161,4 +161,24 @@ func TestVenvWarningAfterPythonVersionChange(t *testing.T) {
 	if !strings.Contains(warning, "pip install -r requirements.txt") {
 		t.Fatalf("warning must name the action: %q", warning)
 	}
+	// The waiting server says the same through its health check; one warning is enough.
+	if !e.engine.SetHealth("envoryx-venv-python", "unhealthy", runtime.WaitVenv) {
+		t.Fatal("no python container")
+	}
+	got, err = e.m.Get(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, w := range got.Status.Warnings {
+		if strings.Contains(w, "venv") || strings.Contains(w, "virtual environment") {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("want one venv warning: %q", got.Status.Warnings)
+	}
+	if views, _ := e.m.List(ctx); len(views) != 1 || len(views[0].Status.Warnings) != len(got.Status.Warnings) {
+		t.Fatalf("the list must say the same: %+v", views)
+	}
 }

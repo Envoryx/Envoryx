@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/envoryx/envoryx/internal/runtime"
@@ -82,6 +83,18 @@ func venvBroken(projectDir string) string {
 func exists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+// addVenvWarning adds venvWarning to a project's status. It says what the waiting
+// servers' own note (venvWaitProblem, one per server and worker) says, and names the
+// versions and the right action, so it takes their place.
+func (m *Manager) addVenvWarning(p store.Project, st *Status) {
+	w := m.venvWarning(p)
+	if w == "" {
+		return
+	}
+	st.Warnings = slices.DeleteFunc(st.Warnings, func(s string) bool { return strings.HasSuffix(s, venvWaitProblem) })
+	st.Warnings = append(st.Warnings, w)
 }
 
 // venvWarning reports a virtual environment left behind by a Python version change. It
