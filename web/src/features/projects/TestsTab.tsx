@@ -8,13 +8,13 @@ import type { Project, TestRun, TestSuite } from "@/api/types";
 import { Badge, Button, Card, CardHeader, Code, ErrorState, Input, Spinner } from "@/components/ui";
 import { errorText, translateMessage } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatNumber } from "@/lib/format";
 import { useLiveRun } from "./useLiveRun";
 
 function duration(ms: number): string {
-  if (ms < 1000) return `${ms} ms`;
+  if (ms < 1000) return `${formatNumber(ms)} ms`;
   const s = ms / 1000;
-  return s < 60 ? `${s.toFixed(1)} s` : `${Math.floor(s / 60)} min ${Math.round(s % 60)} s`;
+  return s < 60 ? `${formatNumber(s, 1)} s` : `${Math.floor(s / 60)} min ${Math.round(s % 60)} s`;
 }
 
 /** The outcome in one badge: passed/failed counts when there was a report, the status otherwise. */

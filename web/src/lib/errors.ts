@@ -1,6 +1,7 @@
 import type { TFunction } from "i18next";
 import i18n from "@/i18n";
 import { ApiError } from "@/api/client";
+import { formatNumber } from "@/lib/format";
 
 /**
  * Messages the backend produces with values embedded ("project has no web service").
@@ -444,6 +445,11 @@ function translateSegment(s: string, t: TFunction): string | undefined {
         if (groups[name] && i18n.exists(groups[name])) groups[name] = t(groups[name]);
       }
       if (groups.time) groups.time = localClock(groups.time);
+      // Sizes the server wrote ("533.8 GiB") get the language's decimal separator.
+      for (const [name, value] of Object.entries(groups)) {
+        const size = /^(\d+)(?:\.(\d+))? ([KMGT]iB|B)$/.exec(value);
+        if (size) groups[name] = `${formatNumber(Number(`${size[1]}.${size[2] ?? 0}`), size[2]?.length ?? 0)} ${size[3]}`;
+      }
       return t(tpl, { ...groups, ...(groups.count ? { count: Number(groups.count) } : {}) } as Record<string, unknown>);
     }
   }

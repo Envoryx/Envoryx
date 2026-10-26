@@ -6,7 +6,7 @@ import { api } from "@/api/client";
 import { keys, usePlan, useProjectStats } from "@/api/hooks";
 import type { ContainerUsage, LimitSet, Project, ResourceLimits } from "@/api/types";
 import { Alert, Button, Card, CardHeader, Field, Input, Select, Spinner } from "@/components/ui";
-import { formatBytes } from "@/lib/format";
+import { formatBytes, formatNumber } from "@/lib/format";
 import { errorText } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
 
@@ -189,7 +189,7 @@ export function LimitsCard({ project }: { project: Project }) {
                     <Bar
                       value={c.cpuPercent}
                       max={cpuMax}
-                      label={cpuMax > 0 ? t("CPU {{used}} of {{limit}} cores", { used: (c.cpuPercent / 100).toFixed(2), limit: c.cpuLimit }) : t("CPU {{used}} cores (no limit)", { used: (c.cpuPercent / 100).toFixed(2) })}
+                      label={cpuMax > 0 ? t("CPU {{used}} of {{limit}} cores", { used: formatNumber(c.cpuPercent / 100, 2), limit: formatNumber(c.cpuLimit) }) : t("CPU {{used}} cores (no limit)", { used: formatNumber(c.cpuPercent / 100, 2) })}
                     />
                     <Bar
                       value={c.memoryBytes}

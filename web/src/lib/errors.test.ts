@@ -69,6 +69,10 @@ describe("translateMessage", () => {
     expect(translateMessage("1 project consistent with Docker (checked 10:00:00)", t)).toBe("1 Projekt stimmt mit Docker überein (geprüft 10:00:00)");
   });
 
+  it("writes the server's sizes with the language's decimal separator", () => {
+    expect(translateMessage("/config: 533.8 GiB free of 3.6 TiB", t)).toBe("/config: 533,8 GiB von 3,6 TiB frei");
+  });
+
   it("shows a warning's UTC time in the browser's time", () => {
     const clock = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const now = new Date(Date.UTC(2026, 9, 26, 18, 30));

@@ -6,7 +6,7 @@ import { api } from "@/api/client";
 import type { MetricPoint, MetricRange, Project, ProjectMetrics } from "@/api/types";
 import { Button, Card, CardHeader, ErrorState, Spinner } from "@/components/ui";
 import { LineChart, SeriesTable, type Series } from "@/components/charts/LineChart";
-import { formatBytes } from "@/lib/format";
+import { formatBytes, formatNumber } from "@/lib/format";
 import { errorText } from "@/lib/errors";
 import { LimitsCard } from "./LimitsCard";
 
@@ -37,7 +37,7 @@ export function RangePicker({ value, onChange, ranges = metricRanges, wrap = tru
  * Cores with as many decimals as the value needs: an idle project's axis steps by a few
  * thousandths of a core, which two fixed decimals would all print as 0.00 or 0.01.
  */
-export const formatCores = (v: number) => (v >= 10 ? v.toFixed(0) : v >= 1 ? v.toFixed(1) : v === 0 ? "0" : String(Number(v.toPrecision(2))));
+export const formatCores = (v: number) => (v >= 10 ? formatNumber(v, 0) : v >= 1 ? formatNumber(v, 1) : formatNumber(v, { maximumSignificantDigits: 2 }));
 const cores = formatCores;
 const rateFmt = (v: number) => `${formatBytes(v)}/s`;
 

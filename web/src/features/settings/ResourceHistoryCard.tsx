@@ -8,6 +8,7 @@ import { LockedHint } from "@/features/plan/PlanCard";
 import type { Settings } from "@/api/types";
 import { Alert, Button, Card, CardHeader, Dialog, ErrorState, Field, Select, Spinner } from "@/components/ui";
 import { errorText } from "@/lib/errors";
+import { formatNumber } from "@/lib/format";
 
 const choices = [7, 30, 90, 365];
 
@@ -82,7 +83,7 @@ export function ResourceHistoryCard() {
             </div>
             {saved && <p className="text-xs text-emerald-600 dark:text-emerald-400">{t("Saved.")}</p>}
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-default px-4 py-3 text-sm">
-              <p className="text-fg">{t("{{samples}} samples and {{sizes}} disk space measurements stored", { samples: info.samples.toLocaleString(), sizes: info.sizes.toLocaleString() })}</p>
+              <p className="text-fg">{t("{{samples}} samples and {{sizes}} disk space measurements stored", { samples: formatNumber(info.samples), sizes: formatNumber(info.sizes) })}</p>
               <Button variant="ghost" size="sm" onClick={() => setConfirmClear(true)} disabled={info.samples === 0 && info.sizes === 0} icon={<Trash2 className="size-3.5" />}>
                 {t("Delete resource history")}
               </Button>

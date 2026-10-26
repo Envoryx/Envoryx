@@ -6,10 +6,10 @@ import { api } from "@/api/client";
 import type { MetricRange, ProjectUsageSummary } from "@/api/types";
 import { Card, CardHeader, ErrorState, Spinner } from "@/components/ui";
 import { RangePicker } from "@/features/projects/ResourcesTab";
-import { formatBytes } from "@/lib/format";
+import { formatBytes, formatNumber } from "@/lib/format";
 import { errorText } from "@/lib/errors";
 
-const cores = (v: number) => (v / 100 >= 10 ? (v / 100).toFixed(0) : (v / 100).toFixed(2));
+const cores = (v: number) => formatNumber(v / 100, v / 100 >= 10 ? 0 : 2);
 
 /** A meter against the busiest project: one hue, the track a lighter wash of it. */
 function Meter({ value, max, label }: { value: number; max: number; label: string }) {

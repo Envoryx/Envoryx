@@ -1,5 +1,5 @@
 import i18n from "@/i18n";
-import { displayVersion, formatBytes, formatVersion, slugify } from "./format";
+import { displayVersion, formatBytes, formatNumber, formatPercent, formatVersion, slugify } from "./format";
 
 describe("displayVersion", () => {
   it.each([
@@ -49,5 +49,17 @@ describe("formatBytes", () => {
     expect(formatBytes(1_023_580_454_912)).toBe("953 GiB");
     expect(formatBytes(5 * 1024 * 1024)).toBe("5.0 MiB");
     expect(formatBytes(512)).toBe("512 B");
+  });
+
+  it("writes numbers the way the UI language does", async () => {
+    await i18n.changeLanguage("de");
+    try {
+      expect(formatBytes(3.4 * 1024)).toBe("3,4 KiB");
+      expect(formatPercent(0)).toBe("0,0 %");
+      expect(formatNumber(1.5, 1)).toBe("1,5");
+    } finally {
+      await i18n.changeLanguage("en");
+    }
+    expect(formatBytes(3.4 * 1024)).toBe("3.4 KiB");
   });
 });

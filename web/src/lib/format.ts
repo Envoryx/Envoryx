@@ -1,7 +1,7 @@
 import type { TFunction } from "i18next";
 import type { ProjectState, UpdateStatus } from "@/api/types";
 import type { Tone } from "@/components/ui";
-import i18n from "@/i18n";
+import i18n, { currentLanguage } from "@/i18n";
 
 // Letters with accents and Cyrillic ones spelled in a-z, the same table as the server's
 // validate.Slugify: each group of lower-case letters maps to one spelling.
@@ -43,6 +43,24 @@ export function slugify(name: string): string {
   return out.length > 40 ? out.slice(0, 40).replace(/-+$/, "") : out;
 }
 
+const numberFormats = new Map<string, Intl.NumberFormat>();
+
+/**
+ * A number as the UI language writes it (3,4 in German, 3.4 in English); `digits` fixes
+ * the decimals, other options go to Intl.NumberFormat as they are.
+ */
+export function formatNumber(v: number, digits?: number | Intl.NumberFormatOptions): string {
+  const opts = typeof digits === "number" ? { minimumFractionDigits: digits, maximumFractionDigits: digits } : (digits ?? {});
+  const lang = currentLanguage();
+  const key = lang + JSON.stringify(opts);
+  let f = numberFormats.get(key);
+  if (!f) {
+    f = new Intl.NumberFormat(lang, opts);
+    numberFormats.set(key, f);
+  }
+  return f.format(v);
+}
+
 /** Sizes in powers of 1024, named as such (GiB, not GB), as Diagnostics and the server do. */
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
@@ -53,12 +71,12 @@ export function formatBytes(bytes: number): string {
     v /= 1024;
     i++;
   }
-  return `${v < 10 && i > 0 ? v.toFixed(1) : Math.round(v)} ${units[i]}`;
+  return `${formatNumber(v, v < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
 }
 
 export function formatPercent(v: number): string {
   if (!Number.isFinite(v)) return "0 %";
-  return `${v < 10 ? v.toFixed(1) : Math.round(v)} %`;
+  return `${formatNumber(v, v < 10 ? 1 : 0)} %`;
 }
 
 export function formatRelative(iso: string, t: TFunction): string {
