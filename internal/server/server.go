@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"path"
 	"slices"
@@ -38,6 +39,10 @@ type Options struct {
 	// DNS and the proxy (envoryx-diagnostics-probe.<base domain>); the page's policy lets
 	// that one host through. Empty: no such check.
 	ProbeHost func(context.Context) string
+	// FromProjectNetwork tells a client address inside a project network: a project's
+	// containers must not reach the interface and its API, neither on the listen port
+	// (Envoryx joins every project network for its proxy) nor through the UI's host name.
+	FromProjectNetwork func(netip.Addr) bool
 }
 
 // Server wraps http.Server.
@@ -68,6 +73,7 @@ func New(opts Options, a *api.API, sessions *auth.Service, dist fs.FS) *Server {
 	handler = csrfMiddleware(opts.AllowedOrigins)(handler)
 	handler = securityHeaders(handler, opts.ProbeHost)
 	handler = requestContext(handler)
+	handler = projectNetworkGuard(opts.FromProjectNetwork)(handler)
 	handler = logging(opts.Log)(handler)
 	handler = recoverer(opts.Log)(handler)
 
@@ -185,6 +191,24 @@ func logging(log *slog.Logger) func(http.Handler) http.Handler {
 					"bytes", sw.bytes, "duration", time.Since(start).String(),
 					"ip", auth.ClientIP(r), "request_id", w.Header().Get("X-Request-Id"))
 			}
+		})
+	}
+}
+
+// projectNetworkGuard refuses requests from inside a project network.
+func projectNetworkGuard(inside func(netip.Addr) bool) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		if inside == nil {
+			return next
+		}
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if ap, err := netip.ParseAddrPort(r.RemoteAddr); err == nil && inside(ap.Addr().Unmap()) {
+				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = w.Write([]byte(`{"error":{"code":"forbidden","message":"the Envoryx interface is not reachable from inside a project"}}`))
+				return
+			}
+			next.ServeHTTP(w, r)
 		})
 	}
 }

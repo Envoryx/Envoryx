@@ -108,6 +108,8 @@ type Manager struct {
 	oomOnce sync.Once
 	// proxyAttachMu serialises connecting Envoryx's container to project networks.
 	proxyAttachMu sync.Mutex
+	// subnets caches the project networks' subnets (FromProjectNetwork).
+	subnets projectSubnets
 	// healthSt holds the application health checks (see health.go).
 	healthSt   *healthState
 	healthOnce sync.Once
