@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import { Alert, Button, Card, CardHeader, Code, Dialog, ErrorState, Spinner, type Tone } from "@/components/ui";
+import { Alert, Button, Card, CardHeader, Code, Dialog, ErrorState, Field, Input, Spinner, type Tone } from "@/components/ui";
 import { errorText } from "@/lib/errors";
 import { CopyRow } from "@/features/projects/DatabaseTab";
 import { SupportRefusedNote } from "./SupportAccessCard";
@@ -19,9 +19,18 @@ export function SecretKeyCard({ readOnly = false }: { readOnly?: boolean }) {
   const [key, setKey] = useState<string | null>(null);
   const [rotateOpen, setRotateOpen] = useState(false);
   const [msg, setMsg] = useState<{ tone: Tone; text: string } | null>(null);
+  // Showing the key takes the password first (or a fresh sign-in for an account that has
+  // none): the key opens every stored secret, also in the backups.
+  const [asking, setAsking] = useState(false);
+  const [password, setPassword] = useState("");
   const reveal = useMutation({
-    mutationFn: () => api.secretKey.reveal(),
-    onSuccess: (r) => setKey(r.key),
+    mutationFn: () => api.secretKey.reveal(password),
+    onSuccess: (r) => {
+      setKey(r.key);
+      setAsking(false);
+      setPassword("");
+      setMsg(null);
+    },
     onError: (err) => setMsg({ tone: "red", text: errorText(err, t) }),
   });
   const rotate = useMutation({
@@ -78,8 +87,28 @@ export function SecretKeyCard({ readOnly = false }: { readOnly?: boolean }) {
           <dl className="divide-y divide-[var(--border)]">
             <CopyRow label={t("Key")} value={key} secret />
           </dl>
+        ) : asking ? (
+          <form
+            className="space-y-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              reveal.mutate();
+            }}
+          >
+            <Field label={t("Your password")} htmlFor="secret-key-password" hint={t("Accounts that sign in through single sign-on leave it empty; they need a sign-in within the last 10 minutes.")}>
+              <Input id="secret-key-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
+            </Field>
+            <div className="flex gap-2">
+              <Button size="sm" type="submit" icon={<Eye className="size-4" />} loading={reveal.isPending}>
+                {t("Show key")}
+              </Button>
+              <Button size="sm" onClick={() => { setAsking(false); setPassword(""); setMsg(null); }}>
+                {t("Cancel")}
+              </Button>
+            </div>
+          </form>
         ) : (
-          <Button size="sm" icon={<Eye className="size-4" />} loading={reveal.isPending} onClick={() => reveal.mutate()}>
+          <Button size="sm" icon={<Eye className="size-4" />} onClick={() => setAsking(true)}>
             {t("Show key")}
           </Button>
         )}

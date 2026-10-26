@@ -375,3 +375,49 @@ func TestConcurrentSetupCreatesOneAdmin(t *testing.T) {
 		t.Fatalf("created %d, users %d", created, len(users))
 	}
 }
+
+// Showing the secret key takes the password, or for an account without one (single
+// sign-on) a sign-in within the last minutes.
+func TestConfirmIdentity(t *testing.T) {
+	svc, st := testService(t)
+	ctx := context.Background()
+	admin, err := svc.CreateInitialAdmin(ctx, "admin", "supersecret123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err := svc.StartSession(ctx, admin, MethodPassword, "127.0.0.1", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := svc.Validate(ctx, token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.ConfirmIdentity(ctx, p, "wrong-password"); !errors.Is(err, ErrWrongPassword) {
+		t.Fatalf("wrong password: %v", err)
+	}
+	if err := svc.ConfirmIdentity(ctx, p, "supersecret123"); err != nil {
+		t.Fatalf("password: %v", err)
+	}
+
+	sso, err := st.Users.Create(ctx, "sso", "", "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err = svc.StartSession(ctx, sso, MethodOIDC, "127.0.0.1", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err = svc.Validate(ctx, token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.ConfirmIdentity(ctx, p, ""); err != nil {
+		t.Fatalf("fresh sign-on: %v", err)
+	}
+	start := time.Now()
+	svc.now = func() time.Time { return start.Add(11 * time.Minute) }
+	if err := svc.ConfirmIdentity(ctx, p, ""); !errors.Is(err, ErrSignInAgain) {
+		t.Fatalf("an older sign-on: %v", err)
+	}
+}

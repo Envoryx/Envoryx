@@ -116,6 +116,8 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		ae = newError(http.StatusServiceUnavailable, "not_configured", err.Error())
 	case errors.Is(err, auth.ErrWrongPassword):
 		ae = newError(http.StatusForbidden, "wrong_password", err.Error())
+	case errors.Is(err, auth.ErrSignInAgain):
+		ae = newError(http.StatusForbidden, "sign_in_again", err.Error())
 	case errors.Is(err, auth.ErrInvalidCode):
 		ae = newError(http.StatusUnauthorized, "invalid_code", err.Error())
 	case errors.Is(err, auth.ErrTicket):

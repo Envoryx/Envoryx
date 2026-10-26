@@ -132,8 +132,12 @@ func TestAPITokensAndMCPEndpoint(t *testing.T) {
 	if r := a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"sshAuthorizedKeys": sshKey}, true); r.status != http.StatusOK {
 		t.Fatalf("session sets the instance's SSH keys: %d %s", r.status, r.raw)
 	}
-	// The session gets past the check (the test instance has no key loaded).
-	if r := a.do(http.MethodPost, "/api/v1/settings/secret-key/reveal", nil, true); r.status == http.StatusForbidden {
+	// The session confirms with the password first, then gets past the check (the test
+	// instance has no key loaded).
+	if r := a.do(http.MethodPost, "/api/v1/settings/secret-key/reveal", nil, true); r.status != http.StatusForbidden || errCode(r) != "wrong_password" {
+		t.Fatalf("session reveal without the password: %d %s", r.status, r.raw)
+	}
+	if r := a.do(http.MethodPost, "/api/v1/settings/secret-key/reveal", map[string]string{"password": "supersecret123"}, true); r.status == http.StatusForbidden {
 		t.Fatalf("session reveal: %d %s", r.status, r.raw)
 	}
 	// A wrong bearer token does not fall back to the cookie.

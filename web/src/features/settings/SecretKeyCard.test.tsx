@@ -20,7 +20,12 @@ describe("SecretKeyCard", () => {
     expect(await screen.findByText("aaaa1111")).toBeInTheDocument();
     expect(screen.getByText("/config/secret.key")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Show key" }));
+    // The password first.
+    expect(api.calls.some((c) => c.url.endsWith("/reveal"))).toBe(false);
+    await user.type(screen.getByLabelText("Your password"), "supersecret123");
+    await user.click(screen.getByRole("button", { name: "Show key" }));
     await waitFor(() => expect(api.calls.some((c) => c.url.endsWith("/reveal"))).toBe(true));
+    expect(api.calls.find((c) => c.url.endsWith("/reveal"))!.body).toEqual({ password: "supersecret123" });
     await user.click(screen.getByRole("button", { name: "Replace the key" }));
     await user.click(screen.getAllByRole("button", { name: "Replace the key" }).at(-1)!);
     expect(await screen.findByText(/New key cccc3333 in place: 7 database values, 2 files and 3 project backups/)).toBeInTheDocument();

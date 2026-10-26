@@ -34,6 +34,20 @@ func (a *API) revealSecretKey(w http.ResponseWriter, r *http.Request) {
 	if !sessionOnly(w, r, errSecretKeyNeedsSession) {
 		return
 	}
+	// The key opens every secret, also in the backups: whoever sits at an open session
+	// confirms first (the password, or a fresh sign-in for an account without one).
+	var req passwordConfirm
+	if r.ContentLength != 0 {
+		if err := decodeJSON(w, r, &req); err != nil {
+			writeError(w, r, err)
+			return
+		}
+	}
+	p, _ := auth.PrincipalFrom(r.Context())
+	if err := a.d.Auth.ConfirmIdentity(r.Context(), p, req.Password); err != nil {
+		writeError(w, r, err)
+		return
+	}
 	key, err := a.d.Projects.RevealSecretKey(r.Context())
 	if err != nil {
 		writeError(w, r, err)

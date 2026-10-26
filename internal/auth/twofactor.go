@@ -443,6 +443,36 @@ func (s *Service) TwoFactorStatus(ctx context.Context, p Principal) (TwoFactorSt
 
 // reauth checks the principal's password before a change to its factors: a session
 // left open must not be enough to add or remove one.
+// recentSignIn is how fresh a session must be to stand in for the password of an account
+// that has none (single sign-on): it signed in with the provider just now.
+const recentSignIn = 10 * time.Minute
+
+// ErrSignInAgain asks an account without a password to sign in again before an action
+// that would otherwise take the password.
+var ErrSignInAgain = errors.New("this account has no password to confirm with; sign in again and retry within 10 minutes")
+
+// ConfirmIdentity checks that the person in the session is the account's owner before
+// something sensitive (showing the secret key): the password, or for an account without
+// one a sign-in within recentSignIn.
+func (s *Service) ConfirmIdentity(ctx context.Context, p Principal, password string) error {
+	user, err := s.store.Users.ByID(ctx, p.UserID)
+	if err != nil {
+		return err
+	}
+	if user.PasswordHash != "" && !user.Support {
+		_, err := s.reauth(ctx, p, password)
+		return err
+	}
+	sess, err := s.store.Sessions.Get(ctx, p.SessionID)
+	if err != nil {
+		return ErrSignInAgain
+	}
+	if s.now().Sub(sess.CreatedAt) > recentSignIn {
+		return ErrSignInAgain
+	}
+	return nil
+}
+
 func (s *Service) reauth(ctx context.Context, p Principal, password string) (store.User, error) {
 	user, err := s.store.Users.ByID(ctx, p.UserID)
 	if err != nil {

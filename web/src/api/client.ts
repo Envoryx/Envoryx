@@ -370,7 +370,7 @@ export const api = {
   },
   secretKey: {
     get: () => request<{ secretKey: SecretKeyInfo }>("/settings/secret-key"),
-    reveal: () => request<{ key: string }>("/settings/secret-key/reveal", { method: "POST" }),
+    reveal: (password: string) => request<{ key: string }>("/settings/secret-key/reveal", { method: "POST", body: { password } }),
     rotate: () => request<{ secretKey: SecretKeyInfo; resealed: { database: number; files: number; backups: number } }>("/settings/secret-key/rotate", { method: "POST" }),
   },
 
