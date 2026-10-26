@@ -2685,7 +2685,11 @@ throttled (unhealthy project once per 6 h, failed renewal once per day). The
 failed-start notification is sent before the process exits and needs no
 database, only the channel configured in `/config/notify.json`.
 Secrets live in `/config/notify.json` (0600, encrypted with the
-[secret key](#secret-key)). SMTP authentication requires
+[secret key](#secret-key)). A token or password left empty keeps the stored
+one only for the destination it was entered for: the token for its channel
+(an ntfy token for its topic URL), the SMTP password for its server and user.
+Another channel or address never gets it, and *Remove the stored token* /
+*Remove the stored password* delete it. SMTP authentication requires
 STARTTLS or TLS. An event type added by an update follows its default until
 the event selection is saved again, so a new alarm is not silently off for
 anyone who once chose their events.

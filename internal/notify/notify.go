@@ -116,6 +116,26 @@ type Config struct {
 	// follows its default until the list is saved again. Otherwise a new alarm would be
 	// off for everyone who ever saved the settings.
 	Offered []string `json:"offered,omitempty"`
+	// ClearToken and ClearSMTPPassword drop a stored secret instead of keeping it when
+	// the request leaves the field empty. Requests only; never stored.
+	ClearToken        bool `json:"clearToken,omitempty"`
+	ClearSMTPPassword bool `json:"clearSmtpPassword,omitempty"`
+}
+
+// keepSecrets fills the secrets the request left empty from the stored configuration,
+// but only for the destination they were entered for: a token belongs to its provider
+// (and an ntfy token to its topic URL), the SMTP password to its server and user.
+// Otherwise a stored Telegram token would go out as the bearer of an ntfy test to any
+// address.
+func (c Config) keepSecrets(stored Config) Config {
+	if c.Token == "" && !c.ClearToken && c.Provider == stored.Provider && (c.Provider != "ntfy" || c.URL == stored.URL) {
+		c.Token = stored.Token
+	}
+	if c.SMTPPassword == "" && !c.ClearSMTPPassword && c.Provider == stored.Provider && c.SMTPHost == stored.SMTPHost && c.SMTPUser == stored.SMTPUser {
+		c.SMTPPassword = stored.SMTPPassword
+	}
+	c.ClearToken, c.ClearSMTPPassword = false, false
+	return c
 }
 
 // kindsBefore080 are the kinds of configurations saved before Offered existed.
@@ -235,7 +255,8 @@ func (s *Service) Status() Status {
 	return Status{Config: pub, HasToken: s.cfg.Token != "", HasSMTPPW: s.cfg.SMTPPassword != "", LastSent: s.lastSent, LastError: s.lastError}
 }
 
-// SetConfig validates and stores a configuration. Empty secrets keep the stored ones.
+// SetConfig validates and stores a configuration. Empty secrets keep the stored ones
+// for the same destination (see keepSecrets).
 func (s *Service) SetConfig(cfg Config) error {
 	cfg.Provider = strings.ToLower(strings.TrimSpace(cfg.Provider))
 	cfg.URL, cfg.Token, cfg.ChatID = strings.TrimSpace(cfg.URL), strings.TrimSpace(cfg.Token), strings.TrimSpace(cfg.ChatID)
@@ -243,12 +264,7 @@ func (s *Service) SetConfig(cfg Config) error {
 	cfg.SMTPSecurity = strings.ToLower(strings.TrimSpace(cfg.SMTPSecurity))
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if cfg.Token == "" {
-		cfg.Token = s.cfg.Token
-	}
-	if cfg.SMTPPassword == "" {
-		cfg.SMTPPassword = s.cfg.SMTPPassword
-	}
+	cfg = cfg.keepSecrets(s.cfg)
 	if cfg.Enabled {
 		if err := validateConfig(cfg); err != nil {
 			return err
@@ -384,17 +400,13 @@ func (s *Service) Clear(key string) {
 }
 
 // Test sends a test event synchronously with the given (unsaved) configuration; empty
-// secrets fall back to the stored ones.
+// secrets fall back to the stored ones for the same destination (see keepSecrets).
 func (s *Service) Test(ctx context.Context, cfg Config) error {
-	s.mu.Lock()
-	if cfg.Token == "" {
-		cfg.Token = s.cfg.Token
-	}
-	if cfg.SMTPPassword == "" {
-		cfg.SMTPPassword = s.cfg.SMTPPassword
-	}
-	s.mu.Unlock()
 	cfg.Provider = strings.ToLower(strings.TrimSpace(cfg.Provider))
+	cfg.URL, cfg.SMTPHost, cfg.SMTPUser = strings.TrimSpace(cfg.URL), strings.TrimSpace(cfg.SMTPHost), strings.TrimSpace(cfg.SMTPUser)
+	s.mu.Lock()
+	cfg = cfg.keepSecrets(s.cfg)
+	s.mu.Unlock()
 	if err := validateConfig(cfg); err != nil {
 		return err
 	}

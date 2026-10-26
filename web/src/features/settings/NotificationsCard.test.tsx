@@ -45,4 +45,31 @@ describe("NotificationsCard", () => {
     expect(screen.getByLabelText("SMTP host")).toBeInTheDocument();
     expect(screen.queryByLabelText("URL")).not.toBeInTheDocument();
   });
+
+  it("keeps a stored token only for its own channel and topic, and can remove it", async () => {
+    const stored = { ...info, providers: { ...info.providers, telegram: "Telegram" }, status: { ...info.status, config: { enabled: true, provider: "ntfy", url: "https://ntfy.sh/a", kinds: null }, hasToken: true } };
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /settings/notifications": () => ({ body: stored }),
+      "PUT /settings/notifications": () => ({ body: stored }),
+    });
+    renderApp(<NotificationsCard />);
+    const user = userEvent.setup();
+    expect(await screen.findByText("Leave empty to keep the stored token.")).toBeInTheDocument();
+    // Another topic: the stored token doesn't go there.
+    await user.type(screen.getByLabelText("URL"), "-other");
+    expect(screen.queryByText("Leave empty to keep the stored token.")).not.toBeInTheDocument();
+    await user.clear(screen.getByLabelText("URL"));
+    await user.type(screen.getByLabelText("URL"), "https://ntfy.sh/a");
+    // A typed token doesn't follow a switch to Telegram, and nothing is kept there.
+    await user.type(screen.getByLabelText(/Access token/), "tk_typed");
+    await user.selectOptions(screen.getByLabelText("Channel"), "telegram");
+    expect(screen.getByLabelText("Bot token")).toHaveValue("");
+    expect(screen.queryByText("Leave empty to keep the stored token.")).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Channel"), "ntfy");
+    await user.click(screen.getByRole("checkbox", { name: "Remove the stored token" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "PUT")).toBe(true));
+    expect(api.calls.find((c) => c.method === "PUT")!.body).toMatchObject({ provider: "ntfy", clearToken: true });
+  });
 });
