@@ -84,7 +84,7 @@ export function ResourceHistoryCard() {
             {saved && <p className="text-xs text-emerald-600 dark:text-emerald-400">{t("Saved.")}</p>}
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-default px-4 py-3 text-sm">
               <p className="text-fg">{t("{{samples}} samples and {{sizes}} disk space measurements stored", { samples: formatNumber(info.samples), sizes: formatNumber(info.sizes) })}</p>
-              <Button variant="ghost" size="sm" onClick={() => setConfirmClear(true)} disabled={info.samples === 0 && info.sizes === 0} icon={<Trash2 className="size-3.5" />}>
+              <Button variant="ghost" size="sm" onClick={() => setConfirmClear(true)} disabled={locked || (info.samples === 0 && info.sizes === 0)} icon={<Trash2 className="size-3.5" />}>
                 {t("Delete resource history")}
               </Button>
             </div>

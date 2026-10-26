@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/envoryx/envoryx/internal/auth"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
@@ -66,8 +67,13 @@ func (a *API) metricsOverview(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"overview": ov})
 }
 
-// clearMetrics deletes the resource history: DELETE /settings/metrics.
+// clearMetrics deletes the resource history: DELETE /settings/metrics. A hoster who fixes
+// how long it is kept keeps it for a reason, so the history is left alone then.
 func (a *API) clearMetrics(w http.ResponseWriter, r *http.Request) {
+	if _, ok := a.d.Projects.Plan().Locked("metricsRetentionDays"); ok {
+		writeError(w, r, plan.Quota("the resource history is kept as the hoster set it"))
+		return
+	}
 	if err := a.d.Projects.ClearMetrics(r.Context()); err != nil {
 		writeError(w, r, err)
 		return

@@ -120,7 +120,7 @@ export function LogHistoryCard() {
                 </p>
               </div>
               {!support && (
-                <Button variant="ghost" size="sm" onClick={() => setConfirmClear(true)} disabled={info.usage.files === 0} icon={<Trash2 className="size-3.5" />}>
+                <Button variant="ghost" size="sm" onClick={() => setConfirmClear(true)} disabled={fixed || info.usage.files === 0} icon={<Trash2 className="size-3.5" />}>
                   {t("Delete stored logs")}
                 </Button>
               )}

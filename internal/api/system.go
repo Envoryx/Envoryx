@@ -925,6 +925,11 @@ func validateAuthorizedKeys(text string) error {
 
 // clearLogHistory deletes the stored log history.
 func (a *API) clearLogHistory(w http.ResponseWriter, r *http.Request) {
+	// A hoster who fixes the log history keeps it as a record: it isn't cleared either.
+	if _, ok := a.d.Projects.Plan().Locked("logHistory"); ok {
+		writeError(w, r, plan.Quota("the log history is kept as the hoster set it"))
+		return
+	}
 	if err := a.d.Projects.ClearLogHistory(r.Context()); err != nil {
 		writeError(w, r, err)
 		return

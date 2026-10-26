@@ -3040,7 +3040,8 @@ management).
   `logHistory` (`{"enabled": true, "retentionDays": 14, "maxMb": 500}`) and
   `imageUpdates` (`{"autoRestart": true, "hour": 4}`). They are
   applied when the plan is read, and the admins of the instance see them
-  locked.
+  locked. A fixed `logHistory` or `metricsRetentionDays` also keeps the admins
+  from deleting that history.
 - **offsite**: the hoster's offsite target, with the fields of an offsite
   target (`type` `s3`, `sftp` or `webdav` and its connection details,
   `instanceHour`, `instanceKeep`, `projects` and `keep` for the scheduled

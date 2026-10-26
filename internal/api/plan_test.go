@@ -126,6 +126,17 @@ func TestPlanFixesSecurityAndHousekeeping(t *testing.T) {
 	if r.status != http.StatusForbidden || errCode(r) != "plan_limit" {
 		t.Fatalf("change a fixed setting: %d %s", r.status, r.raw)
 	}
+	// A history the hoster keeps isn't cleared either; one it doesn't fix is.
+	if r := a.do(http.MethodDelete, "/api/v1/settings/log-history", nil, true); r.status != http.StatusForbidden || errCode(r) != "plan_limit" {
+		t.Fatalf("clear a fixed log history: %d %s", r.status, r.raw)
+	}
+	if r := a.do(http.MethodDelete, "/api/v1/settings/metrics", nil, true); r.status != http.StatusOK {
+		t.Fatalf("clear a resource history the plan doesn't fix: %d %s", r.status, r.raw)
+	}
+	a.setPlan(`{"settings":{"metricsRetentionDays":30}}`)
+	if r := a.do(http.MethodDelete, "/api/v1/settings/metrics", nil, true); r.status != http.StatusForbidden || errCode(r) != "plan_limit" {
+		t.Fatalf("clear a fixed resource history: %d %s", r.status, r.raw)
+	}
 }
 
 // A fixed setting the instance can't take is named in the error (the manager hears it as
