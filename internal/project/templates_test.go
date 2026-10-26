@@ -358,8 +358,8 @@ func TestFailureLineFindsTheCause(t *testing.T) {
 }
 
 // A new Laravel project gets its tables before the first request and the queue worker,
-// which otherwise restarts until someone runs artisan migrate; created stopped, it waits
-// for the action.
+// which otherwise restarts until someone runs artisan migrate; created stopped, its first
+// start runs it, and only the first.
 func TestLaravelMigratesAfterStart(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
@@ -375,11 +375,28 @@ func TestLaravelMigratesAfterStart(t *testing.T) {
 			name = "Started"
 		}
 		req := CreateRequest{Name: name, Template: "laravel", PHP: &PHPRequest{Version: "8.4"}, Database: &DatabaseRequest{Type: "mariadb"}, Start: start}
-		if _, err := e.m.Create(ctx, req); err != nil {
+		v, err := e.m.Create(ctx, req)
+		if err != nil {
 			t.Fatal(err)
 		}
 		if got := migrated(strings.ToLower(name)); got != start {
 			t.Fatalf("%s: migrated = %v, execs %q", name, got, e.engine.Execs)
+		}
+		if start {
+			continue
+		}
+		if _, err := e.m.Start(ctx, v.Project.ID); err != nil {
+			t.Fatal(err)
+		}
+		if !migrated("stopped") {
+			t.Fatalf("the first start must migrate: %q", e.engine.Execs)
+		}
+		e.engine.Execs = nil
+		if _, err := e.m.Restart(ctx, v.Project.ID); err != nil {
+			t.Fatal(err)
+		}
+		if migrated("stopped") {
+			t.Fatal("only the first start migrates")
 		}
 	}
 }

@@ -279,17 +279,19 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 	if failed, err := m.provision(ctx, plan, &j); err != nil {
 		return fail(failed, err)
 	}
+	tpl, fromTemplate := TemplateByID(req.Template)
+	fromTemplate = fromTemplate && proj.Git.URL == "" && (tpl.Runtime == "ruby" || tpl.afterStart != nil)
 	if req.Start {
 		if failed, err := m.startProvisioned(ctx, proj, plan, j); err != nil {
 			return fail(failed, err)
 		}
-		if tpl, ok := TemplateByID(req.Template); ok && proj.Git.URL == "" {
-			if tpl.Runtime == "ruby" {
-				m.prepareRailsDatabases(ctx, proj)
-			}
-			if tpl.afterStart != nil {
-				m.runAfterStart(ctx, proj, tpl)
-			}
+		if fromTemplate {
+			m.afterTemplateStart(ctx, proj, tpl)
+		}
+	} else if fromTemplate {
+		// Created stopped: the first start catches up.
+		if err := os.WriteFile(filepath.Join(plan.ConfigDir, pendingTemplateStartFile), []byte(tpl.ID), 0o644); err != nil {
+			m.log.Warn("the first start won't run the template's last steps - run them from Actions", "project", proj.Slug, "err", err)
 		}
 	}
 	if req.Import != nil && staged.DumpFile() != "" {
@@ -409,8 +411,46 @@ func (m *Manager) Start(ctx context.Context, id string) (View, error) {
 		if _, ok := nodeDevConfig(proj); !ok {
 			m.clearViteHot(proj)
 		}
-		return m.startPlan(ctx, proj, plan)
+		if err := m.startPlan(ctx, proj, plan); err != nil {
+			return err
+		}
+		m.pendingTemplateStart(ctx, proj, plan)
+		return nil
 	}, store.DesiredRunning)
+}
+
+// pendingTemplateStartFile in a project's config directory marks a template project that
+// was created stopped; it holds the template ID.
+const pendingTemplateStartFile = "template-first-start"
+
+// afterTemplateStart runs what a template needs once its project is up the first time:
+// the Rails databases and the template's afterStart command (artisan migrate, rails
+// db:prepare). Without them the first request is a 500.
+func (m *Manager) afterTemplateStart(ctx context.Context, p store.Project, tpl Template) {
+	if tpl.Runtime == "ruby" {
+		m.prepareRailsDatabases(ctx, p)
+	}
+	if tpl.afterStart != nil {
+		m.runAfterStart(ctx, p, tpl)
+	}
+}
+
+// pendingTemplateStart runs afterTemplateStart on the first start of a template project
+// created stopped (the CLI's default). The mark goes first, so a failing step is left to
+// the Actions, as on a create with start, rather than retried on every start.
+func (m *Manager) pendingTemplateStart(ctx context.Context, p store.Project, plan Plan) {
+	mark := filepath.Join(plan.ConfigDir, pendingTemplateStartFile)
+	id, err := os.ReadFile(mark)
+	if err != nil {
+		return
+	}
+	if err := os.Remove(mark); err != nil {
+		m.log.Warn("the template's first-start mark stays", "project", p.Slug, "err", err)
+		return
+	}
+	if tpl, ok := TemplateByID(strings.TrimSpace(string(id))); ok {
+		m.afterTemplateStart(ctx, p, tpl)
+	}
 }
 
 // Stop stops all project containers.
@@ -453,7 +493,11 @@ func (m *Manager) Restart(ctx context.Context, id string) (View, error) {
 			return err
 		}
 		m.clearViteHot(proj)
-		return m.startPlan(ctx, proj, plan)
+		if err := m.startPlan(ctx, proj, plan); err != nil {
+			return err
+		}
+		m.pendingTemplateStart(ctx, proj, plan)
+		return nil
 	}, store.DesiredRunning)
 }
 

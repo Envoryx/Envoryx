@@ -442,7 +442,7 @@ var templates = []Template{
 	{
 		ID: "laravel", Name: "Laravel", Description: "composer create-project laravel/laravel - ready to run with the project database.",
 		Runtime: "php", Docroot: "public", RecommendedDatabase: "mariadb",
-		Notes: "Envoryx runs “artisan migrate” when it starts the new project (created stopped, run it from Actions), so the sessions, cache and jobs tables are there before the first request and the queue worker. Envoryx injects DB_* and REDIS_*/MAIL_* variables; they override .env. APP_URL in .env follows the project address (ENVORYX_URL).",
+		Notes: "Envoryx runs “artisan migrate” on the new project's first start, so the sessions, cache and jobs tables are there before the first request and the queue worker. Envoryx injects DB_* and REDIS_*/MAIL_* variables; they override .env. APP_URL in .env follows the project address (ENVORYX_URL).",
 		steps: []templateStep{
 			{label: "composer create-project", cmd: []string{"composer", "create-project", "laravel/laravel", ".", composerNoInteraction, "--prefer-dist"}},
 			{label: "point APP_URL at the project address", cmd: []string{"php", "-r", laravelAppURL}},
@@ -615,7 +615,7 @@ var templates = []Template{
 		ID: "rails", Name: "Rails", Description: "rails new with Hotwire and importmap (no Node.js needed), on the project database.",
 		Runtime: "ruby", Docroot: "", RecommendedDatabase: "postgresql",
 		Ruby:  &runtime.RubyConfig{Server: true, Preset: "rails", Port: 3000},
-		Notes: "Envoryx runs “rails db:prepare” when it starts the new project (created stopped, run it from Actions before you open the site). DATABASE_URL is injected by Envoryx and Rails merges it into config/database.yml; without a database Rails uses SQLite. Jobs go to Solid Queue and Action Cable broadcasts to Solid Cable, each in a database of its own (QUEUE_DATABASE_URL, CABLE_DATABASE_URL): add the Solid Queue worker under Workers to run the jobs. With Mailpit, Action Mailer delivers to it. Rails reloads code on every request in dev mode. Production mode needs config/master.key (rails new wrote one) and the assets built with “rails assets:precompile”.",
+		Notes: "Envoryx runs “rails db:prepare” on the new project's first start. DATABASE_URL is injected by Envoryx and Rails merges it into config/database.yml; without a database Rails uses SQLite. Jobs go to Solid Queue and Action Cable broadcasts to Solid Cable, each in a database of its own (QUEUE_DATABASE_URL, CABLE_DATABASE_URL): add the Solid Queue worker under Workers to run the jobs. With Mailpit, Action Mailer delivers to it. Rails reloads code on every request in dev mode. Production mode needs config/master.key (rails new wrote one) and the assets built with “rails assets:precompile”.",
 		steps: []templateStep{
 			{label: "gem install rails, rails new", cmdFor: railsNew()},
 			{label: "configure development", cmd: []string{"ruby", "-e", railsQueueDatabase}, files: railsFiles},
@@ -626,7 +626,7 @@ var templates = []Template{
 		ID: "rails-api", Name: "Rails (API only)", Description: "rails new --api: a JSON backend without views and assets, on the project database.",
 		Runtime: "ruby", Docroot: "", RecommendedDatabase: "postgresql",
 		Ruby:  &runtime.RubyConfig{Server: true, Preset: "rails", Port: 3000},
-		Notes: "Envoryx runs “rails db:prepare” when it starts the new project (created stopped, run it from Actions). Generate resources in the Ruby terminal (bin/rails generate scaffold …). DATABASE_URL is injected by Envoryx; without a database Rails uses SQLite. Jobs go to Solid Queue in a queue database of their own (QUEUE_DATABASE_URL): add the Solid Queue worker under Workers to run them. With Mailpit, Action Mailer delivers to it.",
+		Notes: "Envoryx runs “rails db:prepare” on the new project's first start. Generate resources in the Ruby terminal (bin/rails generate scaffold …). DATABASE_URL is injected by Envoryx; without a database Rails uses SQLite. Jobs go to Solid Queue in a queue database of their own (QUEUE_DATABASE_URL): add the Solid Queue worker under Workers to run them. With Mailpit, Action Mailer delivers to it.",
 		steps: []templateStep{
 			{label: "gem install rails, rails new --api", cmdFor: railsNew("--api")},
 			{label: "configure development", cmd: []string{"ruby", "-e", railsQueueDatabase}, files: railsFiles},

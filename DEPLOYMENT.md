@@ -794,8 +794,10 @@ and needs none.
   for its database (PostgreSQL, MySQL, MariaDB; SQLite without one), and
   *Sinatra* (`app.rb`, `config.ru`, a `Gemfile` with Puma, `sinatra-contrib`
   for the reloader and the debug gem). The Rails templates take a few
-  minutes the first time, while the native gems compile; run *rails
-  db:prepare* from Actions afterwards.
+  minutes the first time, while the native gems compile. Envoryx creates the
+  databases and runs *rails db:prepare* once the new project is up: right
+  away with *Start* (`--start`), otherwise on its first start. Should that
+  fail, run it from Actions.
 - **Actions, tests and workers.** Actions: `ruby --version`, `bundle
   install`/`update`/`outdated`, `rubocop` (with a `.rubocop.yml`), and for
   Rails `db:prepare`, `db:migrate`, `db:rollback`, `db:seed`, `routes`,
