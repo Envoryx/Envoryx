@@ -7,12 +7,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"sort"
-	"strings"
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/store"
@@ -254,21 +252,28 @@ func unpackBackupArchive(r io.Reader, dir string) (string, backupFile, error) {
 		if err != nil {
 			return "", backupFile{}, notABackup("%v", err)
 		}
+		// A folder packed again by hand carries its own entry (and "./" for tar's -C).
+		if folder, ok := backupFolderEntry(hdr); ok {
+			if folder != "" && dirName != "" && folder != dirName {
+				return "", backupFile{}, notABackup("entries of more than one backup")
+			}
+			continue
+		}
 		if hdr.Typeflag != tar.TypeReg {
 			return "", backupFile{}, notABackup("unexpected entry %q", hdr.Name)
 		}
-		top, name := path.Split(hdr.Name)
-		top = strings.TrimSuffix(top, "/")
-		if strings.Contains(top, "/") || !isBackupMember(name) {
+		top, name, ok := splitBackupMember(hdr.Name)
+		if !ok || !isBackupMember(name) {
 			return "", backupFile{}, notABackup("unexpected entry %q", hdr.Name)
 		}
 		// The top directory is <slug>-<backup dir>; the backup dir has a fixed shape.
-		if len(top) < 24 || !backupDirPattern.MatchString(top[len(top)-24:]) {
+		folder := backupFolder(top)
+		if folder == "" {
 			return "", backupFile{}, notABackup("unexpected directory %q", top)
 		}
 		if dirName == "" {
-			dirName = top[len(top)-24:]
-		} else if top[len(top)-24:] != dirName {
+			dirName = folder
+		} else if folder != dirName {
 			return "", backupFile{}, notABackup("entries of more than one backup")
 		}
 		f, err := os.OpenFile(filepath.Join(dir, name), os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0o600)

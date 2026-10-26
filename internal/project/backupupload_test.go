@@ -90,6 +90,52 @@ func TestImportBackupFile(t *testing.T) {
 	if _, err := e.m.ImportBackupFile(ctx, site); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("not a backup: %v", err)
 	}
+
+	// Unpacked and packed again by hand (tar cf x.tar ./<folder>): the folder's own entry
+	// comes first and the files in directory order. It is still the same backup.
+	repacked := filepath.Join(dir, "repacked.tar")
+	_ = os.WriteFile(repacked, repack(t, raw), 0o600)
+	if !IsBackupArchive(repacked) {
+		t.Fatal("a repacked backup is taken for a website")
+	}
+	if again, err := e.m.ImportBackupFile(ctx, repacked); err != nil || again.Backup.ID != up.Backup.ID {
+		t.Fatalf("repacked upload: %+v %v", again, err)
+	}
+}
+
+// repack writes the members of a backup tar again the way tar cf ./<folder> does: the
+// folder entry first, then the files in reverse order, all under "./".
+func repack(t *testing.T, raw []byte) []byte {
+	t.Helper()
+	type member struct {
+		hdr  *tar.Header
+		body []byte
+	}
+	var members []member
+	tr := tar.NewReader(bytes.NewReader(raw))
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ := io.ReadAll(tr)
+		members = append(members, member{hdr, body})
+	}
+	var out bytes.Buffer
+	tw := tar.NewWriter(&out)
+	folder := strings.SplitN(members[0].hdr.Name, "/", 2)[0]
+	_ = tw.WriteHeader(&tar.Header{Name: "./" + folder + "/", Typeflag: tar.TypeDir, Mode: 0o755})
+	for i := len(members) - 1; i >= 0; i-- {
+		m := members[i]
+		m.hdr.Name = "./" + m.hdr.Name
+		_ = tw.WriteHeader(m.hdr)
+		_, _ = tw.Write(m.body)
+	}
+	_ = tw.Close()
+	return out.Bytes()
 }
 
 // A backup whose project settings can't be read here is refused with the reason, not as

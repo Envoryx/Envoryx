@@ -27,8 +27,10 @@ type UploadedBackup struct {
 	ProjectExists bool `json:"projectExists"`
 }
 
-// IsBackupArchive reports whether file is a backup as the download writes it (a tar,
-// possibly gzipped, whose first member is <slug>-<backup dir>/backup.json).
+// IsBackupArchive reports whether file is a backup: a tar, possibly gzipped, of one
+// <slug>-<backup dir> folder with the backup's files. The download writes backup.json
+// first; a folder unpacked and packed again by hand (tar cf x.tar <folder>) starts with
+// the folder's own entry and has the files in any order, which counts as well.
 func IsBackupArchive(file string) bool {
 	f, err := os.Open(file)
 	if err != nil {
@@ -40,13 +42,56 @@ func IsBackupArchive(file string) bool {
 		return false
 	}
 	defer closeR()
-	hdr, err := tar.NewReader(r).Next()
-	if err != nil || hdr.Typeflag != tar.TypeReg {
-		return false
+	tr := tar.NewReader(r)
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			return false
+		}
+		if _, ok := backupFolderEntry(hdr); ok {
+			continue
+		}
+		if hdr.Typeflag != tar.TypeReg {
+			return false
+		}
+		top, name, ok := splitBackupMember(hdr.Name)
+		return ok && isBackupMember(name) && backupFolder(top) != ""
 	}
-	top, name := path.Split(hdr.Name)
+}
+
+// splitBackupMember splits a member's path into its top folder and file name; ok is
+// false for anything deeper than one folder. A leading "./" (tar cf x.tar ./folder) is
+// ignored.
+func splitBackupMember(member string) (top, name string, ok bool) {
+	top, name = path.Split(strings.TrimPrefix(member, "./"))
 	top = strings.TrimSuffix(top, "/")
-	return name == backupMetaFile && !strings.Contains(top, "/") && len(top) >= 24 && backupDirPattern.MatchString(top[len(top)-24:])
+	return top, name, top != "" && !strings.Contains(top, "/")
+}
+
+// backupFolder is the backup directory a top folder <slug>-<backup dir> names, "" when
+// it has another shape.
+func backupFolder(top string) string {
+	if len(top) < 24 || !backupDirPattern.MatchString(top[len(top)-24:]) {
+		return ""
+	}
+	return top[len(top)-24:]
+}
+
+// backupFolderEntry reports whether hdr is the entry of the top folder itself, which a
+// folder packed by hand carries; it returns the backup directory the folder names.
+func backupFolderEntry(hdr *tar.Header) (string, bool) {
+	if hdr.Typeflag != tar.TypeDir {
+		return "", false
+	}
+	top := strings.TrimSuffix(strings.TrimPrefix(hdr.Name, "./"), "/")
+	if top == "" || top == "." {
+		return "", true
+	}
+	if strings.Contains(top, "/") {
+		return "", false
+	}
+	dir := backupFolder(top)
+	return dir, dir != ""
 }
 
 // openMaybeGzip reads r, unpacking it when it is gzipped.
