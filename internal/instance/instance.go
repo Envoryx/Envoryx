@@ -18,9 +18,11 @@ package instance
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
@@ -539,7 +541,60 @@ func (s *Store) Import(r io.Reader) (Info, error) {
 		_ = os.Remove(target)
 		return Info{}, fmt.Errorf("%w: the backup was made with a newer Envoryx (schema %d, this build supports %d)", validate.ErrInvalid, meta.Schema, s.LatestSchema)
 	}
+	// The same archive uploaded (or fetched) once more is the upload that is here already.
+	// An own backup is not matched: what came from outside stays an upload, which only
+	// the instance's admin may restore (Info.Own).
+	if same, ok := s.identical(target, id); ok {
+		_ = os.Remove(target)
+		return s.Get(same)
+	}
 	return s.Get(id)
+}
+
+// identical returns the uploaded backup other than self whose archive has the same
+// content as file. Only archives of the same size are read.
+func (s *Store) identical(file, self string) (string, bool) {
+	st, err := os.Stat(file)
+	if err != nil {
+		return "", false
+	}
+	list, err := s.List()
+	if err != nil {
+		return "", false
+	}
+	var sum []byte
+	for _, b := range list {
+		if b.ID == self || b.Kind != KindUpload || b.SizeBytes != st.Size() {
+			continue
+		}
+		if sum == nil {
+			if sum, err = fileSum(file); err != nil {
+				return "", false
+			}
+		}
+		path, err := s.path(b.ID)
+		if err != nil {
+			continue
+		}
+		if other, err := fileSum(path); err == nil && bytes.Equal(sum, other) {
+			return b.ID, true
+		}
+	}
+	return "", false
+}
+
+// fileSum is the SHA-256 of a file's content.
+func fileSum(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return nil, err
+	}
+	return h.Sum(nil), nil
 }
 
 // Delete removes a backup. A backup with a scheduled restore cannot be deleted.

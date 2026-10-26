@@ -1898,9 +1898,11 @@ it lands with the instance backups (below), where it can be restored.
 workers, settings), the local CA, the SSH host key and deploy keys,
 notification settings and the generated per-project configuration. Project
 files and Docker volumes are **not** included; that's what project backups
-are for. A backup is a single `envoryx-<id>.tar.gz` under
-`<backups dir>/_instance/` (`instance.json` with version/schema, `envoryx.db`
-as a consistent `VACUUM INTO` copy, `config/…`). The [secret key](#secret-key)
+are for. A backup is a single `<id>.tar.gz` under `<backups dir>/_instance/`,
+the ID naming its kind and time (`manual-20261026-152135-2e1a.tar.gz`; the
+download is called `envoryx-<id>.tar.gz`). It holds `instance.json` with
+version/schema, `envoryx.db`
+as a consistent `VACUUM INTO` copy, and `config/…`. The [secret key](#secret-key)
 is never in it: `instance.json` only records its ID, and the secrets in the
 archive stay encrypted. Neither is the instance ID (see *Several instances on
 one Docker host*); a restore keeps the current key and ID.
@@ -1909,7 +1911,8 @@ one Docker host*); a restore keeps the current key and ID.
   **import** it on another host to move an installation.
 - **Automatic**: before every schema migration (`pre-migrate-…`) and before
   every restore (`pre-restore-…`). The last 5 of each kind are kept; manual and
-  imported ones stay until deleted.
+  imported ones stay until deleted. The same archive imported or fetched again is
+  kept only once.
 - **Restore** needs the confirmation word `restore`. Envoryx records the
   request, restarts in place (the process replaces itself, so no restart policy
   is needed) and applies the backup before opening the database: current

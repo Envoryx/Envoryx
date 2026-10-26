@@ -210,6 +210,10 @@ func TestImportValidatesArchives(t *testing.T) {
 	if imported.Kind != KindUpload || imported.Meta.Kind != KindManual || imported.SizeBytes != size {
 		t.Fatalf("imported = %+v", imported)
 	}
+	// Uploaded once more, it is the upload that is here.
+	if again, err := s.Import(bytes.NewReader(raw)); err != nil || again.ID != imported.ID {
+		t.Fatalf("second upload = %+v %v", again, err)
+	}
 	// A backup from a newer build is refused up front.
 	s.LatestSchema = info.Meta.Schema - 1
 	if _, err := s.Import(bytes.NewReader(raw)); !errors.Is(err, validate.ErrInvalid) {
