@@ -22,17 +22,26 @@
 		file {path}index.php
 	}
 	respond @uploadindex 403
+	@htmlindex {
+		not path */
+		file {path}/index.html
+		not file {path}/index.php
+	}
+	redir @htmlindex {http.request.orig_uri.path}/ 308
 	@https header X-Forwarded-Proto https
 	map {http.request.port} {envoryx_https_port} {
 		~^(\d+)$ ${1}
 		default 443
 	}
 	php_fastcgi @https php:9000 {
+		try_files {path} {path}/index.php {path}/index.html index.php
 		env HTTPS on
 		env REQUEST_SCHEME https
 		env SERVER_PORT {envoryx_https_port}
 	}
-	php_fastcgi php:9000
+	php_fastcgi php:9000 {
+		try_files {path} {path}/index.php {path}/index.html index.php
+	}
 	file_server
 	log {
 		output stdout

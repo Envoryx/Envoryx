@@ -129,6 +129,11 @@ func caddyfile(docroot string, o WebOptions) string {
 // PHP below the uploadDirs is refused. A directory there that holds an index.php is
 // refused as well, since php_fastcgi would run that file for the directory's URL; nginx
 // and Apache reach it through an internal redirect that their rule already covers.
+//
+// php_fastcgi only knows index.php as a folder's index, so a folder with just an
+// index.html would go to the front controller. Its try_files looks for index.html as
+// well, and a folder that has one but no index.php gets the trailing-slash redirect (a
+// relative one, like php_fastcgi's own) that nginx and Apache make.
 const caddyPHP = `	@uploadphp path_regexp ` + uploadPHP + `
 	respond @uploadphp 403
 	@uploadindex {
@@ -136,17 +141,26 @@ const caddyPHP = `	@uploadphp path_regexp ` + uploadPHP + `
 		file {path}index.php
 	}
 	respond @uploadindex 403
+	@htmlindex {
+		not path */
+		file {path}/index.html
+		not file {path}/index.php
+	}
+	redir @htmlindex {http.request.orig_uri.path}/ 308
 	@https header X-Forwarded-Proto https
 	map {http.request.port} {envoryx_https_port} {
 		~^(\d+)$ ${1}
 		default 443
 	}
 	php_fastcgi @https php:9000 {
+		try_files {path} {path}/index.php {path}/index.html index.php
 		env HTTPS on
 		env REQUEST_SCHEME https
 		env SERVER_PORT {envoryx_https_port}
 	}
-	php_fastcgi php:9000
+	php_fastcgi php:9000 {
+		try_files {path} {path}/index.php {path}/index.html index.php
+	}
 `
 
 // NginxConf renders the nginx server block. The stock nginx.conf of the official image

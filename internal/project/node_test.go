@@ -369,7 +369,7 @@ func TestAddAndRemovePHP(t *testing.T) {
 	if _, ok := e.engine.Container("envoryx-site-php"); !ok {
 		t.Fatal("php container must exist after adding PHP")
 	}
-	if cf := caddy(); strings.Contains(cf, "try_files") || !strings.Contains(cf, "php_fastcgi") {
+	if cf := caddy(); strings.Contains(cf, "try_files {path} /index.html") || !strings.Contains(cf, "php_fastcgi") {
 		t.Fatalf("Caddyfile with PHP: %s", cf)
 	}
 	if wcfg, _ := webServiceConfig(*view.Project.Service(store.ServiceWeb)); wcfg.SPAFallback {

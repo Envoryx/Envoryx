@@ -21,6 +21,18 @@ func TestWebServerFolderRedirectKeepsHTTPS(t *testing.T) {
 	}
 }
 
+// A folder with only an index.html is served by Caddy like by nginx and Apache, not by the
+// front controller: both php_fastcgi blocks look for it.
+func TestCaddyPHPFolderIndexHTML(t *testing.T) {
+	c := Caddyfile("public", true)
+	if n := strings.Count(c, "try_files {path} {path}/index.php {path}/index.html index.php"); n != 2 {
+		t.Errorf("try_files with index.html in %d php_fastcgi blocks, want 2:\n%s", n, c)
+	}
+	if strings.Contains(Caddyfile("public", false), "htmlindex") {
+		t.Error("the static Caddyfile needs no index.html redirect: file_server makes it")
+	}
+}
+
 // The PHP renderings are pinned byte for byte (testdata/webserver/*_php.golden was captured
 // before the static branch was added): a change there recreates every PHP project's web
 // config, so it has to be deliberate.
@@ -74,7 +86,7 @@ func TestWebServerConfig(t *testing.T) {
 		{
 			variant: "caddy", file: "Caddyfile", target: "/etc/caddy/Caddyfile",
 			contains: []string{"root * /var/www/html/public", "file_server"},
-			phpOnly:  []string{"php_fastcgi php:9000", "@uploadphp path_regexp " + uploadPHP, "respond @uploadphp 403", "file {path}index.php", "@https header X-Forwarded-Proto https", "env HTTPS on", "env SERVER_PORT {envoryx_https_port}"},
+			phpOnly:  []string{"php_fastcgi php:9000", "@uploadphp path_regexp " + uploadPHP, "respond @uploadphp 403", "file {path}index.php", "@https header X-Forwarded-Proto https", "env HTTPS on", "env SERVER_PORT {envoryx_https_port}", "file {path}/index.html", "redir @htmlindex {http.request.orig_uri.path}/ 308"},
 			static:   []string{"path_regexp (^|/)\\.", "not path /.well-known/*", "respond @dot 404", "trusted_proxies static private_ranges"},
 			spa:      []string{"try_files {path} /index.html"},
 		},
