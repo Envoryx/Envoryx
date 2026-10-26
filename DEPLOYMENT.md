@@ -1964,6 +1964,8 @@ host. The local backups stay the working copies; each target keeps its own.
 *Test* writes, lists, reads and deletes a small file under the target's
 folder. For SFTP it also records the server's key (SHA256 fingerprint); a
 different key later stops the uploads until the pin is cleared in the target.
+*Server key* also takes several SHA256 fingerprints or public keys, one per line,
+for a server that offers more than one.
 Credentials live in `/config/offsite.json` (mode 0600, encrypted with the
 [secret key](#secret-key)) and are never sent back to the browser.
 

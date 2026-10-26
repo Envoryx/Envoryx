@@ -2105,7 +2105,6 @@
   "Private key (instead of or next to the password)": "Закрытый ключ (вместо пароля или вместе с ним)",
   "OpenSSH format, without passphrase.": "Формат OpenSSH, без парольной фразы.",
   "Server key": "Ключ сервера",
-  "Recorded on the first connection (Test does it); a changed key stops the uploads. Clear it after replacing the server on purpose.": "Записывается при первом подключении (это делает «Проверить»); изменившийся ключ останавливает загрузку. Очистите его после намеренной замены сервера.",
   "not recorded yet": "ещё не записан",
   "Share": "Общий ресурс",
   "WebDAV address": "Адрес WebDAV",
@@ -3814,5 +3813,6 @@
   "Restart (R)": "Сначала (R)",
   "Chapters": "Главы",
   "Reduced motion is on. The scene holds a still frame; start it deliberately or pick a chapter.": "Включено уменьшение движения. Сцена показывает стоп-кадр; запустите её сами или выберите главу.",
-  "Another database server next to the first one - for example one for reporting. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Ещё один сервер баз данных рядом с первым - например для отчётов. Каждый доступен по своему имени как хост и задаёт переменные, начинающиеся с его имени (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …)."
+  "Another database server next to the first one - for example one for reporting. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Ещё один сервер баз данных рядом с первым - например для отчётов. Каждый доступен по своему имени как хост и задаёт переменные, начинающиеся с его имени (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).",
+  "SHA256 fingerprints or public keys, one per line. Test records the key the server offers when none is set; a changed key stops the uploads. Clear it after replacing the server on purpose.": "Отпечатки SHA256 или открытые ключи, по одному в строке. Если ничего не задано, Проверка запоминает ключ, который предлагает сервер; изменившийся ключ останавливает загрузки. Очистите поле после намеренной замены сервера."
 }

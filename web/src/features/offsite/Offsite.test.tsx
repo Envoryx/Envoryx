@@ -49,12 +49,16 @@ describe("OffsiteTargetsCard", () => {
     await user.type(within(dialog).getByLabelText("Password"), "pw");
     await user.type(within(dialog).getByLabelText("Passphrase"), "correct horse battery");
     await user.click(within(dialog).getByRole("button", { name: "Test" }));
-    expect(await within(dialog).findByText(/Connection works/)).toBeInTheDocument();
+    const result = await within(dialog).findByText(/Connection works/);
+    // The result sits after the scrolling form, next to the buttons, not at its top.
+    expect(within(dialog).getByLabelText("Name").compareDocumentPosition(result) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(dialog).getByLabelText("Server key")).toHaveValue("SHA256:abcdef");
+    // A second key goes on a line of its own.
+    await user.type(within(dialog).getByLabelText("Server key"), "{Enter}SHA256:second");
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(api.calls.some((c) => c.method === "POST" && c.url.endsWith("/offsite/targets"))).toBe(true));
     const body = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/offsite/targets"))!.body as Record<string, unknown>;
-    expect(body).toMatchObject({ name: "Storage Box", type: "sftp", host: "u1.your-storagebox.de", port: 23, user: "u1", password: "pw", hostKey: "SHA256:abcdef", encrypt: true, passphrase: "correct horse battery", auto: true, instance: true });
+    expect(body).toMatchObject({ name: "Storage Box", type: "sftp", host: "u1.your-storagebox.de", port: 23, user: "u1", password: "pw", hostKey: "SHA256:abcdef\nSHA256:second", encrypt: true, passphrase: "correct horse battery", auto: true, instance: true });
   });
 
   it("lists targets with their last result and keeps stored secrets on edit", async () => {

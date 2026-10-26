@@ -2069,7 +2069,6 @@
   "Private key (instead of or next to the password)": "Clé privée (à la place ou en plus du mot de passe)",
   "OpenSSH format, without passphrase.": "Format OpenSSH, sans phrase secrète.",
   "Server key": "Clé du serveur",
-  "Recorded on the first connection (Test does it); a changed key stops the uploads. Clear it after replacing the server on purpose.": "Enregistrée à la première connexion (Tester s'en charge) ; une clé modifiée arrête les téléversements. Effacez-la après avoir remplacé le serveur volontairement.",
   "not recorded yet": "pas encore enregistrée",
   "Share": "Partage",
   "WebDAV address": "Adresse WebDAV",
@@ -3748,5 +3747,6 @@
   "Restart (R)": "Relancer (R)",
   "Chapters": "Chapitres",
   "Reduced motion is on. The scene holds a still frame; start it deliberately or pick a chapter.": "Le mouvement réduit est activé. La scène reste sur une image fixe ; lancez-la vous-même ou choisissez un chapitre.",
-  "Another database server next to the first one - for example one for reporting. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Un autre serveur de base de données à côté du premier - par exemple un pour le reporting. Chacun est joignable sous son nom comme hôte et injecte des variables qui commencent par son nom (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …)."
+  "Another database server next to the first one - for example one for reporting. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Un autre serveur de base de données à côté du premier - par exemple un pour le reporting. Chacun est joignable sous son nom comme hôte et injecte des variables qui commencent par son nom (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).",
+  "SHA256 fingerprints or public keys, one per line. Test records the key the server offers when none is set; a changed key stops the uploads. Clear it after replacing the server on purpose.": "Empreintes SHA256 ou clés publiques, une par ligne. Si aucune n'est saisie, Tester enregistre la clé proposée par le serveur ; une clé modifiée arrête les envois. Videz le champ après avoir remplacé le serveur volontairement."
 }

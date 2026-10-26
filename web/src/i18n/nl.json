@@ -2069,7 +2069,6 @@
   "Private key (instead of or next to the password)": "Privésleutel (in plaats van of naast het wachtwoord)",
   "OpenSSH format, without passphrase.": "OpenSSH-formaat, zonder passphrase.",
   "Server key": "Serversleutel",
-  "Recorded on the first connection (Test does it); a changed key stops the uploads. Clear it after replacing the server on purpose.": "Vastgelegd bij de eerste verbinding (Testen doet dat); een gewijzigde sleutel stopt de uploads. Wis hem nadat je de server bewust hebt vervangen.",
   "not recorded yet": "nog niet vastgelegd",
   "Share": "Share",
   "WebDAV address": "WebDAV-adres",
@@ -3748,5 +3747,6 @@
   "Restart (R)": "Opnieuw starten (R)",
   "Chapters": "Hoofdstukken",
   "Reduced motion is on. The scene holds a still frame; start it deliberately or pick a chapter.": "Verminderde beweging staat aan. De scène toont een stilstaand beeld; start hem bewust of kies een hoofdstuk.",
-  "Another database server next to the first one - for example one for reporting. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Nog een databaseserver naast de eerste - bijvoorbeeld een voor rapportages. Elke server is bereikbaar onder zijn naam als host en stelt variabelen in die met zijn naam beginnen (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …)."
+  "Another database server next to the first one - for example one for reporting. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Nog een databaseserver naast de eerste - bijvoorbeeld een voor rapportages. Elke server is bereikbaar onder zijn naam als host en stelt variabelen in die met zijn naam beginnen (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).",
+  "SHA256 fingerprints or public keys, one per line. Test records the key the server offers when none is set; a changed key stops the uploads. Clear it after replacing the server on purpose.": "SHA256-vingerafdrukken of publieke sleutels, één per regel. Staat er geen, dan legt Testen de sleutel vast die de server aanbiedt; een gewijzigde sleutel stopt de uploads. Maak het veld leeg nadat je de server bewust hebt vervangen."
 }

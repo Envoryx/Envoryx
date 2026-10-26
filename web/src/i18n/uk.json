@@ -2105,7 +2105,6 @@
   "Private key (instead of or next to the password)": "Закритий ключ (замість пароля або разом із ним)",
   "OpenSSH format, without passphrase.": "Формат OpenSSH, без парольної фрази.",
   "Server key": "Ключ сервера",
-  "Recorded on the first connection (Test does it); a changed key stops the uploads. Clear it after replacing the server on purpose.": "Записується під час першого підключення (це робить «Перевірити»); змінений ключ зупиняє завантаження. Очистьте його після навмисної заміни сервера.",
   "not recorded yet": "ще не записано",
   "Share": "Спільний ресурс",
   "WebDAV address": "Адреса WebDAV",
@@ -3814,5 +3813,6 @@
   "Restart (R)": "Спочатку (R)",
   "Chapters": "Розділи",
   "Reduced motion is on. The scene holds a still frame; start it deliberately or pick a chapter.": "Увімкнено зменшення руху. Сцена показує стоп-кадр; запустіть її самі або виберіть розділ.",
-  "Another database server next to the first one - for example one for reporting. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Ще один сервер баз даних поруч із першим - наприклад для звітів. Кожен доступний за своєю назвою як хост і задає змінні, що починаються з його назви (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …)."
+  "Another database server next to the first one - for example one for reporting. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Ще один сервер баз даних поруч із першим - наприклад для звітів. Кожен доступний за своєю назвою як хост і задає змінні, що починаються з його назви (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).",
+  "SHA256 fingerprints or public keys, one per line. Test records the key the server offers when none is set; a changed key stops the uploads. Clear it after replacing the server on purpose.": "Відбитки SHA256 або відкриті ключі, по одному в рядку. Якщо нічого не задано, Перевірка запам'ятовує ключ, який пропонує сервер; змінений ключ зупиняє завантаження. Очистіть поле після навмисної заміни сервера."
 }

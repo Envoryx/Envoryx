@@ -2069,7 +2069,6 @@
   "Private key (instead of or next to the password)": "Clave privada (en lugar de la contraseña o además de ella)",
   "OpenSSH format, without passphrase.": "Formato OpenSSH, sin frase de contraseña.",
   "Server key": "Clave del servidor",
-  "Recorded on the first connection (Test does it); a changed key stops the uploads. Clear it after replacing the server on purpose.": "Se registra en la primera conexión (Probar lo hace); una clave cambiada detiene las subidas. Bórrala tras sustituir el servidor a propósito.",
   "not recorded yet": "aún no registrada",
   "Share": "Carpeta compartida",
   "WebDAV address": "Dirección WebDAV",
@@ -3748,5 +3747,6 @@
   "Restart (R)": "Reiniciar (R)",
   "Chapters": "Capítulos",
   "Reduced motion is on. The scene holds a still frame; start it deliberately or pick a chapter.": "El movimiento reducido está activado. La escena muestra una imagen fija; iníciala tú o elige un capítulo.",
-  "Another database server next to the first one - for example one for reporting. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Otro servidor de base de datos junto al primero - por ejemplo uno para informes. Cada uno es accesible por su nombre como host e inyecta variables que empiezan por su nombre (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …)."
+  "Another database server next to the first one - for example one for reporting. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Otro servidor de base de datos junto al primero - por ejemplo uno para informes. Cada uno es accesible por su nombre como host e inyecta variables que empiezan por su nombre (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).",
+  "SHA256 fingerprints or public keys, one per line. Test records the key the server offers when none is set; a changed key stops the uploads. Clear it after replacing the server on purpose.": "Huellas SHA256 o claves públicas, una por línea. Si no hay ninguna, Probar guarda la clave que ofrece el servidor; una clave cambiada detiene las subidas. Vacía el campo tras reemplazar el servidor a propósito."
 }

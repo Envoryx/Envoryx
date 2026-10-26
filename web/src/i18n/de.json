@@ -2069,7 +2069,6 @@
   "Private key (instead of or next to the password)": "Privater Schlüssel (statt oder zusätzlich zum Passwort)",
   "OpenSSH format, without passphrase.": "OpenSSH-Format, ohne Passphrase.",
   "Server key": "Server-Key",
-  "Recorded on the first connection (Test does it); a changed key stops the uploads. Clear it after replacing the server on purpose.": "Wird bei der ersten Verbindung festgehalten (Testen erledigt das); ein geänderter Key stoppt die Uploads. Leere ihn, nachdem du den Server absichtlich ersetzt hast.",
   "not recorded yet": "noch nicht festgehalten",
   "Share": "Freigabe",
   "WebDAV address": "WebDAV-Adresse",
@@ -3748,5 +3747,6 @@
   "Restart (R)": "Neu starten (R)",
   "Chapters": "Kapitel",
   "Reduced motion is on. The scene holds a still frame; start it deliberately or pick a chapter.": "Reduzierte Bewegung ist an. Die Szene zeigt ein Standbild; starte sie bewusst oder wähle ein Kapitel.",
-  "Another database server next to the first one - for example one for reporting. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Ein weiterer Datenbankserver neben dem ersten - etwa einer für Auswertungen. Jeder ist unter seinem Namen als Host erreichbar und setzt Variablen, die mit seinem Namen beginnen (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …)."
+  "Another database server next to the first one - for example one for reporting. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Ein weiterer Datenbankserver neben dem ersten - etwa einer für Auswertungen. Jeder ist unter seinem Namen als Host erreichbar und setzt Variablen, die mit seinem Namen beginnen (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).",
+  "SHA256 fingerprints or public keys, one per line. Test records the key the server offers when none is set; a changed key stops the uploads. Clear it after replacing the server on purpose.": "SHA256-Fingerprints oder öffentliche Keys, einer pro Zeile. Ist keiner eingetragen, hält Testen den Key fest, den der Server anbietet; ein geänderter Key stoppt die Uploads. Leere das Feld, nachdem du den Server absichtlich ersetzt hast."
 }

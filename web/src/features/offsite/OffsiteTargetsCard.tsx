@@ -230,7 +230,6 @@ function TargetDialog({ initial, stored, onClose, onSaved }: { initial: OffsiteT
       }
     >
       <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
-        {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={t("Name")} htmlFor="ot-name">
             <Input id="ot-name" value={form.name} onChange={(e) => set({ name: e.target.value })} placeholder="Backblaze B2" maxLength={64} />
@@ -295,9 +294,17 @@ function TargetDialog({ initial, stored, onClose, onSaved }: { initial: OffsiteT
                 className="w-full rounded-md border border-default bg-elevated px-3 py-2 font-mono text-xs text-fg"
               />
             </Field>
-            <Field label={t("Server key")} htmlFor="ot-hostkey" hint={t("Recorded on the first connection (Test does it); a changed key stops the uploads. Clear it after replacing the server on purpose.")}>
-              <div className="flex gap-2">
-                <Input id="ot-hostkey" value={form.hostKey ?? ""} readOnly placeholder={t("not recorded yet")} className="font-mono text-xs" />
+            <Field label={t("Server key")} htmlFor="ot-hostkey" hint={t("SHA256 fingerprints or public keys, one per line. Test records the key the server offers when none is set; a changed key stops the uploads. Clear it after replacing the server on purpose.")}>
+              <div className="flex items-start gap-2">
+                <textarea
+                  id="ot-hostkey"
+                  value={form.hostKey ?? ""}
+                  onChange={(e) => set({ hostKey: e.target.value })}
+                  rows={2}
+                  spellCheck={false}
+                  placeholder={t("not recorded yet")}
+                  className="w-full rounded-md border border-default bg-elevated px-3 py-2 font-mono text-xs text-fg focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/30"
+                />
                 {form.hostKey && (
                   <Button size="sm" onClick={() => set({ hostKey: "" })} icon={<KeyRound className="size-3.5" />}>
                     {t("Clear")}
@@ -368,6 +375,12 @@ function TargetDialog({ initial, stored, onClose, onSaved }: { initial: OffsiteT
         </Section>
         {stored && <p className="text-xs text-subtle">{t("Location")}: <Code>{stored.location}</Code></p>}
       </div>
+      {/* Below the scrolling form, next to the buttons: a test's result is seen however far down the form is. */}
+      {msg && (
+        <div className="mt-3">
+          <Alert tone={msg.tone}>{msg.text}</Alert>
+        </div>
+      )}
     </Dialog>
   );
 }
