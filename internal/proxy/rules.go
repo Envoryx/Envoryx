@@ -110,6 +110,12 @@ func (r *Rules) redirect(req *http.Request) (string, int, bool) {
 		to := rd.To
 		if base, wild := strings.CutSuffix(to, "*"); wild {
 			to = base + rest
+			// A path target stays on this host: "/r/*" -> "/*" must not turn
+			// /r//evil.com or /r/\evil.com into a protocol-relative address.
+			pathTarget := base == "" || (strings.HasPrefix(base, "/") && !strings.HasPrefix(base, "//"))
+			if pathTarget && strings.ContainsAny(to[:min(len(to), 1)], "/\\") {
+				to = "/" + strings.TrimLeft(to, "/\\")
+			}
 		}
 		if req.URL.RawQuery != "" && !strings.Contains(to, "?") {
 			to += "?" + req.URL.RawQuery

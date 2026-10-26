@@ -108,6 +108,7 @@ func TestRedirectsAndHeaders(t *testing.T) {
 			{Host: "www.shop.test", From: "/*", To: "https://shop.test/*", Status: 301},
 			{From: "/old/*", To: "/new/*"},
 			{From: "/about", To: "/team", Status: 308},
+			{From: "/r/*", To: "/*"},
 		},
 		Headers: []Header{{Name: "X-Frame-Options", Value: "DENY"}, {Name: "X-Powered-By"}},
 	}, true)
@@ -118,6 +119,10 @@ func TestRedirectsAndHeaders(t *testing.T) {
 		{"www.shop.test", "/a/b?x=1", "https://shop.test/a/b?x=1", 301},
 		{"x.trycloudflare", "/old/page?q=2", "/new/page?q=2", 302},
 		{"x.trycloudflare", "/about", "/team", 308},
+		// A path target never becomes another host's address.
+		{"x.trycloudflare", "/r//evil.com/x", "/evil.com/x", 302},
+		{"x.trycloudflare", "/r/%5Cevil.com", "/evil.com", 302},
+		{"x.trycloudflare", "/r/page", "/page", 302},
 	}
 	for _, c := range cases {
 		resp := send(t, srv, "GET", c.host, c.path, nil)
