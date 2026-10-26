@@ -1274,6 +1274,28 @@ func TestPublicHostSetting(t *testing.T) {
 	}
 }
 
+// A cleared host field gives way to ENVORYX_PUBLIC_HOST again instead of hiding it.
+func TestClearedPublicHostFallsBackToTheEnvironment(t *testing.T) {
+	ctx := context.Background()
+	sqlDB, err := db.Open(ctx, ":memory:", slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	st := store.New(sqlDB)
+	if got := api.ResolvePublicHost(ctx, st.Settings, "10.9.9.9"); got != "10.9.9.9" {
+		t.Fatalf("unset: %q", got)
+	}
+	_ = st.Settings.Set(ctx, api.SettingPublicHost, "10.8.8.8")
+	if got := api.ResolvePublicHost(ctx, st.Settings, "10.9.9.9"); got != "10.8.8.8" {
+		t.Fatalf("the setting must win: %q", got)
+	}
+	_ = st.Settings.Set(ctx, api.SettingPublicHost, "")
+	if got := api.ResolvePublicHost(ctx, st.Settings, "10.9.9.9"); got != "10.9.9.9" {
+		t.Fatalf("cleared: %q, want the environment's host", got)
+	}
+}
+
 func TestRuntimesMarkVersionsTheKernelCannotRun(t *testing.T) {
 	a := newApp(t)
 	a.engine.KernelVersion = "6.19.0-31-generic"

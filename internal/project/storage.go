@@ -35,10 +35,15 @@ func storageConfig(p store.Project) (*store.ProjectService, runtime.StorageConfi
 }
 
 // ProjectURL is where a browser on the LAN reaches the project (see Planner.ProjectURL).
+// With ENVORYX_HOST_PORTS=local the published port only listens on 127.0.0.1, so a
+// link to it on the public host would lead nowhere; only the proxy address counts then.
 func (m *Manager) ProjectURL(proj store.Project) string {
 	p, err := m.planner()
 	if err != nil {
 		return ""
+	}
+	if m.LocalPorts() {
+		return p.projectProxyURL(proj)
 	}
 	return p.ProjectURL(proj)
 }
@@ -47,23 +52,21 @@ func (m *Manager) ProjectURL(proj store.Project) string {
 // proxy (HTTPS when the proxy serves it), else the published HTTP port on the public
 // host. "" when neither is known.
 func (p *Planner) ProjectURL(proj store.Project) string {
-	if p.paths.BaseDomain != "" {
-		host := DefaultHostname(proj.Slug, p.paths.BaseDomain)
-		switch {
-		case p.paths.ProxyHTTPSPort == 443:
-			return "https://" + host
-		case p.paths.ProxyHTTPSPort > 0:
-			return fmt.Sprintf("https://%s:%d", host, p.paths.ProxyHTTPSPort)
-		case p.paths.ProxyHTTPPort == 80:
-			return "http://" + host
-		case p.paths.ProxyHTTPPort > 0:
-			return fmt.Sprintf("http://%s:%d", host, p.paths.ProxyHTTPPort)
-		}
+	if u := p.projectProxyURL(proj); u != "" {
+		return u
 	}
 	if proj.HTTPPort > 0 && p.paths.PublicHost != "" {
 		return fmt.Sprintf("http://%s:%d", p.paths.PublicHost, proj.HTTPPort)
 	}
 	return ""
+}
+
+// projectProxyURL is the project's host name behind the proxy, "" without the proxy.
+func (p *Planner) projectProxyURL(proj store.Project) string {
+	if p.paths.BaseDomain == "" {
+		return ""
+	}
+	return p.proxyURL(DefaultHostname(proj.Slug, p.paths.BaseDomain))
 }
 
 // ProjectDevURL is the address of the project's Node dev server through the proxy

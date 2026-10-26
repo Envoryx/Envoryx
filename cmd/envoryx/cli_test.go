@@ -72,6 +72,19 @@ func newTestCLI(t *testing.T, srv *fakeServer, stdin string) (*cli, *bytes.Buffe
 }
 
 // Global flags work before the command as well as after it.
+// Without an address from the server a project with a port has no proxy: its host name
+// would lead nowhere, the port is what exists.
+func TestProjectURLPrefersThePortOverAHostName(t *testing.T) {
+	p := projectSummary{HTTPPort: 21100, Hostnames: []string{"shop.test"}}
+	if got := p.URL(); got != "port 21100" {
+		t.Fatalf("URL = %q", got)
+	}
+	p.Address = "https://shop.test"
+	if got := p.URL(); got != "https://shop.test" {
+		t.Fatalf("URL = %q", got)
+	}
+}
+
 func TestGlobalFlagsBeforeTheCommand(t *testing.T) {
 	srv := newFakeServer(t, nil)
 	c, out, _ := newTestCLI(t, srv, "")

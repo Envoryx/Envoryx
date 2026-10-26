@@ -347,12 +347,19 @@ func (a *API) publicHostAdvice(ctx context.Context) (bool, map[string]string) {
 const SettingPublicHost = "public_host"
 
 // publicHost returns the configured host for project links: the stored setting wins, then
-// the environment, then "" (browser address bar).
+// the environment, then "" (browser address bar). A cleared setting gives way to the
+// environment again; otherwise emptying the field once would hide ENVORYX_PUBLIC_HOST
+// for good.
 func (a *API) publicHost(ctx context.Context) string {
-	if v, err := a.d.Store.Settings.Get(ctx, SettingPublicHost); err == nil {
+	return ResolvePublicHost(ctx, a.d.Store.Settings, a.d.Config.PublicHost)
+}
+
+// ResolvePublicHost is publicHost for callers outside the API (MCP links).
+func ResolvePublicHost(ctx context.Context, settings *store.Settings, env string) string {
+	if v, err := settings.Get(ctx, SettingPublicHost); err == nil && v != "" {
 		return v
 	}
-	return a.d.Config.PublicHost
+	return env
 }
 
 type updateSettingsRequest struct {
@@ -693,6 +700,7 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 	needed, suggestion := a.publicHostAdvice(r.Context())
 	writeJSON(w, http.StatusOK, map[string]any{
 		"publicHost":            a.publicHost(r.Context()),
+		"publicHostEnv":         c.PublicHost,
 		"lockedSettings":        a.d.Projects.Plan().LockedKeys(),
 		"publicHostNeeded":      needed,
 		"publicHostSuggestion":  suggestion,

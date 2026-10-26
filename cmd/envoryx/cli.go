@@ -753,17 +753,19 @@ func (l limitSet) String() string {
 	return strings.Join(parts, ", ")
 }
 
-// URL is the project's address: the server's (proxy scheme and port included), else the
-// first host name for servers that do not send one.
+// URL is the project's address: the server's (proxy scheme and port included), else its
+// published port, else the first host name for servers that do not send one. A server
+// that sends no address while the project has a port has no proxy (or the port only
+// listens on the machine itself), so a host name would lead nowhere.
 func (p projectSummary) URL() string {
 	if p.Address != "" {
 		return p.Address
 	}
-	if len(p.Hostnames) > 0 {
-		return "https://" + p.Hostnames[0]
-	}
 	if p.HTTPPort > 0 {
 		return fmt.Sprintf("port %d", p.HTTPPort)
+	}
+	if len(p.Hostnames) > 0 {
+		return "https://" + p.Hostnames[0]
 	}
 	return ""
 }

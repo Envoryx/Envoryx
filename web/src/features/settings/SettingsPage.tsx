@@ -95,7 +95,7 @@ function PasswordForm() {
   );
 }
 
-function PublicHostForm({ current, xdebugHost }: { current: string; xdebugHost: string }) {
+function PublicHostForm({ current, envHost, xdebugHost }: { current: string; envHost: string; xdebugHost: string }) {
   const { t } = useTranslation();
   const update = useUpdateSettings();
   const [host, setHost] = useState(current);
@@ -127,7 +127,12 @@ function PublicHostForm({ current, xdebugHost }: { current: string; xdebugHost: 
       <form onSubmit={submit} className="space-y-4 p-5">
         <PublicHostNotice />
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-        <Field label={t("Host for project links")} htmlFor="public-host" hint={t("Leave empty to use the browser address bar (currently {{host}}). Host name or IP only, no port.", { host: window.location.hostname })}>
+        <Field label={t("Host for project links")} htmlFor="public-host" hint={
+            envHost
+              ? t("Leave empty to use ENVORYX_PUBLIC_HOST ({{host}}). Host name or IP only, no port.", { host: envHost })
+              : t("Leave empty to use the browser address bar (currently {{host}}). Host name or IP only, no port.", { host: window.location.hostname })
+          }
+        >
           <Input id="public-host" value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.168.1.10" spellCheck={false} disabled={hostLocked} />
           {hostLocked && <LockedHint />}
         </Field>
@@ -405,7 +410,7 @@ export function SettingsPage() {
             <>
               <DomainsCard />
               <NewProjectsAccessCard />
-              {s.data && <PublicHostForm current={s.data.publicHost} xdebugHost={s.data.xdebugClientHost ?? ""} />}
+              {s.data && <PublicHostForm current={s.data.publicHost} envHost={s.data.publicHostEnv ?? ""} xdebugHost={s.data.xdebugClientHost ?? ""} />}
             </>
           )}
           {tab === "users" && (

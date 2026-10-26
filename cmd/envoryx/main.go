@@ -540,10 +540,7 @@ func serve() error {
 		log.Warn("embedded frontend unavailable", "err", err)
 	}
 	publicHost := func(ctx context.Context) string {
-		if v, err := st.Settings.Get(ctx, api.SettingPublicHost); err == nil {
-			return v
-		}
-		return cfg.PublicHost
+		return api.ResolvePublicHost(ctx, st.Settings, cfg.PublicHost)
 	}
 	mcpLinks := mcpserver.Links{PublicHost: publicHost}
 	if certs != nil {

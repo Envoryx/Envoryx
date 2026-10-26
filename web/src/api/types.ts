@@ -1708,6 +1708,8 @@ export interface SSHInfo {
 
 export interface Settings {
   publicHost: string;
+  /** ENVORYX_PUBLIC_HOST: what an empty setting falls back to. */
+  publicHostEnv?: string;
   /** Envoryx has its own IP and no public host is set: links to published ports break. */
   publicHostNeeded?: boolean;
   publicHostSuggestion?: { hostname?: string; ip?: string } | null;

@@ -3757,5 +3757,6 @@
   "scheduled daily": "geplant, täglich",
   "scheduled weekly": "geplant, wöchentlich",
   "before restoring {{id}}": "vor der Wiederherstellung von {{id}}",
-  "before schema {{from}} → {{to}} (Envoryx {{version}})": "vor Schema {{from}} → {{to}} (Envoryx {{version}})"
+  "before schema {{from}} → {{to}} (Envoryx {{version}})": "vor Schema {{from}} → {{to}} (Envoryx {{version}})",
+  "Leave empty to use ENVORYX_PUBLIC_HOST ({{host}}). Host name or IP only, no port.": "Leer lassen, um ENVORYX_PUBLIC_HOST ({{host}}) zu nutzen. Nur Hostname oder IP, kein Port."
 }

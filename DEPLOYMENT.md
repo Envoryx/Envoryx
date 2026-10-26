@@ -70,7 +70,7 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
 | `ENVORYX_PORT_RANGE_START` / `_END` | `20000` / `20999` | Host ports assigned to project web servers |
 | `ENVORYX_HOST_PORTS` | `all`, `local` when managed | Where those ports listen: `all` interfaces, or `local` for the machine itself (127.0.0.1); see [Host ports on a server on the internet](#host-ports-on-a-server-on-the-internet) |
 | `ENVORYX_NETWORK_POOL` | `10.213.0.0/16` | IPv4 range each new project network gets a /24 of (256 projects per /16); `off` leaves the choice to Docker, whose default ranges run out after about 30 networks. Pick a range your LAN and VPN don't use |
-| `ENVORYX_PUBLIC_HOST` | browser address | Host/IP used for project links (see below); also editable in Settings |
+| `ENVORYX_PUBLIC_HOST` | browser address | Host/IP used for project links (see below); also editable in Settings, where an empty field falls back to this variable |
 | `ENVORYX_PROXY_HTTP` | `:80` | Listen address of the embedded proxy inside the container; empty disables it |
 | `ENVORYX_PROXY_HTTPS` | `:443` | HTTPS listener of the proxy (local CA); empty disables HTTPS |
 | `ENVORYX_SSH` | `:2222` | Embedded SSH server for IDE remote interpreters; empty disables it |
