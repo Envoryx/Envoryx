@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AddonsCard } from "./AddonsCard";
 import { authedRoutes, mockApi, renderApp } from "@/test/utils";
@@ -31,6 +31,9 @@ describe("AddonsCard", () => {
     // An addon a project uses cannot be removed; an unused one can.
     expect(screen.getByRole("button", { name: "Remove pgadmin" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Remove broken" }));
+    // Only after the confirmation.
+    expect(api.calls.some((c) => c.method === "DELETE")).toBe(false);
+    await user.click(within(await screen.findByRole("dialog", { name: "Remove addon broken?" })).getByRole("button", { name: "Remove" }));
     await waitFor(() => expect(api.calls.some((c) => c.method === "DELETE" && c.url.endsWith("/addons/broken"))).toBe(true));
 
     // The first Install belongs to the URL field, the second to the example.

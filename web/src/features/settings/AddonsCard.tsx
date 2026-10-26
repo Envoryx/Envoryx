@@ -41,6 +41,8 @@ export function AddonsCard() {
   const [msg, setMsg] = useState<{ tone: Tone; text: string } | null>(null);
   const [editor, setEditor] = useState<{ title: string; source: string } | null>(null);
   const [url, setUrl] = useState("");
+  // The addon a click on the bin asks about; its file is gone once removed.
+  const [confirmRemove, setConfirmRemove] = useState<InstalledAddon | null>(null);
   const done = (text: string) => {
     void qc.invalidateQueries({ queryKey: ["addons"] });
     setMsg({ tone: "green", text });
@@ -57,7 +59,10 @@ export function AddonsCard() {
   });
   const remove = useMutation({
     mutationFn: (name: string) => api.addons.remove(name),
-    onSuccess: (_r, name) => done(t("Addon {{name}} removed.", { name })),
+    onSuccess: (_r, name) => {
+      setConfirmRemove(null);
+      done(t("Addon {{name}} removed.", { name }));
+    },
     onError: fail,
   });
   const edit = async (a: InstalledAddon) => {
@@ -129,8 +134,7 @@ export function AddonsCard() {
                     icon={<Trash2 className="size-4" />}
                     disabled={a.projects.length > 0}
                     title={a.projects.length > 0 ? t("Remove it from the projects first") : undefined}
-                    loading={remove.isPending && remove.variables === a.name}
-                    onClick={() => remove.mutate(a.name)}
+                    onClick={() => setConfirmRemove(a)}
                   />
                 </div>
               </li>
@@ -174,6 +178,21 @@ export function AddonsCard() {
           ))}
         </ul>
       </Card>
+
+      <Dialog
+        open={!!confirmRemove}
+        onClose={() => setConfirmRemove(null)}
+        title={t("Remove addon {{name}}?", { name: confirmRemove?.title || confirmRemove?.name || "" })}
+        description={t("Its file is deleted from /config/addons. Projects can't add it any more until it is installed again.")}
+        footer={
+          <>
+            <Button onClick={() => setConfirmRemove(null)}>{t("Cancel")}</Button>
+            <Button variant="danger" loading={remove.isPending} onClick={() => confirmRemove && remove.mutate(confirmRemove.name)}>
+              {t("Remove")}
+            </Button>
+          </>
+        }
+      />
 
       <Dialog
         open={!!editor}

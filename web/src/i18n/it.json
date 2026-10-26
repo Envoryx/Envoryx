@@ -3724,5 +3724,9 @@
   "This backup's project settings are encrypted with key {{id}}, which this instance doesn't have: another Envoryx's, or this one's from before its key was replaced. Enter that key (Settings → Secret key on the Envoryx that made it); afterwards the backup is encrypted with this instance's key, and the key you enter isn't stored.": "Le impostazioni di progetto di questo backup sono cifrate con la chiave {{id}}, che questa istanza non ha: quella di un altro Envoryx, o di questo prima che la chiave fosse sostituita. Inserisci quella chiave (Impostazioni → Secret key nell'Envoryx che lo ha creato); dopo il backup è cifrato con la chiave di questa istanza e la chiave inserita non viene salvata.",
   "Require a second factor of yourself too?": "Richiedere un secondo fattore anche a te?",
   "This covers you, and you have no second factor yet. Once it is saved, you are taken to set one up straight away (authenticator app or passkey), and nothing else works until you have. Have your phone or security key at hand.": "Questo riguarda anche te, e non hai ancora un secondo fattore. Appena salvato, vieni portato subito a configurarne uno (app di autenticazione o passkey) e nient'altro funziona finché non l'hai fatto. Tieni a portata di mano il telefono o la chiave di sicurezza.",
-  "Save and set up now": "Salva e configura ora"
+  "Save and set up now": "Salva e configura ora",
+  "Remove addon {{name}}?": "Rimuovere l'addon {{name}}?",
+  "Its file is deleted from /config/addons. Projects can't add it any more until it is installed again.": "Il suo file viene eliminato da /config/addons. I progetti non possono più aggiungerlo finché non viene reinstallato.",
+  "Remove the custom certificate?": "Rimuovere il certificato personalizzato?",
+  "The names it covers get certificates from the local CA again. The private key isn't shown anywhere, so to use the certificate again you need its files.": "I nomi che copre ricevono di nuovo certificati dalla CA locale. La chiave privata non viene mostrata da nessuna parte: per riusare il certificato servono i suoi file."
 }

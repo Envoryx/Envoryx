@@ -3724,5 +3724,9 @@
   "This backup's project settings are encrypted with key {{id}}, which this instance doesn't have: another Envoryx's, or this one's from before its key was replaced. Enter that key (Settings → Secret key on the Envoryx that made it); afterwards the backup is encrypted with this instance's key, and the key you enter isn't stored.": "De projectinstellingen van deze back-up zijn versleuteld met sleutel {{id}}, die deze instantie niet heeft: die van een ander Envoryx, of van dit Envoryx van voor het vervangen van zijn sleutel. Voer die sleutel in (Instellingen → Secret key in het Envoryx dat hem maakte); daarna is de back-up versleuteld met de sleutel van deze instantie, en de ingevoerde sleutel wordt niet opgeslagen.",
   "Require a second factor of yourself too?": "Ook van jezelf een tweede factor vereisen?",
   "This covers you, and you have no second factor yet. Once it is saved, you are taken to set one up straight away (authenticator app or passkey), and nothing else works until you have. Have your phone or security key at hand.": "Dit geldt ook voor jou, en je hebt nog geen tweede factor. Zodra het is opgeslagen, word je meteen naar het instellen ervan gebracht (authenticator-app of passkey), en tot die tijd werkt niets anders. Houd je telefoon of beveiligingssleutel bij de hand.",
-  "Save and set up now": "Opslaan en nu instellen"
+  "Save and set up now": "Opslaan en nu instellen",
+  "Remove addon {{name}}?": "Addon {{name}} verwijderen?",
+  "Its file is deleted from /config/addons. Projects can't add it any more until it is installed again.": "Het bestand wordt uit /config/addons verwijderd. Projecten kunnen het pas weer toevoegen als het opnieuw is geïnstalleerd.",
+  "Remove the custom certificate?": "Eigen certificaat verwijderen?",
+  "The names it covers get certificates from the local CA again. The private key isn't shown anywhere, so to use the certificate again you need its files.": "De namen die het dekt krijgen weer certificaten van de lokale CA. De privésleutel wordt nergens getoond: om het certificaat opnieuw te gebruiken heb je de bestanden nodig."
 }

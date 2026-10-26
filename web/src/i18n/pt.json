@@ -3724,5 +3724,9 @@
   "This backup's project settings are encrypted with key {{id}}, which this instance doesn't have: another Envoryx's, or this one's from before its key was replaced. Enter that key (Settings → Secret key on the Envoryx that made it); afterwards the backup is encrypted with this instance's key, and the key you enter isn't stored.": "As configurações do projeto neste backup estão criptografadas com a chave {{id}}, que esta instância não tem: a de outro Envoryx, ou a deste antes da troca da chave. Informe essa chave (Configurações → Chave secreta no Envoryx que o criou); depois o backup fica criptografado com a chave desta instância, e a chave informada não é armazenada.",
   "Require a second factor of yourself too?": "Exigir um segundo fator também de você?",
   "This covers you, and you have no second factor yet. Once it is saved, you are taken to set one up straight away (authenticator app or passkey), and nothing else works until you have. Have your phone or security key at hand.": "Isto também se aplica a você, e você ainda não tem um segundo fator. Assim que for salvo, você será levado a configurar um (app autenticador ou passkey), e nada mais funciona até lá. Tenha seu celular ou sua chave de segurança à mão.",
-  "Save and set up now": "Salvar e configurar agora"
+  "Save and set up now": "Salvar e configurar agora",
+  "Remove addon {{name}}?": "Remover o addon {{name}}?",
+  "Its file is deleted from /config/addons. Projects can't add it any more until it is installed again.": "O arquivo é apagado de /config/addons. Os projetos não poderão adicioná-lo até que seja instalado de novo.",
+  "Remove the custom certificate?": "Remover o certificado próprio?",
+  "The names it covers get certificates from the local CA again. The private key isn't shown anywhere, so to use the certificate again you need its files.": "Os nomes que ele cobre voltam a receber certificados da CA local. A chave privada não é mostrada em lugar nenhum; para usar o certificado de novo, você precisa dos arquivos."
 }

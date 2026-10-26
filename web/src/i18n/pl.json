@@ -3790,5 +3790,9 @@
   "This backup's project settings are encrypted with key {{id}}, which this instance doesn't have: another Envoryx's, or this one's from before its key was replaced. Enter that key (Settings → Secret key on the Envoryx that made it); afterwards the backup is encrypted with this instance's key, and the key you enter isn't stored.": "Ustawienia projektu w tej kopii są zaszyfrowane kluczem {{id}}, którego ta instancja nie ma: kluczem innego Envoryx albo tego sprzed wymiany klucza. Podaj ten klucz (Ustawienia → Klucz tajny w Envoryx, który ją utworzył); potem kopia jest zaszyfrowana kluczem tej instancji, a podany klucz nie jest nigdzie zapisywany.",
   "Require a second factor of yourself too?": "Wymagać drugiego składnika także od siebie?",
   "This covers you, and you have no second factor yet. Once it is saved, you are taken to set one up straight away (authenticator app or passkey), and nothing else works until you have. Have your phone or security key at hand.": "To dotyczy także ciebie, a nie masz jeszcze drugiego składnika. Po zapisaniu od razu przejdziesz do jego konfiguracji (aplikacja uwierzytelniająca lub passkey) i do tego czasu nic innego nie zadziała. Miej pod ręką telefon lub klucz bezpieczeństwa.",
-  "Save and set up now": "Zapisz i skonfiguruj teraz"
+  "Save and set up now": "Zapisz i skonfiguruj teraz",
+  "Remove addon {{name}}?": "Usunąć dodatek {{name}}?",
+  "Its file is deleted from /config/addons. Projects can't add it any more until it is installed again.": "Jego plik zostanie usunięty z /config/addons. Projekty nie będą mogły go dodać, dopóki nie zostanie ponownie zainstalowany.",
+  "Remove the custom certificate?": "Usunąć własny certyfikat?",
+  "The names it covers get certificates from the local CA again. The private key isn't shown anywhere, so to use the certificate again you need its files.": "Nazwy, które obejmuje, znów dostaną certyfikaty z lokalnego CA. Klucz prywatny nie jest nigdzie pokazywany, więc aby ponownie użyć certyfikatu, potrzebujesz jego plików."
 }

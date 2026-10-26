@@ -6,7 +6,7 @@ import { api } from "@/api/client";
 import { useSettingLocked, useSettings, useTLSInfo, useUpdateSettings } from "@/api/hooks";
 import { LockedHint } from "@/features/plan/PlanCard";
 import type { TLSInfo } from "@/api/types";
-import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Field, Input, Spinner } from "@/components/ui";
+import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, Field, Input, Spinner } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 import { AcmeForm } from "./AcmeForm";
 import { DnsGuide, dnsTarget } from "./DnsGuide";
@@ -99,6 +99,7 @@ function CustomCertForm({ tls }: { tls: TLSInfo }) {
   const [cert, setCert] = useState("");
   const [key, setKey] = useState("");
   const [msg, setMsg] = useState<Msg>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
   const refresh = (data: TLSInfo) => {
     qc.setQueryData(["tls"], data);
     setCert("");
@@ -115,6 +116,7 @@ function CustomCertForm({ tls }: { tls: TLSInfo }) {
   const clear = useMutation({
     mutationFn: () => api.tls.clearCustom(),
     onSuccess: (data) => {
+      setConfirmClear(false);
       refresh(data);
       setMsg({ tone: "green", text: t("Custom certificate removed.") });
     },
@@ -138,9 +140,23 @@ function CustomCertForm({ tls }: { tls: TLSInfo }) {
             <dt className="text-muted">{t("Valid until")}</dt>
             <dd>{formatDateTime(custom.notAfter)}</dd>
           </dl>
-          <Button size="sm" variant="ghost" className="mt-3" onClick={() => clear.mutate()} loading={clear.isPending} icon={<Trash2 className="size-3.5" />}>
+          <Button size="sm" variant="ghost" className="mt-3" onClick={() => setConfirmClear(true)} icon={<Trash2 className="size-3.5" />}>
             {t("Remove custom certificate")}
           </Button>
+          <Dialog
+            open={confirmClear}
+            onClose={() => setConfirmClear(false)}
+            title={t("Remove the custom certificate?")}
+            description={t("The names it covers get certificates from the local CA again. The private key isn't shown anywhere, so to use the certificate again you need its files.")}
+            footer={
+              <>
+                <Button onClick={() => setConfirmClear(false)}>{t("Cancel")}</Button>
+                <Button variant="danger" loading={clear.isPending} onClick={() => clear.mutate()}>
+                  {t("Remove")}
+                </Button>
+              </>
+            }
+          />
         </div>
       ) : (
         <p className="text-sm text-muted">

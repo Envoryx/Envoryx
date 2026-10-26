@@ -3724,5 +3724,9 @@
   "This backup's project settings are encrypted with key {{id}}, which this instance doesn't have: another Envoryx's, or this one's from before its key was replaced. Enter that key (Settings → Secret key on the Envoryx that made it); afterwards the backup is encrypted with this instance's key, and the key you enter isn't stored.": "Los ajustes de proyecto de esta copia están cifrados con la clave {{id}}, que esta instancia no tiene: la de otro Envoryx, o la de este antes de cambiar su clave. Introduce esa clave (Ajustes → Clave secreta en el Envoryx que la hizo); después la copia queda cifrada con la clave de esta instancia, y la clave que introduces no se guarda.",
   "Require a second factor of yourself too?": "¿Exigir también un segundo factor a ti mismo?",
   "This covers you, and you have no second factor yet. Once it is saved, you are taken to set one up straight away (authenticator app or passkey), and nothing else works until you have. Have your phone or security key at hand.": "Esto también te afecta y todavía no tienes un segundo factor. En cuanto se guarde, se te llevará a configurar uno (app de autenticación o passkey) y nada más funcionará hasta entonces. Ten a mano tu teléfono o tu llave de seguridad.",
-  "Save and set up now": "Guardar y configurar ahora"
+  "Save and set up now": "Guardar y configurar ahora",
+  "Remove addon {{name}}?": "¿Quitar el addon {{name}}?",
+  "Its file is deleted from /config/addons. Projects can't add it any more until it is installed again.": "Su archivo se borra de /config/addons. Los proyectos no podrán añadirlo hasta que se vuelva a instalar.",
+  "Remove the custom certificate?": "¿Quitar el certificado propio?",
+  "The names it covers get certificates from the local CA again. The private key isn't shown anywhere, so to use the certificate again you need its files.": "Los nombres que cubre vuelven a recibir certificados de la CA local. La clave privada no se muestra en ningún sitio, así que para volver a usar el certificado necesitas sus archivos."
 }

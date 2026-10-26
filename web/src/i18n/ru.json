@@ -3790,5 +3790,9 @@
   "This backup's project settings are encrypted with key {{id}}, which this instance doesn't have: another Envoryx's, or this one's from before its key was replaced. Enter that key (Settings → Secret key on the Envoryx that made it); afterwards the backup is encrypted with this instance's key, and the key you enter isn't stored.": "Настройки проекта в этой копии зашифрованы ключом {{id}}, которого у этого экземпляра нет: ключом другого Envoryx или этого до замены ключа. Введите этот ключ (Настройки → Секретный ключ в Envoryx, который её создал); после этого копия будет зашифрована ключом этого экземпляра, а введённый ключ нигде не сохраняется.",
   "Require a second factor of yourself too?": "Требовать второй фактор и от себя?",
   "This covers you, and you have no second factor yet. Once it is saved, you are taken to set one up straight away (authenticator app or passkey), and nothing else works until you have. Have your phone or security key at hand.": "Это касается и вас, а второго фактора у вас ещё нет. Сразу после сохранения вы перейдёте к его настройке (приложение-аутентификатор или passkey), и до этого ничего другого не будет работать. Держите под рукой телефон или ключ безопасности.",
-  "Save and set up now": "Сохранить и настроить сейчас"
+  "Save and set up now": "Сохранить и настроить сейчас",
+  "Remove addon {{name}}?": "Удалить аддон {{name}}?",
+  "Its file is deleted from /config/addons. Projects can't add it any more until it is installed again.": "Его файл удаляется из /config/addons. Проекты не смогут его добавить, пока он не будет установлен снова.",
+  "Remove the custom certificate?": "Удалить собственный сертификат?",
+  "The names it covers get certificates from the local CA again. The private key isn't shown anywhere, so to use the certificate again you need its files.": "Имена, которые он покрывает, снова получат сертификаты локального CA. Закрытый ключ нигде не показывается, поэтому чтобы снова использовать сертификат, понадобятся его файлы."
 }

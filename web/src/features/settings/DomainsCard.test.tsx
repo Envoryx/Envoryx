@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DomainsCard } from "./DomainsCard";
 import { dnsTarget } from "./DnsGuide";
@@ -21,6 +21,7 @@ describe("DomainsCard", () => {
       "GET /settings": () => ({ body: settings }),
       "PATCH /settings": (_u, init) => ({ body: { ...settings, ...JSON.parse(init.body as string) } }),
       "PUT /settings/tls/custom": () => ({ body: { ...tls, ca: { ...tls.ca, custom: { subject: "*.dev.example.com", dnsNames: ["*.dev.example.com"], notAfter: "2027-01-01T00:00:00Z", issuer: "R3", expired: false } } } }),
+      "DELETE /settings/tls/custom": () => ({ body: tls }),
     });
     renderApp(<DomainsCard />);
     const user = userEvent.setup();
@@ -42,6 +43,13 @@ describe("DomainsCard", () => {
     await user.click(screen.getByRole("button", { name: "Install certificate" }));
     expect(await screen.findByText("Remove custom certificate")).toBeInTheDocument();
     expect(api.calls.find((c) => c.method === "PUT")!.body).toEqual({ certificate: "CERT", key: "KEY" });
+
+    // Removing asks first: the key is never shown again.
+    await user.click(screen.getByRole("button", { name: "Remove custom certificate" }));
+    const dialog = await screen.findByRole("dialog", { name: "Remove the custom certificate?" });
+    expect(api.calls.some((c) => c.method === "DELETE")).toBe(false);
+    await user.click(within(dialog).getByRole("button", { name: "Remove" }));
+    expect(await screen.findByText("Custom certificate removed.")).toBeInTheDocument();
   });
 
   it("shows the hoster's certificate instead of Let's Encrypt and the upload", async () => {
