@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
@@ -15,6 +16,7 @@ type packageJSON struct {
 	Scripts         map[string]string `json:"scripts"`
 	Dependencies    map[string]string `json:"dependencies"`
 	DevDependencies map[string]string `json:"devDependencies"`
+	PackageManager  string            `json:"packageManager"`
 }
 
 func readPackageJSON(dir string) (packageJSON, bool) {
@@ -113,19 +115,51 @@ func fitNodeToRepo(dir string, cfg runtime.NodeConfig) (runtime.NodeConfig, bool
 	return out, true
 }
 
-// fitClonedNode applies fitNodeToRepo to a project created from a repository and stores
-// the result. It reports whether the configuration changed, so the caller plans again.
+// repoPackageManager names the package manager a repository uses, "" when it doesn't
+// say: the packageManager field of package.json ("pnpm@9.15.0", Corepack's), else the
+// lockfile. The dev server already installs by the lockfile; the Node settings, the
+// actions and the warnings follow this.
+func repoPackageManager(dir string) (manager, from string) {
+	if pkg, ok := readPackageJSON(dir); ok {
+		name, _, _ := strings.Cut(pkg.PackageManager, "@")
+		if name == "npm" || name == "pnpm" || name == "yarn" {
+			return name, "package.json"
+		}
+	}
+	for _, l := range []struct{ file, manager string }{
+		{"pnpm-lock.yaml", "pnpm"}, {"yarn.lock", "yarn"}, {"package-lock.json", "npm"}, {"npm-shrinkwrap.json", "npm"},
+	} {
+		if exists(filepath.Join(dir, l.file)) {
+			return l.manager, l.file
+		}
+	}
+	return "", ""
+}
+
+// fitClonedNode matches the Node settings of a project created from a repository to it -
+// the package manager (repoPackageManager) and, with the dev server, fitNodeToRepo - and
+// stores the result. It reports whether the configuration changed, so the caller plans
+// again.
 func (m *Manager) fitClonedNode(ctx context.Context, planner *Planner, proj *store.Project) (bool, error) {
 	svc := proj.Service(store.ServiceNode)
-	if svc == nil || !svc.Enabled {
+	if svc == nil || !svc.Enabled || len(svc.Config) == 0 {
 		return false, nil
 	}
-	cfg, ok := nodeDevConfig(*proj)
-	if !ok || cfg.Normalize() != nil {
+	var cfg runtime.NodeConfig
+	if json.Unmarshal(svc.Config, &cfg) != nil || cfg.Normalize() != nil {
 		return false, nil
 	}
-	fitted, changed := fitNodeToRepo(planner.ProjectDir(*proj), cfg)
-	if !changed {
+	dir := planner.ProjectDir(*proj)
+	fitted, changed := cfg, false
+	if pm, from := repoPackageManager(dir); pm != "" && pm != cfg.PackageManager {
+		fitted.PackageManager, changed = pm, true
+		step(ctx, "Package manager: {{manager}}, from the repository's {{file}}", "manager", pm, "file", from)
+	}
+	devFitted := false
+	if cfg.DevServer {
+		fitted, devFitted = fitNodeToRepo(dir, fitted)
+	}
+	if !changed && !devFitted {
 		return false, nil
 	}
 	if err := fitted.Normalize(); err != nil {
@@ -139,6 +173,8 @@ func (m *Manager) fitClonedNode(ctx context.Context, planner *Planner, proj *sto
 		return false, err
 	}
 	svc.Config = raw
-	step(ctx, "Dev server: script {{script}} with the {{preset}} preset, from the repository's package.json", "script", fitted.Script, "preset", fitted.Preset)
+	if devFitted {
+		step(ctx, "Dev server: script {{script}} with the {{preset}} preset, from the repository's package.json", "script", fitted.Script, "preset", fitted.Preset)
+	}
 	return true, nil
 }

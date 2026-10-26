@@ -1786,6 +1786,7 @@
   "Running {{command}}": "Ejecutando {{command}}",
   "Switching to the branch {{branch}}": "Cambiando a la rama {{branch}}",
   "Dev server: script {{script}} with the {{preset}} preset, from the repository's package.json": "Servidor de desarrollo: script {{script}} con el preajuste {{preset}}, del package.json del repositorio",
+  "Package manager: {{manager}}, from the repository's {{file}}": "Gestor de paquetes: {{manager}}, del {{file}} del repositorio",
   "Moving the objects into the bucket {{name}}": "Trasladando los objetos al bucket {{name}}",
   "Replacing the containers": "Reemplazando los contenedores",
   "Moving the volume {{from}} to {{to}}": "Trasladando el volumen {{from}} a {{to}}",

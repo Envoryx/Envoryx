@@ -539,7 +539,9 @@ and a create on one is refused. In short:
   and *Node.js script* (`node <file>`) presets in the Node image with the
   project home mounted. *Workers & cron* offers only the presets whose
   runtime the project has. Actions offer npm/pnpm/yarn and `node -v`; git
-  clone/pull run in a one-shot container from the Node image.
+  clone/pull run in a one-shot container from the Node image. A project
+  created from a repository takes its package manager from the repository:
+  the `packageManager` field of `package.json`, else the lock file.
 - **Cron jobs** (*Workers & cron*) run any command on a schedule in the PHP, Python,
   Go, Ruby, Java, .NET or Node.js container, as the project owner in the project directory,
   through `sh -c`, with the project's environment. Pick a schedule (every few

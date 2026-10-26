@@ -1786,6 +1786,7 @@
   "Running {{command}}": "{{command}} wordt uitgevoerd",
   "Switching to the branch {{branch}}": "Er wordt overgeschakeld naar branch {{branch}}",
   "Dev server: script {{script}} with the {{preset}} preset, from the repository's package.json": "Dev-server: script {{script}} met de preset {{preset}}, uit de package.json van de repository",
+  "Package manager: {{manager}}, from the repository's {{file}}": "Pakketbeheerder: {{manager}}, uit {{file}} van de repository",
   "Moving the objects into the bucket {{name}}": "Objecten verhuizen naar de bucket {{name}}",
   "Replacing the containers": "Containers worden vervangen",
   "Moving the volume {{from}} to {{to}}": "Volume {{from}} verhuist naar {{to}}",
