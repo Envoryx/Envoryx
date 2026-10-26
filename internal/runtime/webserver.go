@@ -268,8 +268,17 @@ func httpdConf(docroot string, o WebOptions) string {
 			fastcgi = "\nFallbackResource /index.html\n"
 		}
 	}
+	// fallback goes into the document root's Directory section.
+	fallback := ""
 	if o.PHP {
 		index = "index.php index.html"
+		// Unknown paths go to the front controller, as with nginx's try_files and Caddy's
+		// php_fastcgi: Symfony without the apache-pack and TYPO3 set up for another server
+		// ship no .htaccess, and every route but / would be Apache's 404. mod_dir only uses
+		// it for a request that maps to no file or folder, after mod_rewrite, so a CMS's own
+		// .htaccess rules (WordPress, Drupal) still come first, and a .htaccess can switch
+		// it off with "FallbackResource disabled".
+		fallback = "\tFallbackResource /index.php\n"
 		// For the reason given at caddyPHP. Apache already takes SERVER_PORT from the Host
 		// header, so it only needs fixing when the header carries no port. Location sections
 		// are merged after Directory and .htaccess, so no .htaccess can lift the upload rule.
@@ -339,7 +348,7 @@ DocumentRoot "%s"
 	Options FollowSymLinks
 	AllowOverride All
 	Require all granted
-</Directory>
+%s</Directory>
 
 %s
 
@@ -354,5 +363,5 @@ RewriteCond %%{HTTP:X-Forwarded-Proto} =https
 RewriteCond %%{REQUEST_URI} !/$
 RewriteCond %%{DOCUMENT_ROOT}%%{REQUEST_URI} -d
 RewriteRule ^ https://%%{HTTP_HOST}%%{REQUEST_URI}/ [R=301,L]
-%s`, root, root, access, index, fastcgi)
+%s`, root, root, fallback, access, index, fastcgi)
 }

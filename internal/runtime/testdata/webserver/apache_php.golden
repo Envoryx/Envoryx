@@ -50,6 +50,7 @@ DocumentRoot "/var/www/html/public"
 	Options FollowSymLinks
 	AllowOverride All
 	Require all granted
+	FallbackResource /index.php
 </Directory>
 
 <Files ".ht*">

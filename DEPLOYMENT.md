@@ -311,7 +311,11 @@ that into what PHP would see behind its own TLS endpoint: `HTTPS=on`,
 `REQUEST_SCHEME=https` and the port the browser used (443 when the host name
 carries none). Laravel, Symfony, Shopware, TYPO3 and WordPress then build
 `https://` links and redirects without any trusted-proxy setup. Plain http and
-the direct port keep the web server's own values.
+the direct port keep the web server's own values. All three hand a path that
+matches no file or folder to `index.php` in the document root, so Symfony
+routes and the TYPO3 backend work without a `.htaccess`; on Apache a
+`.htaccess` with rewrite rules of its own (WordPress, Drupal) still comes
+first.
 
 **Own IP (Unraid `br0`, macvlan/ipvlan) or host networking:** there is no
 port mapping; the proxy is reachable directly on the container's address
