@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // dbQuery addresses one database of a project: an additional one by name, the primary
@@ -155,6 +156,9 @@ func (c *cli) dbRestore(ctx context.Context, args []string) error {
 	if !*yes {
 		return usagef("restoring replaces %s and everything written since; confirm with --yes", dbOf(p.Slug, *db))
 	}
+	if snapshot, err = c.resolveSnapshot(ctx, api, p, *db, snapshot); err != nil {
+		return err
+	}
 	var out struct {
 		Snapshot backupInfo `json:"snapshot"`
 	}
@@ -166,6 +170,33 @@ func (c *cli) dbRestore(ctx context.Context, args []string) error {
 	}
 	c.printf("Restored %s from snapshot %s.\n", dbOf(p.Slug, *db), snapshot)
 	return nil
+}
+
+// resolveSnapshot finds the snapshot a prefix of its ID names (the first block of the
+// ID is usually enough), so it needn't be typed in full. A full ID goes as it is.
+func (c *cli) resolveSnapshot(ctx context.Context, api *client, p projectSummary, db, id string) (string, error) {
+	if len(id) == 36 {
+		return id, nil
+	}
+	var body struct {
+		Snapshots []backupInfo `json:"snapshots"`
+	}
+	if err := api.get(ctx, projectPath(p.ID, "database", "snapshots"), dbQuery(db), &body); err != nil {
+		return "", err
+	}
+	var found []string
+	for _, s := range body.Snapshots {
+		if strings.HasPrefix(s.ID, id) {
+			found = append(found, s.ID)
+		}
+	}
+	switch len(found) {
+	case 0:
+		return "", fmt.Errorf("no snapshot of %s starts with %q; envoryx db snapshots %s lists them", dbOf(p.Slug, db), id, p.Slug)
+	case 1:
+		return found[0], nil
+	}
+	return "", usagef("%q fits %d snapshots; give more of the ID", id, len(found))
 }
 
 func (c *cli) dbClone(ctx context.Context, args []string) error {
@@ -224,7 +255,16 @@ func (c *cli) dbClone(ctx context.Context, args []string) error {
 	if c.json {
 		return c.printJSON(out.Clone)
 	}
-	c.printf("Copied the database of %s into %s (%s).\n", src.Slug, target.Slug, out.Clone.Database)
+	// The source database is the one named like the target's unless --source-db says.
+	srcDB := *db
+	switch *sourceDB {
+	case "":
+	case "primary":
+		srcDB = ""
+	default:
+		srcDB = *sourceDB
+	}
+	c.printf("Copied %s into %s.\n", dbOf(src.Slug, srcDB), dbOf(target.Slug, *db))
 	if out.Clone.Snapshot != nil {
 		c.printf("The state before is snapshot %s - envoryx db restore %s %s --yes puts it back.\n", out.Clone.Snapshot.ID, target.Slug, out.Clone.Snapshot.ID)
 	}

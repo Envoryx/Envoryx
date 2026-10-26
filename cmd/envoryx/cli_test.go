@@ -671,6 +671,16 @@ func TestDatabaseSnapshotsAndClone(t *testing.T) {
 	if !restored || confirm.Confirm != "acme-shop" {
 		t.Fatalf("restore body: %+v", confirm)
 	}
+	// The first block of the ID is enough; one that fits nothing says so.
+	restored = false
+	c, _, _ = newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"db", "restore", "acme-shop", "44444444", "--yes"}); err != nil || !restored {
+		t.Fatalf("restore by prefix: %v", err)
+	}
+	c, _, _ = newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"db", "restore", "acme-shop", "abcdef", "--yes"}); err == nil || !strings.Contains(err.Error(), `starts with "abcdef"`) {
+		t.Fatalf("unknown prefix: %v", err)
+	}
 
 	c, _, _ = newTestCLI(t, srv, "")
 	if err := c.run(context.Background(), []string{"db", "clone", "acme-shop", "--from", "blog"}); err == nil || !strings.Contains(err.Error(), "--yes") {
@@ -691,6 +701,9 @@ func TestDatabaseSnapshotsAndClone(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "db restore acme-shop 66666666-6666-4666-8666-666666666666") {
 		t.Fatalf("the way back must be printed:\n%s", out.String())
+	}
+	if !strings.Contains(out.String(), "Copied the database of blog into the database of acme-shop.") {
+		t.Fatalf("what was copied where:\n%s", out.String())
 	}
 }
 
