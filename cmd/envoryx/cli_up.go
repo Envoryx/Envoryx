@@ -428,6 +428,10 @@ func (c *cli) projectManifest(ctx context.Context, args []string) error {
 		c.printf("Saved %s in %s on the server.\n", manifest.FileName, p.Path)
 		return nil
 	}
+	if c.json && *output == "" {
+		// The API's answer: the YAML with its file name and the repository it came from.
+		return c.printRaw(ctx, api, projectPath(p.ID, "manifest"), nil, "")
+	}
 	if err := api.get(ctx, projectPath(p.ID, "manifest"), nil, &body); err != nil {
 		return err
 	}

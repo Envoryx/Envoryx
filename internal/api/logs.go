@@ -231,10 +231,14 @@ func (a *API) serviceLogsWS(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	tail := strconv.Itoa(tailParam(r, 200))
+	if r.URL.Query().Get("tail") == "0" {
+		tail = "0" // only what comes from now on
+	}
 	lines := make(chan logs.Line, 512)
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- a.d.Projects.FollowLogs(ctx, id, kind, docker.LogOptions{Tail: strconv.Itoa(tailParam(r, 200)), Since: q.Since}, func(l docker.LogLine) {
+		errCh <- a.d.Projects.FollowLogs(ctx, id, kind, docker.LogOptions{Tail: tail, Since: q.Since}, func(l docker.LogLine) {
 			lvl, ok := match.Match(l)
 			if !ok {
 				return

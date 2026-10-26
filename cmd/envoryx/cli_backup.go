@@ -124,7 +124,11 @@ func (c *cli) backupList(ctx context.Context, args []string) error {
 		if b.Missing {
 			note = "archive missing - " + note
 		}
-		row := []string{b.ID, b.CreatedAt.Local().Format("2006-01-02 15:04"), b.contents(), humanSize(b.SizeBytes), b.Meta.Source}
+		source := b.Meta.Source
+		if source == "" {
+			source = "manual" // as the offsite listing calls it
+		}
+		row := []string{b.ID, b.CreatedAt.Local().Format("2006-01-02 15:04"), b.contents(), humanSize(b.SizeBytes), source}
 		if len(body.OffsiteTargets) > 0 {
 			row = append(row, offsiteSummary(body.Offsite[b.ID]))
 		}

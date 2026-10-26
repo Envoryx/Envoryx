@@ -49,6 +49,9 @@ func (c *cli) projectLogs(ctx context.Context, args []string) error {
 	if *follow && (*until != "" || *output != "") {
 		return usagef("--until and -o cannot be combined with --follow")
 	}
+	if *tail < 0 || (*tail == 0 && !*follow) {
+		return usagef("--tail needs a number of lines above 0 (--tail 0 --follow shows only new lines)")
+	}
 	ctx, cancel := c.context(ctx)
 	defer cancel()
 	p, err := c.findProject(ctx, arg(pos, 0))

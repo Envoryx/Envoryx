@@ -127,12 +127,28 @@ func (c *cli) projectDeploy(ctx context.Context, args []string) error {
 		// A failed deploy still recorded its output; show it before the error. Only a
 		// recorded failure: until it is written the project still shows the deploy before.
 		if e, gerr := c.findProject(ctx, p.ID); gerr == nil && e.BranchState != nil && e.BranchState.DeployStatus == "failed" {
+			e.BranchState.DeployOutput = withoutErrorLine(e.BranchState.DeployOutput)
 			c.printDeploy(e)
 		}
 		return err
 	}
 	c.printDeploy(body.Project)
 	return nil
+}
+
+// withoutErrorLine drops the "envoryx: …" line a failed deploy's output ends with: the
+// same error follows as the command's own.
+func withoutErrorLine(out string) string {
+	out = strings.TrimRight(out, "\n")
+	last := out
+	i := strings.LastIndex(out, "\n")
+	if i >= 0 {
+		last = out[i+1:]
+	}
+	if !strings.HasPrefix(last, "envoryx: ") {
+		return out
+	}
+	return out[:max(i, 0)]
 }
 
 // printDeploy shows the outcome of an environment's last deploy.

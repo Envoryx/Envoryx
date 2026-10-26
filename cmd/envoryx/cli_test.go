@@ -466,6 +466,19 @@ func TestCommandHelp(t *testing.T) {
 	}
 }
 
+// A failed deploy's output loses its last "envoryx:" line, which the CLI prints anyway.
+func TestWithoutErrorLine(t *testing.T) {
+	for in, want := range map[string]string{
+		"Already up to date.\n\nenvoryx: conflict: the deploy commands need an application container\n": "Already up to date.\n",
+		"envoryx: conflict: no repository\n": "",
+		"$ make deploy\nboom\n":              "$ make deploy\nboom",
+	} {
+		if got := withoutErrorLine(in); got != want {
+			t.Errorf("withoutErrorLine(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 // A flag right after a group belongs to its default command; a wrong one is a flag error.
 func TestFlagAfterGroup(t *testing.T) {
 	srv := newFakeServer(t, map[string]func(w http.ResponseWriter, r *http.Request){

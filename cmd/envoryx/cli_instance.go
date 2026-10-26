@@ -382,14 +382,18 @@ func (c *cli) instanceCancelRestore(ctx context.Context, args []string) error {
 	}
 	ctx, cancel := c.context(ctx)
 	defer cancel()
-	api, err := c.connect()
+	api, list, err := c.instanceListing(ctx)
 	if err != nil {
 		return err
+	}
+	if list.PendingRestore == nil {
+		c.printf("No restore is scheduled; nothing to cancel.\n")
+		return nil
 	}
 	if err := api.do(ctx, http.MethodDelete, "/api/v1/instance/restore", nil, nil, nil); err != nil {
 		return err
 	}
-	c.printf("No restore is scheduled any more.\n")
+	c.printf("The restore of %s is cancelled; Envoryx starts as it is.\n", list.PendingRestore.ID)
 	return nil
 }
 

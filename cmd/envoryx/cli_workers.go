@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -747,8 +748,14 @@ func (c *cli) cronRun(ctx context.Context, args []string) error {
 		return nil
 	case "failed":
 		return &exitCodeError{code: run.ExitCode}
+	case "timed_out":
+		return errors.New("the run was stopped after its --max-time")
+	case "interrupted":
+		return errors.New("the run was interrupted (Envoryx or the container stopped)")
+	case "error":
+		return errors.New("the job could not run (is the project running?)")
 	default:
-		return fmt.Errorf("the run ended %s", strings.ReplaceAll(run.Status, "_", " "))
+		return fmt.Errorf("the run ended: %s", strings.ReplaceAll(run.Status, "_", " "))
 	}
 }
 
