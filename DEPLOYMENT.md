@@ -1175,11 +1175,15 @@ machine of your own; projects that exist keep their rules either way.
 account into a project behind the sign-in: the customer who reviews the
 staging site. Name the link after whom it is for and pick how long it works
 (1, 7, 30 or 90 days); the address is shown once, Envoryx keeps only a hash.
-The link opens the project's host names and its dev server, nothing else:
-no addon, no terminal, no files, and it never gets anyone into Envoryx
-itself. The browser keeps it in a cookie of the project's host, so a
-bookmark of the site keeps working (also across an Envoryx restart) until
-the link ends. Revoking it closes the project to that browser within half a
+The link opens the project's host names under the base domain (its own,
+extra ones like `www.shop.test` and the dev server's), nothing else: no
+addon, no terminal, no files, and it never gets anyone into Envoryx itself. A
+domain of the project's own (`shop.example`) may not resolve where the guest
+is, so it isn't visited on the way: send the link with that domain in place
+of the host name (`https://shop.example/.envoryx/guest?t=…`). The browser
+keeps it in a cookie of each host, kept as long as the longest link (90
+days), so a bookmark of the site keeps working (also across an Envoryx
+restart) until the link ends. Revoking it closes the project to that browser within half a
 minute. The list shows who made each link and when it was last used; making
 one takes an admin, revoking one a developer, and both land in the audit log.
 API: `GET`/`POST /projects/{id}/guest-links` (`{"label", "days"}`),

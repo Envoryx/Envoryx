@@ -3653,7 +3653,6 @@
   "Creating the guest link failed": "La création du lien invité a échoué",
   "Revoking the guest link failed": "La révocation du lien invité a échoué",
   "Guest links": "Liens invités",
-  "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses until it ends or you revoke it. Not its addons, terminal or files.": "Pour les personnes sans compte Envoryx, comme un client qui valide le site : le lien ouvre les adresses du projet jusqu'à son expiration ou sa révocation. Pas ses modules, le terminal ni les fichiers.",
   "The project is open to everyone right now. Guest links only matter once it lets in only people signed in to Envoryx (Rules above).": "Le projet est ouvert à tous pour l'instant. Les liens invités ne comptent qu'une fois qu'il ne laisse entrer que les personnes connectées à Envoryx (Règles ci-dessus).",
   "Send this address to {{label}}. It is shown only now.": "Envoyez cette adresse à {{label}}. Elle n'est affichée que maintenant.",
   "guest link": "lien invité",
@@ -3771,5 +3770,6 @@
   "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "le serveur refuse la clé de déploiement ; ajoutez-la au dépôt (Paramètres, clé de déploiement Git)",
   "Domains you added keep their names, also one that contains the old identifier.": "Les domaines que vous avez ajoutés gardent leur nom, même celui qui contient l'ancien identifiant.",
   "the image {{image}} could not be pulled; the registry refused the stored login for {{host}}, check it under Settings, Private registries ({{error}})": "L'image {{image}} n'a pas pu être téléchargée ; le registre refuse l'identifiant enregistré pour {{host}}, vérifiez-le sous Paramètres, Registres privés ({{error}})",
-  "{{host}} refused the login for {{user}}; check the username and the password or token": "{{host}} refuse la connexion pour {{user}} ; vérifiez le nom d'utilisateur et le mot de passe ou le jeton"
+  "{{host}} refused the login for {{user}}; check the username and the password or token": "{{host}} refuse la connexion pour {{user}} ; vérifiez le nom d'utilisateur et le mot de passe ou le jeton",
+  "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses under the base domain until it ends or you revoke it; for a domain of its own, send the link with that domain in it. Not its addons, terminal or files.": "Pour les personnes sans compte Envoryx, comme un client qui relit le site : le lien ouvre les adresses du projet sous le domaine de base jusqu'à son expiration ou sa révocation ; pour un domaine propre, envoyez le lien avec ce domaine. Pas ses addons, son terminal ni ses fichiers."
 }

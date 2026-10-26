@@ -59,7 +59,7 @@ export function GuestLinksCard({ project }: { project: Project }) {
             <Link2 className="size-4 text-accent-500" aria-hidden /> {t("Guest links")}
           </span>
         }
-        description={t("For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses until it ends or you revoke it. Not its addons, terminal or files.")}
+        description={t("For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses under the base domain until it ends or you revoke it; for a domain of its own, send the link with that domain in it. Not its addons, terminal or files.")}
         actions={list.length ? <Badge tone="blue">{list.length}</Badge> : undefined}
       />
       <div className="space-y-4 p-5">

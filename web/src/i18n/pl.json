@@ -3703,7 +3703,6 @@
   "Creating the guest link failed": "Nie udało się utworzyć linku gościa",
   "Revoking the guest link failed": "Nie udało się unieważnić linku gościa",
   "Guest links": "Linki dla gości",
-  "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses until it ends or you revoke it. Not its addons, terminal or files.": "Dla osób bez konta Envoryx, np. klienta odbierającego stronę: link otwiera adresy projektu, aż wygaśnie lub go unieważnisz. Nie jego dodatki, terminal ani pliki.",
   "The project is open to everyone right now. Guest links only matter once it lets in only people signed in to Envoryx (Rules above).": "Projekt jest teraz otwarty dla wszystkich. Linki dla gości mają znaczenie dopiero, gdy wpuszcza tylko osoby zalogowane w Envoryx (Reguły powyżej).",
   "Send this address to {{label}}. It is shown only now.": "Wyślij ten adres do {{label}}. Jest pokazywany tylko teraz.",
   "guest link": "link gościa",
@@ -3837,5 +3836,6 @@
   "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "serwer odrzuca klucz wdrożeniowy; dodaj go do repozytorium (Ustawienia, klucz wdrożeniowy Git)",
   "Domains you added keep their names, also one that contains the old identifier.": "Dodane przez ciebie domeny zachowują swoje nazwy, także taka, która zawiera stary identyfikator.",
   "the image {{image}} could not be pulled; the registry refused the stored login for {{host}}, check it under Settings, Private registries ({{error}})": "Nie udało się pobrać obrazu {{image}}; rejestr odrzuca zapisane logowanie dla {{host}}, sprawdź je w Ustawienia, Prywatne rejestry ({{error}})",
-  "{{host}} refused the login for {{user}}; check the username and the password or token": "{{host}} odrzuca logowanie dla {{user}}; sprawdź nazwę użytkownika i hasło lub token"
+  "{{host}} refused the login for {{user}}; check the username and the password or token": "{{host}} odrzuca logowanie dla {{user}}; sprawdź nazwę użytkownika i hasło lub token",
+  "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses under the base domain until it ends or you revoke it; for a domain of its own, send the link with that domain in it. Not its addons, terminal or files.": "Dla osób bez konta Envoryx, np. klienta oceniającego stronę: link otwiera adresy projektu w domenie bazowej, dopóki nie wygaśnie lub go nie cofniesz; dla własnej domeny wyślij link z tą domeną. Nie jego dodatki, terminal ani pliki."
 }

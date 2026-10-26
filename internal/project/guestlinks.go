@@ -21,7 +21,7 @@ import (
 // through Envoryx, such as the customer of an agency reviewing the staging site. It
 // works on the project's own host names (not its addons) until it ends or is revoked.
 const (
-	guestLinkMaxDays    = 90
+	guestLinkMaxDays    = proxy.GuestLinkMaxDays
 	guestLinkDefaultDay = 7
 	maxGuestLinks       = 50
 )

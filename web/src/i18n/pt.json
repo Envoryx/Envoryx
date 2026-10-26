@@ -3653,7 +3653,6 @@
   "Creating the guest link failed": "Falha ao criar o link de convidado",
   "Revoking the guest link failed": "Falha ao revogar o link de convidado",
   "Guest links": "Links de convidado",
-  "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses until it ends or you revoke it. Not its addons, terminal or files.": "Para pessoas sem conta no Envoryx, como um cliente que revisa o site: o link abre os endereços do projeto até expirar ou você revogá-lo. Não seus complementos, o terminal nem os arquivos.",
   "The project is open to everyone right now. Guest links only matter once it lets in only people signed in to Envoryx (Rules above).": "O projeto está aberto a todos agora. Links de convidado só contam quando ele deixa entrar apenas pessoas conectadas ao Envoryx (Regras acima).",
   "Send this address to {{label}}. It is shown only now.": "Envie este endereço para {{label}}. Ele só é mostrado agora.",
   "guest link": "link de convidado",
@@ -3771,5 +3770,6 @@
   "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "o servidor recusa a chave de deploy; adicione-a ao repositório (Definições, chave de deploy Git)",
   "Domains you added keep their names, also one that contains the old identifier.": "Os domínios que adicionou mantêm o nome, também um que contenha o identificador antigo.",
   "the image {{image}} could not be pulled; the registry refused the stored login for {{host}}, check it under Settings, Private registries ({{error}})": "Não foi possível obter a imagem {{image}}; o registry recusa o login guardado para {{host}}, verifique-o em Configurações, Registries privados ({{error}})",
-  "{{host}} refused the login for {{user}}; check the username and the password or token": "{{host}} recusa o login de {{user}}; verifique o nome de utilizador e a palavra-passe ou o token"
+  "{{host}} refused the login for {{user}}; check the username and the password or token": "{{host}} recusa o login de {{user}}; verifique o nome de utilizador e a palavra-passe ou o token",
+  "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses under the base domain until it ends or you revoke it; for a domain of its own, send the link with that domain in it. Not its addons, terminal or files.": "Para pessoas sem conta Envoryx, como um cliente que revê o site: o link abre os endereços do projeto sob o domínio base até expirar ou o revogar; para um domínio próprio, envie o link com esse domínio. Não os seus addons, terminal ou ficheiros."
 }

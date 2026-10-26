@@ -3653,7 +3653,6 @@
   "Creating the guest link failed": "Gastlink aanmaken mislukt",
   "Revoking the guest link failed": "Gastlink intrekken mislukt",
   "Guest links": "Gastlinks",
-  "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses until it ends or you revoke it. Not its addons, terminal or files.": "Voor mensen zonder Envoryx-account, zoals een klant die de site beoordeelt: de link opent de adressen van het project tot hij verloopt of je hem intrekt. Niet de add-ons, de terminal of de bestanden.",
   "The project is open to everyone right now. Guest links only matter once it lets in only people signed in to Envoryx (Rules above).": "Het project staat nu open voor iedereen. Gastlinks tellen pas als het alleen mensen binnenlaat die bij Envoryx zijn aangemeld (Regels hierboven).",
   "Send this address to {{label}}. It is shown only now.": "Stuur dit adres naar {{label}}. Het wordt alleen nu getoond.",
   "guest link": "gastlink",
@@ -3771,5 +3770,6 @@
   "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "de server weigert de deploy key; voeg hem toe aan de repository (Instellingen, Git-deploy key)",
   "Domains you added keep their names, also one that contains the old identifier.": "Domeinen die je hebt toegevoegd houden hun naam, ook een die de oude identifier bevat.",
   "the image {{image}} could not be pulled; the registry refused the stored login for {{host}}, check it under Settings, Private registries ({{error}})": "De image {{image}} kon niet worden opgehaald; de registry weigert de opgeslagen login voor {{host}}, controleer die onder Instellingen, Privéregistries ({{error}})",
-  "{{host}} refused the login for {{user}}; check the username and the password or token": "{{host}} weigert de aanmelding voor {{user}}; controleer de gebruikersnaam en het wachtwoord of token"
+  "{{host}} refused the login for {{user}}; check the username and the password or token": "{{host}} weigert de aanmelding voor {{user}}; controleer de gebruikersnaam en het wachtwoord of token",
+  "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses under the base domain until it ends or you revoke it; for a domain of its own, send the link with that domain in it. Not its addons, terminal or files.": "Voor mensen zonder Envoryx-account, zoals een klant die de site beoordeelt: de link opent de adressen van het project onder het basisdomein tot hij afloopt of je hem intrekt; stuur voor een eigen domein de link met dat domein erin. Niet de addons, de terminal of de bestanden."
 }

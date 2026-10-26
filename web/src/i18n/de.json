@@ -3653,7 +3653,6 @@
   "Creating the guest link failed": "Der Gast-Link ließ sich nicht anlegen",
   "Revoking the guest link failed": "Der Gast-Link ließ sich nicht widerrufen",
   "Guest links": "Gast-Links",
-  "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses until it ends or you revoke it. Not its addons, terminal or files.": "Für Leute ohne Envoryx-Konto, etwa einen Kunden, der die Seite abnimmt: Der Link öffnet die Adressen des Projekts, bis er abläuft oder du ihn widerrufst. Nicht seine Addons, das Terminal oder die Dateien.",
   "The project is open to everyone right now. Guest links only matter once it lets in only people signed in to Envoryx (Rules above).": "Das Projekt ist gerade für alle offen. Gast-Links spielen erst eine Rolle, wenn es nur bei Envoryx angemeldete Personen hereinlässt (Regeln oben).",
   "Send this address to {{label}}. It is shown only now.": "Schick diese Adresse an {{label}}. Sie wird nur jetzt angezeigt.",
   "guest link": "Gast-Link",
@@ -3771,5 +3770,6 @@
   "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "der Server lehnt den Deploy-Key ab; füge ihn dem Repository hinzu (Einstellungen, Git-Deploy-Key)",
   "Domains you added keep their names, also one that contains the old identifier.": "Domains, die du hinzugefügt hast, behalten ihren Namen, auch eine, die den alten Bezeichner enthält.",
   "the image {{image}} could not be pulled; the registry refused the stored login for {{host}}, check it under Settings, Private registries ({{error}})": "Das Image {{image}} ließ sich nicht laden; die Registry lehnt das gespeicherte Login für {{host}} ab, prüfe es unter Einstellungen, Private Registries ({{error}})",
-  "{{host}} refused the login for {{user}}; check the username and the password or token": "{{host}} lehnt die Anmeldung für {{user}} ab; prüfe den Benutzernamen und das Passwort oder Token"
+  "{{host}} refused the login for {{user}}; check the username and the password or token": "{{host}} lehnt die Anmeldung für {{user}} ab; prüfe den Benutzernamen und das Passwort oder Token",
+  "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses under the base domain until it ends or you revoke it; for a domain of its own, send the link with that domain in it. Not its addons, terminal or files.": "Für Leute ohne Envoryx-Konto, etwa einen Kunden, der die Seite abnimmt: Der Link öffnet die Adressen des Projekts unter der Basisdomain, bis er abläuft oder du ihn widerrufst; für eine eigene Domain schick den Link mit dieser Domain darin. Nicht seine Addons, das Terminal oder die Dateien."
 }

@@ -3653,7 +3653,6 @@
   "Creating the guest link failed": "No se pudo crear el enlace de invitado",
   "Revoking the guest link failed": "No se pudo revocar el enlace de invitado",
   "Guest links": "Enlaces de invitado",
-  "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses until it ends or you revoke it. Not its addons, terminal or files.": "Para personas sin cuenta de Envoryx, como un cliente que revisa el sitio: el enlace abre las direcciones del proyecto hasta que caduca o lo revocas. No sus complementos, la terminal ni los archivos.",
   "The project is open to everyone right now. Guest links only matter once it lets in only people signed in to Envoryx (Rules above).": "Ahora mismo el proyecto está abierto a todos. Los enlaces de invitado solo cuentan cuando deja entrar solo a personas con sesión en Envoryx (Reglas arriba).",
   "Send this address to {{label}}. It is shown only now.": "Envía esta dirección a {{label}}. Solo se muestra ahora.",
   "guest link": "enlace de invitado",
@@ -3771,5 +3770,6 @@
   "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "el servidor rechaza la clave de despliegue; añádela al repositorio (Ajustes, clave de despliegue Git)",
   "Domains you added keep their names, also one that contains the old identifier.": "Los dominios que añadiste conservan su nombre, también uno que contenga el identificador antiguo.",
   "the image {{image}} could not be pulled; the registry refused the stored login for {{host}}, check it under Settings, Private registries ({{error}})": "No se pudo descargar la imagen {{image}}; el registro rechaza el inicio de sesión guardado para {{host}}, compruébalo en Ajustes, Registros privados ({{error}})",
-  "{{host}} refused the login for {{user}}; check the username and the password or token": "{{host}} rechaza el inicio de sesión de {{user}}; comprueba el usuario y la contraseña o el token"
+  "{{host}} refused the login for {{user}}; check the username and the password or token": "{{host}} rechaza el inicio de sesión de {{user}}; comprueba el usuario y la contraseña o el token",
+  "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses under the base domain until it ends or you revoke it; for a domain of its own, send the link with that domain in it. Not its addons, terminal or files.": "Para personas sin cuenta de Envoryx, como un cliente que revisa el sitio: el enlace abre las direcciones del proyecto bajo el dominio base hasta que caduque o lo revoques; para un dominio propio, envía el enlace con ese dominio. No sus addons, terminal ni archivos."
 }

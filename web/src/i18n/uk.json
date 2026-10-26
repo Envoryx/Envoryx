@@ -3703,7 +3703,6 @@
   "Creating the guest link failed": "Не вдалося створити гостьове посилання",
   "Revoking the guest link failed": "Не вдалося відкликати гостьове посилання",
   "Guest links": "Гостьові посилання",
-  "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses until it ends or you revoke it. Not its addons, terminal or files.": "Для тих, хто не має облікового запису Envoryx, наприклад клієнта, що приймає сайт: посилання відкриває адреси проєкту, доки не спливе або ви його не відкличете. Не доповнення, термінал чи файли.",
   "The project is open to everyone right now. Guest links only matter once it lets in only people signed in to Envoryx (Rules above).": "Зараз проєкт відкритий для всіх. Гостьові посилання мають сенс, лише коли він пускає тільки тих, хто увійшов до Envoryx (Правила вище).",
   "Send this address to {{label}}. It is shown only now.": "Надішліть цю адресу: {{label}}. Вона показується лише зараз.",
   "guest link": "гостьове посилання",
@@ -3837,5 +3836,6 @@
   "the server refused the deploy key; add it to the repository (Settings, Git deploy key)": "сервер відхиляє ключ розгортання; додайте його до репозиторію (Налаштування, ключ розгортання Git)",
   "Domains you added keep their names, also one that contains the old identifier.": "Додані вами домени зберігають свої імена, навіть якщо містять старий ідентифікатор.",
   "the image {{image}} could not be pulled; the registry refused the stored login for {{host}}, check it under Settings, Private registries ({{error}})": "Не вдалося завантажити образ {{image}}; реєстр відхиляє збережений вхід для {{host}}, перевірте його в Налаштування, Приватні реєстри ({{error}})",
-  "{{host}} refused the login for {{user}}; check the username and the password or token": "{{host}} відхиляє вхід для {{user}}; перевірте ім'я користувача і пароль або токен"
+  "{{host}} refused the login for {{user}}; check the username and the password or token": "{{host}} відхиляє вхід для {{user}}; перевірте ім'я користувача і пароль або токен",
+  "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses under the base domain until it ends or you revoke it; for a domain of its own, send the link with that domain in it. Not its addons, terminal or files.": "Для людей без облікового запису Envoryx, наприклад клієнта, що перевіряє сайт: посилання відкриває адреси проєкту в базовому домені, доки не спливе або ви його не відкличете; для власного домену надішліть посилання з цим доменом. Не його доповнення, термінал чи файли."
 }

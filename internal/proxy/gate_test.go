@@ -363,8 +363,10 @@ func TestGuestLink(t *testing.T) {
 			"shop.test":     {ProjectID: "p1", ProjectName: "Shop", Dial: dial, Running: true, Login: "read", LoginAlso: []string{"shop-dev.test"}},
 			"shop-dev.test": {ProjectID: "p1", ProjectName: "Shop (dev server)", Dial: dial, Running: true, Login: "read"},
 			"shop-pma.test": {ProjectID: "p1", ProjectName: "Shop (phpMyAdmin)", Dial: dial, Running: true, Login: "operate"},
+			"www.shop.test": {ProjectID: "p1", ProjectName: "Shop", Dial: dial, Running: true, Login: "read"},
+			"shop.example":  {ProjectID: "p1", ProjectName: "Shop", Dial: dial, Running: true, Login: "read"},
 			"blog.test":     {ProjectID: "p2", ProjectName: "Blog", Dial: dial, Running: true, Login: "read"},
-		}, EnvoryxURL: "http://envoryx.test"}, nil
+		}, BaseDomain: "test", EnvoryxURL: "http://envoryx.test"}, nil
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	router := NewRouter(source, time.Second, log)
@@ -413,15 +415,28 @@ func TestGuestLink(t *testing.T) {
 	}
 	res := get("shop.test", GuestPath+"?t=envg_ok", "")
 	appPass := pass(res)
+	// The cookie lasts as long as the longest link, so a bookmark works until the link ends.
+	for _, c := range res.Cookies() {
+		if c.Name == gateCookie && c.MaxAge < GuestLinkMaxDays*24*3600 {
+			t.Fatalf("guest cookie ends after %d s, before a %d-day link", c.MaxAge, GuestLinkMaxDays)
+		}
+	}
 	hop, _ := url.Parse(res.Header.Get("Location"))
 	if appPass == "" || hop.Host != "shop-dev.test" || hop.Path != GatePath || res.Header.Get("Referrer-Policy") != "no-referrer" {
 		t.Fatalf("guest redeem: %d %s", res.StatusCode, res.Header.Get("Location"))
 	}
 	res = get("shop-dev.test", hop.RequestURI(), "")
 	devPass := pass(res)
-	back, _ := url.Parse(res.Header.Get("Location"))
-	if devPass == "" || back.Host != "shop.test" {
+	extra, _ := url.Parse(res.Header.Get("Location"))
+	if devPass == "" || extra.Host != "www.shop.test" {
 		t.Fatalf("dev hop: %s", res.Header.Get("Location"))
+	}
+	// An extra domain under the base domain gets its pass on the same trip; one of the
+	// project's own (shop.example) doesn't, it may not resolve where the guest is.
+	res = get("www.shop.test", extra.RequestURI(), "")
+	back, _ := url.Parse(res.Header.Get("Location"))
+	if pass(res) == "" || back.Host != "shop.test" {
+		t.Fatalf("extra domain hop: %s", res.Header.Get("Location"))
 	}
 	if res := get("shop.test", back.RequestURI(), ""); res.Header.Get("Location") != "/" {
 		t.Fatalf("back: %s", res.Header.Get("Location"))

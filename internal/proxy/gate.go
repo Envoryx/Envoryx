@@ -31,8 +31,11 @@ const (
 	// gatePassTTL ends a pass even while its session goes on; the next request then
 	// takes the round trip through Envoryx again, which a signed-in user doesn't notice.
 	gatePassTTL = 12 * time.Hour
-	// guestPassTTL is how long a guest's cookie is kept; the link's own end cuts it short.
-	guestPassTTL = 30 * 24 * time.Hour
+	// GuestLinkMaxDays is the longest a guest link may run. guestPassTTL, how long a
+	// guest's cookie is kept, is as long, so a bookmark works until the link ends; the
+	// link's own end (or a revoke) cuts it short, since every request checks the link.
+	GuestLinkMaxDays = 90
+	guestPassTTL     = GuestLinkMaxDays * 24 * time.Hour
 	// gateRecheck is how long a pass trusts its last look at the session: signing out,
 	// a disabled user or a lost role close the host within this time.
 	gateRecheck    = 30 * time.Second
@@ -148,7 +151,7 @@ func (h *Handler) redeemGuest(w http.ResponseWriter, r *http.Request, host strin
 		return
 	}
 	to := "/"
-	if hops := g.companions(r.Context(), host, t); len(hops) > 0 {
+	if hops := append(g.companions(r.Context(), host, t), g.guestHosts(r.Context(), host, t)...); len(hops) > 0 {
 		e.scheme = "http"
 		if r.TLS != nil {
 			e.scheme = "https"
@@ -325,6 +328,32 @@ func (g *Gate) companions(ctx context.Context, host string, t Target) []string {
 			out = append(out, h)
 		}
 	}
+	return out
+}
+
+// guestHosts are the project's other host names under the base domain (extra domains
+// like www.shop.test) that a guest link hands its pass to on the way, as it does the dev
+// server's. Wildcard DNS sends them here like the link's own host; a domain of the
+// project's own (shop.example) may not resolve where the guest is, which would strand
+// the round trip, so it takes the link opened on that domain.
+func (g *Gate) guestHosts(ctx context.Context, host string, t Target) []string {
+	g.mu.Lock()
+	router := g.router
+	g.mu.Unlock()
+	if router == nil {
+		return nil
+	}
+	table := router.Table(ctx)
+	if table.BaseDomain == "" {
+		return nil
+	}
+	var out []string
+	for h, c := range table.Routes {
+		if h != host && c.ProjectID == t.ProjectID && c.Login == t.Login && strings.HasSuffix(h, "."+table.BaseDomain) && !slices.Contains(t.LoginAlso, h) {
+			out = append(out, h)
+		}
+	}
+	slices.Sort(out)
 	return out
 }
 
