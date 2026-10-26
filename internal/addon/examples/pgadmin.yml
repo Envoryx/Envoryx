@@ -8,7 +8,8 @@ versions:
   - version: "9"
     image: dpage/pgadmin4:9
     default: true
-port: 80
+# pgAdmin 9 sees Envoryx's no-new-privileges and listens on 8080 instead of 80.
+port: 8080
 webUI: true
 env:
   PGADMIN_DEFAULT_EMAIL: admin@example.com
