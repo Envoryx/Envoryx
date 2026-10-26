@@ -1631,6 +1631,9 @@ export interface NotifyConfig {
   from?: string;
   to?: string;
   kinds: string[] | null;
+  /** Drop the stored token or SMTP password instead of keeping it (requests only). */
+  clearToken?: boolean;
+  clearSmtpPassword?: boolean;
 }
 
 export interface NotifyInfo {

@@ -36,7 +36,7 @@ export function NotificationsCard() {
     mutationFn: (cfg: NotifyConfig) => api.notifications.set(cfg),
     onSuccess: (data) => {
       qc.setQueryData(key, data);
-      setForm((f) => (f ? { ...f, token: "", smtpPassword: "" } : f));
+      setForm((f) => (f ? { ...f, token: "", smtpPassword: "", clearToken: false, clearSmtpPassword: false } : f));
       setMsg({ tone: "green", text: t("Notification settings saved.") });
     },
     onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
@@ -53,6 +53,20 @@ export function NotificationsCard() {
   const st = q.data.status;
   const kinds = form.kinds ?? [];
   const toggleKind = (k: string, on: boolean) => set({ kinds: on ? [...kinds, k] : kinds.filter((x) => x !== k) });
+  // A stored secret only applies to the destination it was entered for (the server drops
+  // it otherwise): the token to its channel (an ntfy token to its topic), the password to
+  // its SMTP server and user.
+  const stored = st.config;
+  const tokenApplies = st.hasToken && form.provider === stored.provider && (form.provider !== "ntfy" || (form.url ?? "").trim() === (stored.url ?? ""));
+  const passwordApplies = st.hasSmtpPassword && form.provider === stored.provider && (form.smtpHost ?? "").trim() === (stored.smtpHost ?? "") && (form.smtpUser ?? "").trim() === (stored.smtpUser ?? "");
+  const tokenKept = tokenApplies && !form.clearToken;
+  const passwordKept = passwordApplies && !form.clearSmtpPassword;
+  const tokenField = (label: string, placeholder: string) => (
+    <Field label={label} htmlFor="notify-token" hint={tokenKept ? t("Leave empty to keep the stored token.") : undefined}>
+      <Input id="notify-token" type="password" autoComplete="off" value={form.token ?? ""} onChange={(e) => set({ token: e.target.value })} placeholder={tokenKept ? "••••••••" : placeholder} />
+      {tokenApplies && <div className="mt-2"><Checkbox label={t("Remove the stored token")} checked={!!form.clearToken} onChange={(e) => set({ clearToken: e.target.checked })} /></div>}
+    </Field>
+  );
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -75,7 +89,7 @@ export function NotificationsCard() {
         <Checkbox label={t("Enable notifications")} checked={form.enabled} onChange={(e) => set({ enabled: e.target.checked })} />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t("Channel")} htmlFor="notify-provider" hint={hints[form.provider] ? t(hints[form.provider]!) : undefined}>
-            <Select id="notify-provider" value={form.provider} onChange={(e) => set({ provider: e.target.value })}>
+            <Select id="notify-provider" value={form.provider} onChange={(e) => set({ provider: e.target.value, token: "", smtpPassword: "" })}>
               {Object.entries(q.data.providers).map(([k, v]) => (
                 <option key={k} value={k}>{t(v)}</option>
               ))}
@@ -87,15 +101,11 @@ export function NotificationsCard() {
             </Field>
           )}
           {form.provider === "ntfy" && (
-            <Field label={t("Access token (optional)")} htmlFor="notify-token" hint={st.hasToken ? t("Leave empty to keep the stored token.") : undefined}>
-              <Input id="notify-token" type="password" autoComplete="off" value={form.token ?? ""} onChange={(e) => set({ token: e.target.value })} placeholder={st.hasToken ? "••••••••" : ""} />
-            </Field>
+            tokenField(t("Access token (optional)"), "")
           )}
           {form.provider === "telegram" && (
             <>
-              <Field label={t("Bot token")} htmlFor="notify-token" hint={st.hasToken ? t("Leave empty to keep the stored token.") : undefined}>
-                <Input id="notify-token" type="password" autoComplete="off" value={form.token ?? ""} onChange={(e) => set({ token: e.target.value })} placeholder={st.hasToken ? "••••••••" : "123456:ABC…"} />
-              </Field>
+              {tokenField(t("Bot token"), "123456:ABC…")}
               <Field label={t("Chat id")} htmlFor="notify-chat">
                 <Input id="notify-chat" value={form.chatId ?? ""} onChange={(e) => set({ chatId: e.target.value })} placeholder="123456789" />
               </Field>
@@ -121,8 +131,9 @@ export function NotificationsCard() {
               <Field label={t("Username")} htmlFor="smtp-user">
                 <Input id="smtp-user" value={form.smtpUser ?? ""} onChange={(e) => set({ smtpUser: e.target.value })} autoComplete="off" />
               </Field>
-              <Field label={t("Password")} htmlFor="smtp-pass" hint={st.hasSmtpPassword ? t("Leave empty to keep the stored password.") : undefined}>
-                <Input id="smtp-pass" type="password" autoComplete="off" value={form.smtpPassword ?? ""} onChange={(e) => set({ smtpPassword: e.target.value })} placeholder={st.hasSmtpPassword ? "••••••••" : ""} />
+              <Field label={t("Password")} htmlFor="smtp-pass" hint={passwordKept ? t("Leave empty to keep the stored password.") : undefined}>
+                <Input id="smtp-pass" type="password" autoComplete="off" value={form.smtpPassword ?? ""} onChange={(e) => set({ smtpPassword: e.target.value })} placeholder={passwordKept ? "••••••••" : ""} />
+                {passwordApplies && <div className="mt-2"><Checkbox label={t("Remove the stored password")} checked={!!form.clearSmtpPassword} onChange={(e) => set({ clearSmtpPassword: e.target.checked })} /></div>}
               </Field>
               <Field label={t("From")} htmlFor="smtp-from">
                 <Input id="smtp-from" type="email" value={form.from ?? ""} onChange={(e) => set({ from: e.target.value })} placeholder="envoryx@example.com" />

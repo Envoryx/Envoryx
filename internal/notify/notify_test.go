@@ -282,3 +282,59 @@ func TestKindDescriptionsAreTranslated(t *testing.T) {
 	}
 	i18ntest.RequireTranslated(t, texts...)
 }
+
+// A stored secret goes only where it was entered for: a Telegram bot token never becomes
+// the bearer of an ntfy test, an ntfy token stays with its topic, and it can be removed.
+func TestStoredSecretsStayWithTheirDestination(t *testing.T) {
+	s, got, srv := newService(t)
+	ctx := context.Background()
+	if err := s.SetConfig(Config{Enabled: true, Provider: "telegram", Token: "123:BOT-SECRET", ChatID: "9"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Test(ctx, Config{Provider: "ntfy", URL: srv.URL + "/elsewhere"}); err != nil {
+		t.Fatal(err)
+	}
+	if auth := got.last().headers.Get("Authorization"); auth != "" {
+		t.Fatalf("the Telegram token went to ntfy: %q", auth)
+	}
+	// Saving another channel drops the token.
+	if err := s.SetConfig(Config{Enabled: true, Provider: "webhook", URL: srv.URL + "/hook"}); err != nil {
+		t.Fatal(err)
+	}
+	if s.Status().HasToken {
+		t.Fatal("the token survived the switch to a webhook")
+	}
+
+	if err := s.SetConfig(Config{Enabled: true, Provider: "ntfy", URL: srv.URL + "/topic", Token: "tk_ntfy"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Test(ctx, Config{Provider: "ntfy", URL: srv.URL + "/topic"}); err != nil {
+		t.Fatal(err)
+	}
+	if auth := got.last().headers.Get("Authorization"); auth != "Bearer tk_ntfy" {
+		t.Fatalf("same topic: %q", auth)
+	}
+	if err := s.Test(ctx, Config{Provider: "ntfy", URL: srv.URL + "/other-topic"}); err != nil {
+		t.Fatal(err)
+	}
+	if auth := got.last().headers.Get("Authorization"); auth != "" {
+		t.Fatalf("other topic got the token: %q", auth)
+	}
+	if err := s.SetConfig(Config{Enabled: true, Provider: "ntfy", URL: srv.URL + "/topic", ClearToken: true}); err != nil {
+		t.Fatal(err)
+	}
+	if s.Status().HasToken {
+		t.Fatal("clearToken kept the token")
+	}
+
+	// The SMTP password stays with its server and user.
+	if err := s.SetConfig(Config{Provider: "email", SMTPHost: "mail.example.com", SMTPUser: "me", SMTPPassword: "pw", From: "a@example.com", To: "b@example.com"}); err != nil {
+		t.Fatal(err)
+	}
+	if c := (Config{Provider: "email", SMTPHost: "evil.example.com", SMTPUser: "me"}).keepSecrets(s.cfg); c.SMTPPassword != "" {
+		t.Fatal("the SMTP password went to another server")
+	}
+	if c := (Config{Provider: "email", SMTPHost: "mail.example.com", SMTPUser: "me"}).keepSecrets(s.cfg); c.SMTPPassword != "pw" {
+		t.Fatal("the SMTP password was not kept for its own server")
+	}
+}
