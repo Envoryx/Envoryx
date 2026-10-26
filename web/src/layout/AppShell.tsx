@@ -151,7 +151,7 @@ function LanguageButton() {
         aria-label={t("Language")}
         value={current}
         onChange={(e) => void setLanguage(e.target.value)}
-        className="h-8 appearance-none rounded-md bg-transparent pl-8 pr-2 text-xs text-muted hover:bg-muted hover:text-fg focus:outline-none"
+        className="h-8 appearance-none rounded-md bg-transparent pl-8 pr-2 text-xs text-muted hover:bg-muted hover:text-fg"
       >
         {Object.entries(languages).map(([code, name]) => (
           <option key={code} value={code}>{name}</option>

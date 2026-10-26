@@ -381,6 +381,9 @@ export function Menu({ label, icon, items }: { label: string; icon: ReactNode; i
                 title={item.title}
                 onClick={() => {
                   setOpen(false);
+                  // The entry goes with the list: focus the menu button first, so a dialog the
+                  // entry opens hands the focus back to it when it closes, not to the page.
+                  root.current?.querySelector<HTMLButtonElement>("button")?.focus();
                   item.onSelect();
                 }}
                 className={clsx(

@@ -159,7 +159,7 @@ export function EnvImportDialog({
             }}
             rows={6}
             spellCheck={false}
-            className="w-full rounded-md border border-default bg-elevated p-2 font-mono text-[11px] text-fg focus:border-accent-500 focus:outline-none"
+            className="w-full rounded-md border border-default bg-elevated p-2 font-mono text-[11px] text-fg focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/30"
             placeholder={"APP_NAME=Shop\nAPP_KEY=base64:…"}
           />
         </Field>
