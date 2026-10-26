@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 )
@@ -25,6 +26,29 @@ func dbOf(slug, db string) string {
 		return "the database of " + slug
 	}
 	return "the database " + db + " of " + slug
+}
+
+// dbNotFound names what the API's plain "does not exist" means for a database call: a
+// project without a database, an additional database it doesn't have, or a snapshot
+// that isn't there.
+func dbNotFound(ctx context.Context, api *client, p projectSummary, db, snapshot string, err error) error {
+	if !isNotFound(err) {
+		return err
+	}
+	if !p.hasService("database") {
+		return fmt.Errorf("%s has no database", p.Slug)
+	}
+	if snapshot != "" && api.get(ctx, projectPath(p.ID, "database", "snapshots"), dbQuery(db), nil) == nil {
+		list := "envoryx db snapshots " + p.Slug
+		if db != "" {
+			list += " --db " + db
+		}
+		return fmt.Errorf("%s has no snapshot %q (%s shows them)", dbOf(p.Slug, db), snapshot, list)
+	}
+	if db != "" {
+		return fmt.Errorf("%s has no additional database %q", p.Slug, db)
+	}
+	return err
 }
 
 func (c *cli) dbCommand(ctx context.Context, args []string) error {
@@ -65,7 +89,7 @@ func (c *cli) dbSnapshots(ctx context.Context, args []string) error {
 		Snapshots []backupInfo `json:"snapshots"`
 	}
 	if err := api.get(ctx, projectPath(p.ID, "database", "snapshots"), dbQuery(*db), &body); err != nil {
-		return err
+		return dbNotFound(ctx, api, p, *db, "", err)
 	}
 	if len(body.Snapshots) == 0 {
 		c.printf("No snapshots of %s yet.\n", dbOf(p.Slug, *db))
@@ -101,7 +125,7 @@ func (c *cli) dbSnapshot(ctx context.Context, args []string) error {
 		Snapshot backupInfo `json:"snapshot"`
 	}
 	if err := api.do(ctx, http.MethodPost, projectPath(p.ID, "database", "snapshots"), dbQuery(*db), map[string]any{"note": *note}, &out); err != nil {
-		return err
+		return dbNotFound(ctx, api, p, *db, "", err)
 	}
 	if c.json {
 		return c.printJSON(out.Snapshot)
@@ -135,7 +159,7 @@ func (c *cli) dbRestore(ctx context.Context, args []string) error {
 		Snapshot backupInfo `json:"snapshot"`
 	}
 	if err := api.do(ctx, http.MethodPost, projectPath(p.ID, "database", "snapshots", snapshot, "restore"), dbQuery(*db), map[string]any{"confirm": p.Slug}, &out); err != nil {
-		return err
+		return dbNotFound(ctx, api, p, *db, snapshot, err)
 	}
 	if c.json {
 		return c.printJSON(out.Snapshot)
@@ -192,7 +216,10 @@ func (c *cli) dbClone(ctx context.Context, args []string) error {
 		body["sourceDb"] = *sourceDB
 	}
 	if err := api.do(ctx, http.MethodPost, projectPath(target.ID, "database", "clone"), dbQuery(*db), body, &out); err != nil {
-		return err
+		if !src.hasService("database") {
+			return dbNotFound(ctx, api, src, "", "", err)
+		}
+		return dbNotFound(ctx, api, target, *db, "", err)
 	}
 	if c.json {
 		return c.printJSON(out.Clone)

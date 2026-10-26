@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/coder/websocket"
@@ -205,11 +206,13 @@ func (c *cli) projectRun(ctx context.Context, args []string) error {
 		c.table([]string{"ACTION", "COMMAND", "STATE"}, rows)
 		return nil
 	}
+	i := slices.IndexFunc(body.Actions, func(a actionInfo) bool { return a.ID == action })
+	if i < 0 {
+		return fmt.Errorf("%s has no action %q (envoryx project run %s lists them)", p.Slug, action, p.Slug)
+	}
 	// Actions that delete data ask in the UI; here they take --yes, like project delete.
-	for _, a := range body.Actions {
-		if a.ID == action && a.Destructive && !*yes {
-			return usagef("%s: %s; confirm with --yes", a.ID, strings.ToLower(a.Description[:1])+a.Description[1:])
-		}
+	if a := body.Actions[i]; a.Destructive && !*yes {
+		return usagef("%s: %s; confirm with --yes", a.ID, strings.ToLower(a.Description[:1])+a.Description[1:])
 	}
 
 	// Actions run over a WebSocket: the project lock is held for as long as the socket

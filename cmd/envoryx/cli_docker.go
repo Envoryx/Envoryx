@@ -245,6 +245,9 @@ func (c *cli) dockerRemove(ctx context.Context, args []string) error {
 		return usagef("usage: envoryx docker remove container|network|volume <name> --yes (envoryx docker orphans lists them)")
 	}
 	typ, want := pos[0], pos[1]
+	if typ != "container" && typ != "network" && typ != "volume" {
+		return usagef("docker remove takes container, network or volume, not %q", typ)
+	}
 	if !*yes {
 		return usagef("removing the %s %s deletes it for good; confirm with --yes", typ, want)
 	}

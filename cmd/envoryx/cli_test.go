@@ -466,6 +466,36 @@ func TestCommandHelp(t *testing.T) {
 	}
 }
 
+// The API's plain "does not exist" becomes what is missing, where the CLI knows it.
+func TestNotFoundNamesWhatIsMissing(t *testing.T) {
+	notFound := func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		writeJSON(w, map[string]any{"error": map[string]string{"code": "not_found", "message": "the requested resource does not exist"}})
+	}
+	srv := newFakeServer(t, map[string]func(http.ResponseWriter, *http.Request){
+		"POST /api/v1/projects/{id}/database/snapshots":             notFound,
+		"GET /api/v1/projects/{id}/backups/{b}/download":            notFound,
+		"DELETE /api/v1/projects/{id}/backups/{b}":                  notFound,
+		"POST /api/v1/projects/{id}/database/snapshots/{s}/restore": notFound,
+	})
+	for args, want := range map[string]string{
+		"db snapshot acme-shop":                           "acme-shop has no database",
+		"db restore blog nope --yes":                      "blog has no database",
+		"backup download acme-shop 20261026-171442-x":     `acme-shop has no backup "20261026-171442-x" here (envoryx backup list acme-shop shows them; one on an offsite target needs envoryx backup fetch first)`,
+		"backup delete acme-shop 20261026-171442-x --yes": `acme-shop has no backup "20261026-171442-x" here`,
+	} {
+		c, _, _ := newTestCLI(t, srv, "")
+		err := c.run(context.Background(), strings.Fields(args))
+		if err == nil || !strings.HasPrefix(err.Error(), want) {
+			t.Errorf("%s: %v, want %q", args, err, want)
+		}
+	}
+	c, _, _ := newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"docker", "remove", "bogus", "x", "--yes"}); !errors.Is(err, errCLIUsage) {
+		t.Errorf("docker remove bogus: %v", err)
+	}
+}
+
 // A failed deploy's output loses its last "envoryx:" line, which the CLI prints anyway.
 func TestWithoutErrorLine(t *testing.T) {
 	for in, want := range map[string]string{

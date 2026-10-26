@@ -236,13 +236,22 @@ func (c *cli) backupRestore(ctx context.Context, args []string) error {
 		Backup backupInfo `json:"backup"`
 	}
 	if err := api.post(ctx, projectPath(p.ID, "backups", backup, "restore"), body, &out); err != nil {
-		return err
+		return backupNotFound(p, backup, err)
 	}
 	if c.json {
 		return c.printJSON(out.Backup)
 	}
 	c.printf("Restored %s into %s.\n", backup, p.Slug)
 	return nil
+}
+
+// backupNotFound names the backup the API could not find. An offsite copy (what
+// "backup remote" lists) has to be fetched before it can be used here.
+func backupNotFound(p projectSummary, backup string, err error) error {
+	if !isNotFound(err) {
+		return err
+	}
+	return fmt.Errorf("%s has no backup %q here (envoryx backup list %s shows them; one on an offsite target needs envoryx backup fetch first)", p.Slug, backup, p.Slug)
 }
 
 func (c *cli) backupDownload(ctx context.Context, args []string) error {
@@ -265,7 +274,7 @@ func (c *cli) backupDownload(ctx context.Context, args []string) error {
 	}
 	resp, err := api.request(ctx, http.MethodGet, projectPath(p.ID, "backups", backup, "download"), nil, nil)
 	if err != nil {
-		return err
+		return backupNotFound(p, backup, err)
 	}
 	defer resp.Body.Close()
 
@@ -293,7 +302,7 @@ func (c *cli) backupDelete(ctx context.Context, args []string) error {
 		return usagef("deleting backup %s cannot be undone; confirm with --yes", backup)
 	}
 	if err := api.do(ctx, http.MethodDelete, projectPath(p.ID, "backups", backup), nil, nil, nil); err != nil {
-		return err
+		return backupNotFound(p, backup, err)
 	}
 	c.printf("Deleted backup %s.\n", backup)
 	return nil

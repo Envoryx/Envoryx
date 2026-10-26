@@ -92,6 +92,10 @@ func TestProjectRunAsksForDestructiveActions(t *testing.T) {
 	if !errors.Is(err, errCLIUsage) || !strings.Contains(err.Error(), "--yes") || !strings.Contains(err.Error(), "empty the project database") {
 		t.Fatalf("without --yes: %v", err)
 	}
+	err = c.run(context.Background(), []string{"project", "run", "acme-shop", "bogus:x"})
+	if err == nil || err.Error() != `acme-shop has no action "bogus:x" (envoryx project run acme-shop lists them)` {
+		t.Fatalf("unknown action: %v", err)
+	}
 	if err := c.run(context.Background(), []string{"project", "run", "acme-shop"}); err != nil {
 		t.Fatal(err)
 	}

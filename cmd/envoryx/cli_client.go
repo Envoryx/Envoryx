@@ -221,6 +221,13 @@ func (c *client) dialWS(ctx context.Context, path string, query url.Values) (*we
 	return conn, nil
 }
 
+// isNotFound tells whether the API answered that the thing asked for does not exist; its
+// message doesn't say which thing, the command does.
+func isNotFound(err error) bool {
+	var apiErr *apiError
+	return errors.As(err, &apiErr) && apiErr.Status == http.StatusNotFound && apiErr.Code == "not_found"
+}
+
 func decodeAPIError(resp *http.Response) error {
 	var body struct {
 		Error struct {

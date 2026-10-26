@@ -127,7 +127,7 @@ func (c *cli) backupOffsite(ctx context.Context, args []string) error {
 		Offsite []offsiteCopy `json:"offsite"`
 	}
 	if err := api.post(ctx, projectPath(p.ID, "backups", backup, "offsite"), body, &out); err != nil {
-		return err
+		return backupNotFound(p, backup, err)
 	}
 	if c.json {
 		return c.printJSON(out.Offsite)
