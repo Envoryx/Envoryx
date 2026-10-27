@@ -133,7 +133,8 @@ func (m *Manager) SetDomainLinks(ctx context.Context, on bool) error {
 }
 
 // LinkURL is the address Envoryx shows for a project: its domain or its published port,
-// as DomainLinks says, the other one when the chosen one is unknown. Containers keep
+// as DomainLinks says. Without a public host the port has no address here ("": the UI
+// takes the browser's host); the domain wouldn't resolve either. Containers keep
 // ProjectURL, which doesn't depend on this choice.
 func (m *Manager) LinkURL(ctx context.Context, proj store.Project) string {
 	if m.DomainLinks(ctx) {
@@ -143,10 +144,7 @@ func (m *Manager) LinkURL(ctx context.Context, proj store.Project) string {
 	if err != nil {
 		return ""
 	}
-	if u := p.linkDirectURL(proj); u != "" {
-		return u
-	}
-	return p.ProjectURL(proj)
+	return p.linkDirectURL(proj)
 }
 
 // DefaultHostname is the derived host name of a project.

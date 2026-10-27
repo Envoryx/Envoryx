@@ -20,7 +20,8 @@ import (
 )
 
 // The project carries its full URL, the proxy's port included, so clients (the CLI) do
-// not have to piece it together.
+// not have to piece it together. Until projects open by domain it is the published port,
+// which needs a public host to be an address.
 func TestProjectURLCarriesTheProxyPort(t *testing.T) {
 	a := newApp(t)
 	a.proxy.HTTPSPort = 18443
@@ -29,8 +30,11 @@ func TestProjectURLCarriesTheProxyPort(t *testing.T) {
 	if r.status != http.StatusCreated {
 		t.Fatalf("create: %d %s", r.status, r.raw)
 	}
-	if u := r.body["project"].(map[string]any)["url"]; u != "https://shop.test:18443" {
-		t.Fatalf("url = %v", u)
+	if u, _ := r.body["project"].(map[string]any)["url"].(string); u != "" {
+		t.Fatalf("url without a public host = %v", u)
+	}
+	if r := a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"domainLinks": true}, true); r.status != http.StatusOK || r.body["domainLinks"] != true {
+		t.Fatalf("domain links: %d %s", r.status, r.raw)
 	}
 	r = a.do(http.MethodGet, "/api/v1/projects", nil, false)
 	if u := r.body["projects"].([]any)[0].(map[string]any)["url"]; u != "https://shop.test:18443" {
