@@ -35,11 +35,11 @@ const addonsDir = "addons"
 
 // AddonConfig is the configuration of an addon service.
 type AddonConfig struct {
-	// HostPort publishes the addon's port on the host (0: not published). A web UI's
-	// port is the proxy's way in and listens on 127.0.0.1 only: through the proxy the
-	// project's sign-in and rules apply, on a host port in the LAN nothing would.
-	// Exposed, the port an admin chose to publish (publishPort), listens like the
-	// project's ports (ENVORYX_HOST_PORTS).
+	// HostPort publishes the addon's port on the host (0: not published). It listens like
+	// the project's ports (ENVORYX_HOST_PORTS): in the LAN on a machine of one's own, where
+	// a web UI's link may point at it, and on 127.0.0.1 on a server on the internet, where
+	// only the proxy with the project's sign-in and rules leads to it. Exposed marks the
+	// port an admin chose to publish (publishPort).
 	HostPort int  `json:"hostPort,omitempty"`
 	Exposed  bool `json:"exposed,omitempty"`
 	// Secrets are the generated values of the definition's secrets.
@@ -216,11 +216,7 @@ func (p *Planner) addonContainer(proj store.Project, svc store.ProjectService, n
 		}
 	}
 	if cfg.HostPort > 0 && d.Port > 0 {
-		hostIP := "127.0.0.1"
-		if cfg.Exposed {
-			hostIP = p.paths.PublishInterface
-		}
-		spec.Ports = []docker.PortSpec{{HostIP: hostIP, HostPort: cfg.HostPort, ContainerPort: d.Port, Protocol: "tcp"}}
+		spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: cfg.HostPort, ContainerPort: d.Port, Protocol: "tcp"}}
 	}
 	return ContainerPlan{Kind: svc.Kind, Order: 9, Spec: spec}, volumes, nil
 }
@@ -669,7 +665,7 @@ func (m *Manager) ProjectAddons(ctx context.Context, id string) ([]AddonInfo, er
 		info := AddonInfo{
 			Name: d.Name, Title: d.Title, Description: d.Description, Homepage: d.Homepage,
 			Version: svc.Version, Image: svc.Image, Host: d.HostnameOrName(), Port: d.Port,
-			HostPort: cfg.HostPort, PublishPort: d.PublishPort, HostPortLocal: cfg.HostPort > 0 && !cfg.Exposed, State: "missing",
+			HostPort: cfg.HostPort, PublishPort: d.PublishPort, HostPortLocal: cfg.HostPort > 0 && planner.paths.PublishInterface == "127.0.0.1", State: "missing",
 			InjectedEnv: []string{}, Credentials: []AddonCredential{}, Volumes: []string{},
 			Installed: installed[d.Name],
 		}

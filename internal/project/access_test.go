@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/envoryx/envoryx/internal/plan"
@@ -29,6 +30,41 @@ func TestNewProjectsPrivate(t *testing.T) {
 	}
 	if err := e.m.SetNewProjectsPrivate(ctx, false); err != nil || e.m.NewProjectsPrivate(ctx) {
 		t.Fatalf("the admin's choice wins: %v", err)
+	}
+}
+
+func TestDomainLinks(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	e.m.SetLinks(func(context.Context) (string, int, int) { return "192.168.1.5", 80, 443 })
+	v, err := e.m.Create(ctx, phpRequest("Shop", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// On a machine of one's own the links use the published port, which needs no DNS;
+	// the containers keep the domain.
+	direct := fmt.Sprintf("http://192.168.1.5:%d", v.Project.HTTPPort)
+	if e.m.DomainLinks(ctx) || e.m.LinkURL(ctx, v.Project) != direct {
+		t.Fatalf("direct link: %q", e.m.LinkURL(ctx, v.Project))
+	}
+	if e.m.ProjectURL(v.Project) != "https://shop.test" {
+		t.Fatalf("project URL: %q", e.m.ProjectURL(v.Project))
+	}
+	if err := e.m.SetDomainLinks(ctx, true); err != nil || e.m.LinkURL(ctx, v.Project) != "https://shop.test" {
+		t.Fatalf("domain link: %v %q", err, e.m.LinkURL(ctx, v.Project))
+	}
+	if err := e.m.SetDomainLinks(ctx, false); err != nil || e.m.LinkURL(ctx, v.Project) != direct {
+		t.Fatalf("back to the port: %v", err)
+	}
+	// A hoster's instance opens projects by domain until an admin decides, and with ports
+	// on the server itself the domain is the only way in.
+	e.m.cfg.Managed = func() bool { return true }
+	if e.m.DomainLinks(ctx) {
+		t.Fatal("the admin's choice wins over the managed default")
+	}
+	e.m.cfg.LocalPorts = func() bool { return true }
+	if !e.m.DomainLinks(ctx) || e.m.LinkURL(ctx, v.Project) != "https://shop.test" {
+		t.Fatalf("local ports: %q", e.m.LinkURL(ctx, v.Project))
 	}
 }
 

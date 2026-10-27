@@ -80,7 +80,7 @@ describe("Node dev server", () => {
     });
     const api = mockApi({
       ...authedRoutes,
-      "GET /settings": () => ({ body: { publicHost: "", baseDomain: "test", forceHttps: false, proxy } }),
+      "GET /settings": () => ({ body: { publicHost: "", baseDomain: "test", forceHttps: false, domainLinks: true, proxy } }),
       "GET /runtimes": () => ({ body: runtimesFixture }),
       [`GET /projects/${id}/plan`]: () => ({ body: { preview: { containers: [] } } }),
       [`GET /projects/${id}/stats`]: () => ({ body: { stats: { cpuPercent: 1, memoryBytes: 1024, memoryLimit: 2048, containers: [] } } }),
@@ -147,7 +147,7 @@ describe("PHP card", () => {
     });
     const api = mockApi({
       ...authedRoutes,
-      "GET /settings": () => ({ body: { publicHost: "", baseDomain: "test", forceHttps: false, proxy } }),
+      "GET /settings": () => ({ body: { publicHost: "", baseDomain: "test", forceHttps: false, domainLinks: true, proxy } }),
       "GET /runtimes": () => ({ body: runtimesFixture }),
       [`GET /projects/${id}/plan`]: () => ({ body: { preview: { containers: [] } } }),
       [`GET /projects/${id}/stats`]: () => ({ body: { stats: { cpuPercent: 1, memoryBytes: 1024, memoryLimit: 2048, containers: [] } } }),

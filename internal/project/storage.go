@@ -55,8 +55,23 @@ func (p *Planner) ProjectURL(proj store.Project) string {
 	if u := p.projectProxyURL(proj); u != "" {
 		return u
 	}
+	return p.directURL(proj)
+}
+
+// directURL is the project's published HTTP port on the public host, "" when either is
+// unknown.
+func (p *Planner) directURL(proj store.Project) string {
 	if proj.HTTPPort > 0 && p.paths.PublicHost != "" {
 		return fmt.Sprintf("http://%s:%d", p.paths.PublicHost, proj.HTTPPort)
+	}
+	return ""
+}
+
+// linkDirectURL is directURL for a browser: the port of the server that answers there
+// (DirectPort).
+func (p *Planner) linkDirectURL(proj store.Project) string {
+	if port := DirectPort(proj); port > 0 && p.paths.PublicHost != "" {
+		return fmt.Sprintf("http://%s:%d", p.paths.PublicHost, port)
 	}
 	return ""
 }

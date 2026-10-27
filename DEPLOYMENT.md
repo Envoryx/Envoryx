@@ -171,6 +171,14 @@ dashboard, the project sections with such links and the settings show a notice
 with the Docker host as Docker reports it (name, and its IP when the LAN
 resolves the name) and a one-click button to use it.
 
+These links point at the published ports (`http://<host>:<port>`), which work
+without any DNS, even when the proxy runs. To open projects and their web UIs by
+domain instead (`https://shop.test`), tick **Open projects by their domain** in
+Settings → *Domains & HTTPS* once DNS for the base domain works. On an instance a
+hoster manages that is the default, and with `ENVORYX_HOST_PORTS=local` the domain
+is the only way in, so links always use it there. The containers' own
+`ENVORYX_URL` doesn't depend on this choice.
+
 ## Host ports on a server on the internet
 
 At home those ports are handy: a database client or a debugger on your laptop
@@ -213,6 +221,12 @@ for a pool named `cache`), see [Where to put /config](#where-to-put-config).
 The advanced view also has the secret key and the previous one for replacing
 it (`ENVORYX_SECRET_KEY`, `ENVORYX_SECRET_KEY_OLD`) and where the project ports
 listen (`ENVORYX_HOST_PORTS`).
+
+The proxy ports are left empty: projects open at the Unraid IP and their port,
+which needs no further setup. For domains like `https://shop.test`, enter free
+host ports there (Unraid's own web UI usually has 80 and 443, so 8080 and 8443
+for example), set up DNS for the base domain and tick *Open projects by their
+domain*, see [Domains and HTTPS](#domains-and-https).
 
 The file name matters. Unraid writes your container settings (network type
 such as `br0`, the backups share, ports) to `my-<ContainerName>.xml` on
@@ -317,7 +331,9 @@ project's web server and serves the Envoryx UI itself. It listens on ports 80
 and 443 **inside** the container; map them to host ports (80/443 or any free
 ones; Envoryx reads its own port bindings and adjusts links accordingly).
 When neither port is published, Settings → *Domains & HTTPS* shows a warning
-and project links keep using the direct port.
+and project links keep using the direct port. With the proxy running, links
+still use the direct port until you tick *Open projects by their domain* there
+(see [Project links](#project-links-and-the-envoryx-containers-own-ip)).
 
 TLS ends at the proxy, which tells the project's web server with
 `X-Forwarded-Proto`. For PHP the generated Caddy, Nginx and Apache configs turn
@@ -2560,10 +2576,13 @@ host*. Developers can add, change and remove them; installing files takes an adm
 one creates the container and, if the addon injects variables, recreates the application
 containers with them. The card shows the web UI's address, the internal host and port, the
 host port, the injected variables, the volumes, the image and the credentials. An addon
-with a web UI always gets a host port too, the proxy's way in, but it listens on 127.0.0.1
-only: in the LAN it would skip the sign-in and the project's rules (phpMyAdmin there is
-already signed in to the database). A port published with *Publish the port on the host*
-(`publishPort`) listens like the project's ports (`ENVORYX_HOST_PORTS`). An addon with
+with a web UI always gets a host port too. It listens like the project's ports
+(`ENVORYX_HOST_PORTS`): in the LAN on a machine of your own, where the web UI's link points
+at it unless projects open by domain, and on 127.0.0.1 only on a server on the internet,
+where the proxy with the sign-in and the project's rules is the way in. Keep in mind that
+in the LAN phpMyAdmin is already signed in to the database, like a project's own pages need
+no sign-in on their port. A port published with *Publish the port on the host*
+(`publishPort`) listens the same way. An addon with
 `databases` is only offered where the project's database is one of them: the shipped
 phpMyAdmin to MariaDB and MySQL projects, pgAdmin to PostgreSQL ones. A copy installed
 from an earlier version is offered everywhere until the example is installed again.

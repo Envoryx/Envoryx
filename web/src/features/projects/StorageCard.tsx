@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import { usePortHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
+import { usePortHost, serviceLink, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
 import type { Project, StorageInfo } from "@/api/types";
 import { Badge, Button, Card, CardHeader, Checkbox, Dialog, Field, Input, Select, StatusDot } from "@/components/ui";
 import { containerStateLabel, containerStateTone, healthLabel } from "@/lib/format";
@@ -38,7 +38,8 @@ export function StorageCard({ project, onMessage }: { project: Project; onMessag
   const update = useUpdateProject(project.id);
   // The access keys need operate; the bucket policy and removing the storage admin.
   const can = projectAccess(project);
-  const { host } = usePortHost();
+  const portHost = usePortHost();
+  const { host } = portHost;
   const [creds, setCreds] = useState<StorageInfo | null>(null);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [confirm, setConfirm] = useState("");
@@ -108,7 +109,7 @@ export function StorageCard({ project, onMessage }: { project: Project; onMessag
             {t("Injected into the containers:")} <span className="font-mono">{live.injectedEnv.join(", ")}</span>
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <a href={live.consoleUrl || `http://${host}:${live.consolePort}${live.consolePath}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-accent-600 hover:underline dark:text-accent-300">
+            <a href={serviceLink(live.consoleUrl, live.consolePort, portHost, live.consolePath)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-accent-600 hover:underline dark:text-accent-300">
               <ExternalLink className="size-3.5" aria-hidden />
               {t("Open console")}
             </a>

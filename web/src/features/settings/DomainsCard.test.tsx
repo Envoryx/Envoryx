@@ -34,9 +34,10 @@ describe("DomainsCard", () => {
     await user.clear(base);
     await user.type(base, "dev.home");
     await user.click(screen.getByRole("checkbox", { name: /Force HTTPS/ }));
+    await user.click(screen.getByRole("checkbox", { name: /Open projects by their domain/ }));
     await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH")).toBe(true));
-    expect(api.calls.find((c) => c.method === "PATCH")!.body).toEqual({ baseDomain: "dev.home", forceHttps: true });
+    expect(api.calls.find((c) => c.method === "PATCH")!.body).toEqual({ baseDomain: "dev.home", forceHttps: true, domainLinks: true });
 
     await user.type(screen.getByLabelText("Certificate (PEM, full chain)"), "CERT");
     await user.type(screen.getByLabelText("Private key (PEM)"), "KEY");

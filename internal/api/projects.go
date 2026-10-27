@@ -820,7 +820,7 @@ func (a *API) withHostnames(r *http.Request, dto projectDTO, p store.Project) pr
 			dto.Hostnames = append(dto.Hostnames, h.Hostname)
 		}
 	}
-	dto.URL = a.d.Projects.ProjectURL(p)
+	dto.URL = a.d.Projects.LinkURL(r.Context(), p)
 	dto.BackupSchedule = toSchedule(p.Backup)
 	dto.IDEGateway = p.IDEGateway
 	dto.Limits = p.Limits

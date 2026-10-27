@@ -54,27 +54,29 @@ function ProxyStatus({ tls }: { tls: TLSInfo }) {
   );
 }
 
-function BaseDomainForm({ baseDomain, forceHttps, tlsAvailable }: { baseDomain: string; forceHttps: boolean; tlsAvailable: boolean }) {
+function BaseDomainForm({ baseDomain, forceHttps, domainLinks, localPorts, tlsAvailable }: { baseDomain: string; forceHttps: boolean; domainLinks: boolean; localPorts: boolean; tlsAvailable: boolean }) {
   const { t } = useTranslation();
   const update = useUpdateSettings();
   const [base, setBase] = useState(baseDomain);
   const [force, setForce] = useState(forceHttps);
+  const [links, setLinks] = useState(domainLinks);
   const [msg, setMsg] = useState<Msg>(null);
   useEffect(() => setBase(baseDomain), [baseDomain]);
   useEffect(() => setForce(forceHttps), [forceHttps]);
+  useEffect(() => setLinks(domainLinks), [domainLinks]);
 
   function submit(e: FormEvent) {
     e.preventDefault();
     setMsg(null);
     update.mutate(
-      { baseDomain: base.trim(), forceHttps: force },
+      { baseDomain: base.trim(), forceHttps: force, ...(localPorts ? {} : { domainLinks: links }) },
       {
         onSuccess: () => setMsg({ tone: "green", text: t("Saved. Project domains follow the new base domain immediately.") }),
         onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
       },
     );
   }
-  const dirty = base.trim() !== baseDomain || force !== forceHttps;
+  const dirty = base.trim() !== baseDomain || force !== forceHttps || links !== domainLinks;
   const baseLocked = useSettingLocked("baseDomain");
   const forceLocked = useSettingLocked("forceHttps");
   return (
@@ -86,6 +88,17 @@ function BaseDomainForm({ baseDomain, forceHttps, tlsAvailable }: { baseDomain: 
       </Field>
       <Checkbox label={t("Force HTTPS")} description={tlsAvailable ? t("Redirect plain HTTP requests for project and UI domains to HTTPS.") : t("Requires the HTTPS listener to be published.")} checked={force} onChange={(e) => setForce(e.target.checked)} disabled={!tlsAvailable || forceLocked} />
       {forceLocked && <LockedHint />}
+      <Checkbox
+        label={t("Open projects by their domain")}
+        description={
+          localPorts
+            ? t("Project ports listen on the server itself only, so links always use the domain.")
+            : t("Links in Envoryx use https://<project>.{{base}} instead of http://<IP>:<port>. That needs DNS for the base domain (see below); the ports work without any setup.", { base: base.trim() || "test" })
+        }
+        checked={localPorts || links}
+        onChange={(e) => setLinks(e.target.checked)}
+        disabled={localPorts}
+      />
       <Button type="submit" variant="primary" loading={update.isPending} disabled={!dirty} icon={<Save className="size-4" />}>
         {t("Save")}
       </Button>
@@ -238,7 +251,7 @@ export function DomainsCard() {
       <CardHeader title={t("Domains & HTTPS")} description={t("The embedded reverse proxy opens every project under its own host name and issues certificates from a local certificate authority.")} />
       <div className="space-y-6 p-5">
         <ProxyStatus tls={info} />
-        <BaseDomainForm baseDomain={settings.data.baseDomain} forceHttps={settings.data.forceHttps} tlsAvailable={tlsAvailable} />
+        <BaseDomainForm baseDomain={settings.data.baseDomain} forceHttps={settings.data.forceHttps} domainLinks={!!settings.data.domainLinks} localPorts={!!info.proxy.localPorts} tlsAvailable={tlsAvailable} />
         {info.proxy.enabled && !info.hosterCertificate && <DnsGuide baseDomain={settings.data.baseDomain} target={dnsTarget(info.proxy.address, settings.data.publicHost, window.location.hostname)} />}
         {info.enabled && info.ca && (
           <>

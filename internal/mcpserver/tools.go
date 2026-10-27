@@ -67,56 +67,31 @@ func (s *Server) projectOut(ctx context.Context, v project.View) projectOut {
 	if err == nil {
 		out.Hostnames = hosts
 	}
-	// The web container's port stays unpublished while an application server serves the
-	// project, so the direct link is that container's host port then.
-	directPort, ncfg, dev := v.HTTPPort, runtime.NodeConfig{}, false
+	directPort, ncfg, dev := project.DirectPort(p), runtime.NodeConfig{}, false
 	if svc := p.Service(store.ServiceNode); svc != nil && svc.Enabled && len(svc.Config) > 0 {
 		dev = json.Unmarshal(svc.Config, &ncfg) == nil && ncfg.DevServer
 	}
-	switch out.Serves {
-	case "node":
-		directPort = ncfg.HostPort
-	case "python":
-		var pcfg runtime.PythonConfig
-		if svc := p.Service(store.ServicePython); svc != nil && json.Unmarshal(svc.Config, &pcfg) == nil {
-			directPort = pcfg.HostPort
-		}
-	case "go":
-		var gcfg runtime.GoConfig
-		if svc := p.Service(store.ServiceGo); svc != nil && json.Unmarshal(svc.Config, &gcfg) == nil {
-			directPort = gcfg.HostPort
-		}
-	case "ruby":
-		var rcfg runtime.RubyConfig
-		if svc := p.Service(store.ServiceRuby); svc != nil && json.Unmarshal(svc.Config, &rcfg) == nil {
-			directPort = rcfg.HostPort
-		}
-	case "java":
-		var jcfg runtime.JavaConfig
-		if svc := p.Service(store.ServiceJava); svc != nil && json.Unmarshal(svc.Config, &jcfg) == nil {
-			directPort = jcfg.HostPort
-		}
-	case "dotnet":
-		var dcfg runtime.DotnetConfig
-		if svc := p.Service(store.ServiceDotnet); svc != nil && json.Unmarshal(svc.Config, &dcfg) == nil {
-			directPort = dcfg.HostPort
-		}
+	host := ""
+	if s.d.Links.PublicHost != nil {
+		host = s.d.Links.PublicHost(ctx)
+	}
+	if host == "" {
+		host = "<envoryx-host>"
 	}
 	if directPort > 0 {
-		host := ""
-		if s.d.Links.PublicHost != nil {
-			host = s.d.Links.PublicHost(ctx)
-		}
-		if host == "" {
-			host = "<envoryx-host>"
-		}
 		out.DirectURL = fmt.Sprintf("http://%s:%d", host, directPort)
 	}
-	if len(out.Hostnames) > 0 {
+	// Like the UI, the links are the direct ports unless projects open by domain.
+	domains := s.d.Projects.DomainLinks(ctx)
+	if len(out.Hostnames) > 0 && (domains || out.DirectURL == "") {
 		out.URL = s.proxiedURL(out.Hostnames[0])
 	}
 	if dev {
-		out.DevURL = s.proxiedURL(project.DevHostname(p.Slug, s.d.Projects.BaseDomain(ctx)))
+		if domains || ncfg.HostPort == 0 {
+			out.DevURL = s.proxiedURL(project.DevHostname(p.Slug, s.d.Projects.BaseDomain(ctx)))
+		} else {
+			out.DevURL = fmt.Sprintf("http://%s:%d", host, ncfg.HostPort)
+		}
 	}
 	if out.URL == "" {
 		out.URL = out.DirectURL

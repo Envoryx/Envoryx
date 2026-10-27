@@ -10,6 +10,22 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Changed
+- Links to projects point at their published ports again (`http://<IP>:<port>`), even when
+  the proxy runs: since the proxy ports were mapped or the container had its own IP, every
+  link said `https://<project>.test`, which leads nowhere without DNS for the base domain.
+  To open projects by domain, tick *Open projects by their domain* in Settings → *Domains &
+  HTTPS*. The UI, `envoryx project list/show` and the MCP tools follow it; the containers'
+  `ENVORYX_URL` stays as it was. On an instance a hoster manages, domains stay the default,
+  and with `ENVORYX_HOST_PORTS=local` they are the only links.
+- An addon's web UI port (phpMyAdmin, pgAdmin, ...) listens like the project's ports again,
+  in the LAN on a machine of one's own, and its link is that port unless projects open by
+  domain. Since 0.45.1 it listened on 127.0.0.1 only and was out of reach without the
+  proxy and DNS. On a server with `ENVORYX_HOST_PORTS=local` it stays on 127.0.0.1. Running
+  addons move at the project's next restart.
+- The Unraid template leaves the proxy ports empty; Unraid's own web UI usually has 80 and
+  443. For domains, enter free host ports there.
+
 ## [0.46.1] - 2026-10-27
 
 ### Changed
