@@ -48,6 +48,8 @@ type Fake struct {
 
 	// HostPorts are the ports programs on the fake Docker host listen on.
 	HostPorts map[int]bool
+	// HostIP is the fake Docker host's LAN address ("": none found).
+	HostIP string
 
 	seq         int
 	containers  map[string]*FakeContainer
@@ -1695,6 +1697,16 @@ func (f *Fake) PullImage(ctx context.Context, ref string, progress docker.PullPr
 	f.record("pull:" + ref)
 	f.mu.Unlock()
 	return nil
+}
+
+// HostLANAddress implements docker.HostAddressFinder.
+func (f *Fake) HostLANAddress(_ context.Context) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.HostIP == "" {
+		return "", fmt.Errorf("no default route")
+	}
+	return f.HostIP, nil
 }
 
 // HostListeningPorts implements docker.HostPortLister.

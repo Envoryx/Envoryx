@@ -168,8 +168,13 @@ the Unraid IP.
 
 When Envoryx detects that it has an IP of its own and no host is set, the
 dashboard, the project sections with such links and the settings show a notice
-with the Docker host as Docker reports it (name, and its IP when the LAN
-resolves the name) and a one-click button to use it.
+with a one-click button for the Docker host's LAN IP. Envoryx finds it with a
+short-lived `busybox` container in the host's network, which asks the routing
+table for the host's source address. An IP works on every device without DNS or
+mDNS; if the server's IP changes, update the setting or give the server a fixed
+address in your router. Without it, the notice offers the host name Docker
+reports, with `.local` added when the name has no dot and doesn't resolve (the
+way Unraid announces itself by mDNS).
 
 These links point at the published ports (`http://<host>:<port>`), which work
 without any DNS, even when the proxy runs. To open projects and their web UIs by

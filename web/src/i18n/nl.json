@@ -3777,5 +3777,6 @@
   "{{host}} can't be a server's address (link-local, multicast or unspecified)": "{{host}} kan niet het adres van een server zijn (link-local, multicast of niet gespecificeerd)",
   "Open projects by their domain": "Projecten via hun domein openen",
   "Project ports listen on the server itself only, so links always use the domain.": "De projectpoorten luisteren alleen op de server zelf, dus links gebruiken altijd het domein.",
-  "Links in Envoryx use https://<project>.{{base}} instead of http://<IP>:<port>. That needs DNS for the base domain (see below); the ports work without any setup.": "Links in Envoryx gebruiken https://<project>.{{base}} in plaats van http://<IP>:<poort>. Daarvoor heeft het basisdomein DNS nodig (zie hieronder); de poorten werken zonder enige instelling."
+  "Links in Envoryx use https://<project>.{{base}} instead of http://<IP>:<port>. That needs DNS for the base domain (see below); the ports work without any setup.": "Links in Envoryx gebruiken https://<project>.{{base}} in plaats van http://<IP>:<poort>. Daarvoor heeft het basisdomein DNS nodig (zie hieronder); de poorten werken zonder enige instelling.",
+  "If the server's IP address changes, update it in the settings, or give the server a fixed address in your router.": "Als het IP-adres van de server verandert, pas het dan aan in de instellingen, of geef de server een vast adres in je router."
 }
