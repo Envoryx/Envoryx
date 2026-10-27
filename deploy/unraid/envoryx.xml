@@ -7,7 +7,7 @@
   <MyIP/>
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
-  <Support>https://github.com/envoryx/envoryx/issues</Support>
+  <Support>https://forums.unraid.net/topic/201077-support-envoryx-a-development-environment/</Support>
   <Project>https://github.com/envoryx/envoryx</Project>
   <Overview>Envoryx - Docker-native development environments for Unraid.&#xD;
 &#xD;
