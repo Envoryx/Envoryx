@@ -91,10 +91,11 @@ ${rows.join('\n')}
 
 const write = (rel, data) => { writeFileSync(join(root, rel), data); console.log('wrote', rel); };
 // Two colours and nothing else: the accent (mint unless the UI sets --logo-accent) and the
-// white, always on the dark ground.
+// white on the dark ground. In the app the logo has no ground of its own: the accent and the
+// text colour (--logo-accent, --logo-fg) follow the theme.
 const DARK = { a: '#2ffabe', f: '#f0f1f2' }, BG = '#06070a';
 
-write('web/src/layout/envoryx-logo.svg', svg(full(), { pad: 28, colors: { a: `var(--logo-accent,${DARK.a})`, f: DARK.f }, background: `rx="14" fill="${BG}"` }));
+write('web/src/layout/envoryx-logo.svg', svg(full(), { pad: 2 }));
 // At favicon size the picture would blur: the mark's three characters instead.
 write('web/public/favicon.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="${BG}"/><text x="32" y="42" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,'DejaVu Sans Mono',monospace" font-size="28" font-weight="700" letter-spacing="-1"><tspan fill="${DARK.a}">&lt;</tspan><tspan fill="${DARK.f}">E</tspan><tspan fill="${DARK.a}">&gt;</tspan></text></svg>\n`);
 
@@ -113,7 +114,16 @@ function squareSvg(pad, background) {
 	const { m, s, dy } = square(pad);
 	return svg(m, { colors: DARK }).replace(/viewBox="[^"]*"/, `viewBox="${-pad} ${-pad - dy} ${s} ${s}"`).replace('<style>', `<rect x="${-pad}" y="${-pad - dy}" width="${s}" height="${s}" ${background}/><style>`);
 }
-await png('docs/assets/envoryx-logo.png', svg(full(), { pad: 40, colors: DARK, background: `fill="${BG}"` }), 1440, Math.round(1440 * (29 * LH + 80) / (83 * CW + 80)));
+const logoHeight = Math.round(1440 * (29 * LH + 80) / (83 * CW + 80));
+await png('docs/assets/envoryx-logo.png', svg(full(), { pad: 40, colors: DARK, background: `fill="${BG}"` }), 1440, logoHeight);
+// Without the ground, for others to put on their own pages (the website's brand page offers
+// them): white on dark pages, the dark accent tone and near-black on light ones.
+const LIGHT = { a: '#0a7f5d', f: '#16181d' };
+write('docs/assets/envoryx-logo.svg', svg(full(), { pad: 40, colors: DARK, background: `fill="${BG}"` }));
+write('docs/assets/envoryx-logo-for-dark.svg', svg(full(), { pad: 40, colors: DARK }));
+write('docs/assets/envoryx-logo-for-light.svg', svg(full(), { pad: 40, colors: LIGHT }));
+await png('docs/assets/envoryx-logo-for-dark.png', svg(full(), { pad: 40, colors: DARK }), 1440, logoHeight, true);
+await png('docs/assets/envoryx-logo-for-light.png', svg(full(), { pad: 40, colors: LIGHT }), 1440, logoHeight, true);
 await png('docs/assets/envoryx-avatar.png', squareSvg(40, `fill="${BG}"`), 1024, 1024);
 await png('deploy/unraid/envoryx.png', squareSvg(30, `rx="60" fill="${BG}"`), 512, 512, true);
 // Small icons show the three characters, like the favicon.
