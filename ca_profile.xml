@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <CommunityApplications>
-  <Profile>Envoryx runs Docker-native development environments on your Unraid server: PHP, Node.js, Python, Ruby, Go, .NET and Java projects with their databases, each in its own containers, managed from one web UI. This repository holds the Envoryx container template. The documentation is at https://envoryx.dev/docs/, and bugs or questions go to the GitHub issues at https://github.com/envoryx/envoryx/issues.</Profile>
+  <Profile>Envoryx runs Docker-native development environments on your Unraid server: PHP, Node.js, Python, Ruby, Go, .NET and Java projects with their databases, each in its own containers, managed from one web UI. This repository holds the Envoryx container template. The documentation is at https://envoryx.dev/docs/, questions go to the support thread in the Unraid forum (https://forums.unraid.net/topic/201077-support-envoryx-a-development-environment/) and bugs to the GitHub issues at https://github.com/envoryx/envoryx/issues.</Profile>
   <Icon>https://raw.githubusercontent.com/envoryx/envoryx/main/deploy/unraid/envoryx.png</Icon>
   <WebPage>https://envoryx.dev</WebPage>
+  <Forum>https://forums.unraid.net/topic/201077-support-envoryx-a-development-environment/</Forum>
 </CommunityApplications>
