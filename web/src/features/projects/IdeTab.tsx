@@ -77,12 +77,9 @@ export function IdeTab({ project: p }: { project: Project }) {
   // The port the browser uses for the project's host name (the proxy's, usually 443): PhpStorm
   // matches a web request's server by host and port when PHP_IDE_CONFIG does not name it.
   const serverPort = (() => {
-    try {
-      const u = new URL(p.url ?? "");
-      if (u.hostname === hostname) return u.port || (u.protocol === "https:" ? "443" : "80");
-    } catch {
-      // no URL known
-    }
+    const px = s?.proxy;
+    if (px?.enabled && px.tls && px.httpsPort > 0) return String(px.httpsPort);
+    if (px?.enabled && px.httpPort > 0) return String(px.httpPort);
     return "80";
   })();
   const phpXml = `<?xml version="1.0" encoding="UTF-8"?>
