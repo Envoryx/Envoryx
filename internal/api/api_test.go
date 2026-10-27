@@ -1608,8 +1608,10 @@ func TestSettingsAdvisePublicHostWhenEnvoryxHasOwnIP(t *testing.T) {
 	if r.body["publicHostNeeded"] != true {
 		t.Fatalf("own IP without public host must be flagged: %v", r.body["publicHostNeeded"])
 	}
+	// Without the host's IP, a bare name the container can't resolve gets .local, the way
+	// Unraid announces it by mDNS.
 	suggestion, _ := r.body["publicHostSuggestion"].(map[string]any)
-	if suggestion["hostname"] != "fakehost" {
+	if suggestion["hostname"] != "fakehost.local" || suggestion["ip"] != nil {
 		t.Fatalf("suggestion must carry the daemon's host name: %v", r.body["publicHostSuggestion"])
 	}
 	r = a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"publicHost": "192.168.1.10"}, true)
@@ -1619,6 +1621,20 @@ func TestSettingsAdvisePublicHostWhenEnvoryxHasOwnIP(t *testing.T) {
 	r = a.do(http.MethodGet, "/api/v1/settings", nil, false)
 	if r.body["publicHostNeeded"] != false || r.body["publicHostSuggestion"] != nil {
 		t.Fatalf("configured public host must clear the advice: %v %v", r.body["publicHostNeeded"], r.body["publicHostSuggestion"])
+	}
+}
+
+// With an IP of its own Envoryx asks the Docker host for its LAN address and suggests
+// that: it works on every device, a host name needs DNS or mDNS.
+func TestSettingsSuggestTheHostsIP(t *testing.T) {
+	a := newApp(t)
+	a.engine.HostIP = "192.168.1.10"
+	a.proxy.Address = "192.168.1.5"
+	a.setupAndLogin()
+	r := a.do(http.MethodGet, "/api/v1/settings", nil, false)
+	suggestion, _ := r.body["publicHostSuggestion"].(map[string]any)
+	if r.body["publicHostNeeded"] != true || suggestion["ip"] != "192.168.1.10" || suggestion["hostname"] != "fakehost" {
+		t.Fatalf("suggestion: %v %v", r.body["publicHostNeeded"], r.body["publicHostSuggestion"])
 	}
 }
 
@@ -1662,7 +1678,7 @@ func TestDiagnostics(t *testing.T) {
 		m := c.(map[string]any)
 		if m["id"] == "network.publicHost" {
 			action, _ := m["action"].(map[string]any)
-			if m["status"] != "warning" || action["kind"] != "setPublicHost" || action["value"] != "fakehost" {
+			if m["status"] != "warning" || action["kind"] != "setPublicHost" || action["value"] != "fakehost.local" {
 				t.Fatalf("public host check: %v", m)
 			}
 		}

@@ -107,6 +107,8 @@ type API struct {
 	d Deps
 	// routes are the patterns Mount registered, in order.
 	routes []Route
+	// hostIP is the Docker host's LAN address once found (hostLANAddress).
+	hostIP hostIPCache
 }
 
 // Route is a registered pattern with the access it declares: "public", the scope it needs

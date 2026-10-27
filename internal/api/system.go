@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/envoryx/envoryx/internal/audit"
@@ -320,20 +321,30 @@ func (a *API) publicHostAdvice(ctx context.Context) (bool, map[string]string) {
 		return false, nil
 	}
 	suggestion := map[string]string{}
+	// The host's own IP is the best link host: it needs no DNS or mDNS on any device.
+	if ip := a.hostLANAddress(ctx); ip != "" && ip != a.d.Proxy.Address {
+		suggestion["ip"] = ip
+	}
 	pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	if info, err := a.d.Engine.Ping(pingCtx); err == nil && info.Hostname != "" {
 		suggestion["hostname"] = info.Hostname
 		lookupCtx, cancel := context.WithTimeout(ctx, 1500*time.Millisecond)
 		defer cancel()
-		if addrs, err := net.DefaultResolver.LookupHost(lookupCtx, info.Hostname); err == nil {
-			for _, addr := range addrs {
-				ip := net.ParseIP(addr)
-				// The first LAN IPv4 that is not Envoryx's own address.
-				if ip != nil && ip.To4() != nil && !ip.IsLoopback() && addr != a.d.Proxy.Address {
-					suggestion["ip"] = addr
-					break
+		if _, found := suggestion["ip"]; !found {
+			if addrs, err := net.DefaultResolver.LookupHost(lookupCtx, info.Hostname); err == nil {
+				for _, addr := range addrs {
+					ip := net.ParseIP(addr)
+					// The first LAN IPv4 that is not Envoryx's own address.
+					if ip != nil && ip.To4() != nil && !ip.IsLoopback() && addr != a.d.Proxy.Address {
+						suggestion["ip"] = addr
+						break
+					}
 				}
+			} else if !strings.Contains(info.Hostname, ".") {
+				// A bare name the container can't resolve is usually known in the LAN by
+				// mDNS only, as Unraid announces it: NanoHomeServer.local.
+				suggestion["hostname"] = info.Hostname + ".local"
 			}
 		}
 	}
@@ -341,6 +352,60 @@ func (a *API) publicHostAdvice(ctx context.Context) (bool, map[string]string) {
 		return true, nil
 	}
 	return true, suggestion
+}
+
+// hostIPCache remembers the Docker host's LAN address. Finding it runs a container,
+// which may first pull its image, so it happens once in the background; a failed try is
+// repeated after a while.
+type hostIPCache struct {
+	mu    sync.Mutex
+	ip    string
+	tried time.Time
+	done  chan struct{}
+}
+
+// hostLANAddress returns the Docker host's LAN address, "" while unknown. The first call
+// starts the probe and waits for it a few seconds.
+func (a *API) hostLANAddress(ctx context.Context) string {
+	finder, ok := a.d.Engine.(docker.HostAddressFinder)
+	if !ok {
+		return ""
+	}
+	c := &a.hostIP
+	c.mu.Lock()
+	if c.ip != "" {
+		defer c.mu.Unlock()
+		return c.ip
+	}
+	if c.done == nil && (c.tried.IsZero() || time.Since(c.tried) > 5*time.Minute) {
+		c.tried = time.Now()
+		done := make(chan struct{})
+		c.done = done
+		go func() {
+			probeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+			ip, err := finder.HostLANAddress(probeCtx)
+			if err != nil && a.d.Log != nil {
+				a.d.Log.Warn("could not find the Docker host's LAN address", "err", err)
+			}
+			c.mu.Lock()
+			c.ip, c.done = ip, nil
+			c.mu.Unlock()
+			close(done)
+		}()
+	}
+	done := c.done
+	c.mu.Unlock()
+	if done != nil {
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+		case <-ctx.Done():
+		}
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.ip
 }
 
 // SettingPublicHost is the settings-table key for the project link host.

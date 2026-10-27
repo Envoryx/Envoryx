@@ -37,6 +37,7 @@ describe("PublicHostNotice", () => {
     renderApp(<PublicHostNotice />);
     expect(await screen.findByText(/Project links need a host/)).toBeInTheDocument();
     expect(screen.getByText(/192\.168\.1\.5/)).toBeInTheDocument();
+    expect(screen.getByText(/If the server's IP address changes/)).toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole("button", { name: "Use 192.168.1.24" }));
     await waitFor(() => expect(saved).toEqual({ publicHost: "192.168.1.24" }));
     await waitFor(() => expect(screen.queryByText(/Project links need a host/)).not.toBeInTheDocument());

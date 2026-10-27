@@ -3843,5 +3843,6 @@
   "{{host}} can't be a server's address (link-local, multicast or unspecified)": "{{host}} не може бути адресою сервера (link-local, multicast або невизначена)",
   "Open projects by their domain": "Відкривати проєкти за їхнім доменом",
   "Project ports listen on the server itself only, so links always use the domain.": "Порти проєктів слухають лише на самому сервері, тому посилання завжди використовують домен.",
-  "Links in Envoryx use https://<project>.{{base}} instead of http://<IP>:<port>. That needs DNS for the base domain (see below); the ports work without any setup.": "Посилання в Envoryx використовують https://<проєкт>.{{base}} замість http://<IP>:<порт>. Для цього базовому домену потрібен DNS (див. нижче); порти працюють без жодного налаштування."
+  "Links in Envoryx use https://<project>.{{base}} instead of http://<IP>:<port>. That needs DNS for the base domain (see below); the ports work without any setup.": "Посилання в Envoryx використовують https://<проєкт>.{{base}} замість http://<IP>:<порт>. Для цього базовому домену потрібен DNS (див. нижче); порти працюють без жодного налаштування.",
+  "If the server's IP address changes, update it in the settings, or give the server a fixed address in your router.": "Якщо IP-адреса сервера зміниться, оновіть її в налаштуваннях або призначте серверу постійну адресу в роутері."
 }

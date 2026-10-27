@@ -8,7 +8,8 @@ import { settingsHref } from "@/features/settings/links";
 /**
  * Shown when Envoryx has an IP of its own (Unraid br0, macvlan) and no public host is
  * configured: links to published project ports would point at Envoryx's address, where
- * nothing listens. Offers the Docker host the daemon reports as a one-click fix.
+ * nothing listens. Offers the Docker host's LAN address (or, without it, its name) as a
+ * one-click fix.
  */
 export function PublicHostNotice({ className }: { className?: string }) {
   const { t } = useTranslation();
@@ -38,6 +39,7 @@ export function PublicHostNotice({ className }: { className?: string }) {
             </Link>
           </div>
         )}
+        {admin && suggestion?.ip && <p className="mt-2 text-xs text-muted">{t("If the server's IP address changes, update it in the settings, or give the server a fixed address in your router.")}</p>}
       </Alert>
     </div>
   );

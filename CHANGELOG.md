@@ -10,6 +10,12 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Fixed
+- With an IP of its own (Unraid `br0`), Envoryx suggested the server's bare name as the
+  host for project links (`NanoHomeServer`), which the LAN usually only knows by mDNS as
+  `NanoHomeServer.local`. It now asks the Docker host for its LAN IP with a short-lived
+  container in the host's network and suggests that; without it, a bare name gets `.local`.
+
 ## [0.46.2] - 2026-10-27
 
 ### Changed
