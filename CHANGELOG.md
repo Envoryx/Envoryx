@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.46.2] - 2026-10-27
+
 ### Changed
 - Links to projects point at their published ports again (`http://<IP>:<port>`), even when
   the proxy runs: since the proxy ports were mapped or the container had its own IP, every
@@ -2932,7 +2934,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.46.1...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.46.2...HEAD
+[0.46.2]: https://github.com/envoryx/envoryx/compare/v0.46.1...v0.46.2
 [0.46.1]: https://github.com/envoryx/envoryx/compare/v0.46.0...v0.46.1
 [0.46.0]: https://github.com/envoryx/envoryx/compare/v0.45.1...v0.46.0
 [0.45.1]: https://github.com/envoryx/envoryx/compare/v0.45.0...v0.45.1
