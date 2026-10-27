@@ -10,6 +10,15 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Changed
+- The logo no longer brings its own black box into the app: on the sign-in, invitation,
+  gate and suspension pages and in the sidebar it stands on the page itself. In dark mode
+  it stays the accent's bright tone and white, in light mode it takes the accent's dark
+  tone and the text colour, so it stays readable on a light page too. Favicon, touch icon
+  and the Unraid icon keep their dark ground.
+- The README shows the logo without a ground, in the version that fits GitHub's light or
+  dark mode. `docs/assets/` also has it as SVG and PNG for dark and light pages.
+
 ## [0.46.0] - 2026-10-27
 
 ### Added

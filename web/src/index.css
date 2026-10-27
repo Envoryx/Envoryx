@@ -142,8 +142,10 @@
   --fg: #16181d;
   --fg-muted: #5f6673;
   --fg-subtle: #8b92a0;
-  /* The logo sits on its own dark ground in both themes: the accent's bright tone and white. */
-  --logo-accent: var(--color-accent-400);
+  /* The logo stands on the page itself: a dark accent tone and the text colour in light mode,
+     the accent's bright tone in dark mode. */
+  --logo-accent: var(--color-accent-600);
+  --logo-fg: var(--fg);
   /* Chart series (categorical, fixed order - validated against the card surface in both
      modes) and chart chrome. */
   --series-1: #2a78d6;
@@ -167,6 +169,8 @@
   --fg: #e6e8ee;
   --fg-muted: #9aa1ae;
   --fg-subtle: #6b7280;
+  --logo-accent: var(--color-accent-400);
+  --logo-fg: var(--fg);
   --series-1: #3987e5;
   --series-2: #d95926;
   --series-3: #199e70;

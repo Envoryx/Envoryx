@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="docs/assets/envoryx-logo.png" alt="Envoryx - build deeper" width="420">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/envoryx-logo-for-dark.png">
+    <img src="docs/assets/envoryx-logo-for-light.png" alt="Envoryx - build deeper" width="420">
+  </picture>
 </p>
 
 <p align="center">
