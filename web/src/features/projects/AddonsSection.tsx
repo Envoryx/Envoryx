@@ -1,7 +1,7 @@
 import { ExternalLink, Package, Plus, Save, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
-import { usePortHost, useProjectAddons, useSetAddon } from "@/api/hooks";
+import { usePortHost, serviceLink, useProjectAddons, useSetAddon } from "@/api/hooks";
 import type { AvailableAddon, Project, ProjectAddon } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateLabel, containerStateTone, healthLabel } from "@/lib/format";
@@ -21,7 +21,9 @@ function AddonCard({ project, info, onMessage }: { project: Project; info: Proje
   const [confirm, setConfirm] = useState("");
   const dirty = version !== info.version || (info.publishPort && expose !== !!info.hostPort);
   const fail = (err: unknown) => onMessage({ tone: "red", text: errorText(err, t, t("Saving failed")) });
-  const { host, local } = usePortHost();
+  const portHost = usePortHost();
+  const { host, local } = portHost;
+  const url = serviceLink(info.url, info.hostPortLocal ? 0 : info.hostPort, portHost);
 
   return (
     <Card>
@@ -43,12 +45,12 @@ function AddonCard({ project, info, onMessage }: { project: Project; info: Proje
       <div className="space-y-4 p-5">
         {!info.installed && <Alert tone="amber">{t("The addon file is no longer installed. The project keeps running its copy, but it cannot be changed.")}</Alert>}
         <dl className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-[9rem_1fr]">
-          {info.url && (
+          {url && (
             <>
               <dt className="text-muted">{t("Web UI")}</dt>
               <dd>
-                <a href={info.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">
-                  {info.url} <ExternalLink className="size-3" />
+                <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">
+                  {url} <ExternalLink className="size-3" />
                 </a>
               </dd>
             </>

@@ -366,6 +366,8 @@ type updateSettingsRequest struct {
 	PublicHost *string `json:"publicHost"`
 	BaseDomain *string `json:"baseDomain"`
 	ForceHTTPS *bool   `json:"forceHttps"`
+	// DomainLinks makes the links to projects use their domains instead of the ports.
+	DomainLinks *bool `json:"domainLinks"`
 	// ProjectsFollowEnvoryx stops the project containers with Envoryx and resumes them
 	// when it comes back.
 	ProjectsFollowEnvoryx *bool `json:"projectsFollowEnvoryx"`
@@ -639,6 +641,11 @@ func (a *API) applySettings(ctx context.Context, req updateSettingsRequest) (map
 		}
 		a.invalidateProxy()
 	}
+	if req.DomainLinks != nil {
+		if err := a.d.Projects.SetDomainLinks(ctx, *req.DomainLinks); err != nil {
+			return changes, err
+		}
+	}
 	if req.ProjectsFollowEnvoryx != nil {
 		if err := a.d.Projects.SetProjectsFollowEnvoryx(ctx, *req.ProjectsFollowEnvoryx); err != nil {
 			return changes, err
@@ -733,6 +740,7 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 			"publicHost":       a.publicHost(r.Context()),
 			"baseDomain":       a.d.Projects.BaseDomain(r.Context()),
 			"forceHttps":       a.d.Projects.ForceHTTPS(r.Context()),
+			"domainLinks":      a.d.Projects.DomainLinks(r.Context()),
 			"xdebugClientHost": a.d.Projects.XdebugClientHost(r.Context()),
 			"ssh":              a.sshDTO(),
 			"proxy":            a.proxyDTO(),
@@ -753,6 +761,7 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 		"publicHostSuggestion":  suggestion,
 		"baseDomain":            a.d.Projects.BaseDomain(r.Context()),
 		"forceHttps":            a.d.Projects.ForceHTTPS(r.Context()),
+		"domainLinks":           a.d.Projects.DomainLinks(r.Context()),
 		"projectsFollowEnvoryx": a.d.Projects.ProjectsFollowEnvoryx(r.Context()),
 		"newProjectsPrivate":    a.d.Projects.NewProjectsPrivate(r.Context()),
 		"sharedIdeBackends":     a.d.Projects.SharedIDEBackends(r.Context()),

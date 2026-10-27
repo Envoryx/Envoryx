@@ -89,10 +89,10 @@ func TestAddonLifecycle(t *testing.T) {
 	if len(s.Mounts) != 2 || s.Mounts[0].Source != "envoryx-gadget-addon-widget-data" || s.Mounts[0].Target != "/data" {
 		t.Fatalf("mounts: %+v", s.Mounts)
 	}
-	// The web UI's port is the proxy's way in, on 127.0.0.1 only: in the LAN it would
-	// skip the project's sign-in and rules.
-	if len(s.Ports) != 1 || s.Ports[0].ContainerPort != 8080 || s.Ports[0].HostPort == 0 || s.Ports[0].HostIP != "127.0.0.1" {
-		t.Fatalf("a web UI is published on loopback: %+v", s.Ports)
+	// The web UI's port listens like the project's ports: in the LAN on a machine of one's
+	// own, so its link works without DNS.
+	if len(s.Ports) != 1 || s.Ports[0].ContainerPort != 8080 || s.Ports[0].HostPort == 0 || s.Ports[0].HostIP != "" {
+		t.Fatalf("a web UI is published like the project's ports: %+v", s.Ports)
 	}
 	// The application gets the injected variables.
 	if php, _ := e.engine.Container("envoryx-gadget-php"); specEnv(php.Spec, "WIDGET_URL") != "http://widget:8080" || specEnv(php.Spec, "ENVORYX_PROJECT") != "gadget" {

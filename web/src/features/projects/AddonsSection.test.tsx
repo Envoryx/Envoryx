@@ -42,7 +42,8 @@ describe("AddonsSection", () => {
     const user = userEvent.setup();
 
     expect(await screen.findByText("Keycloak 26")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /acme-shop-keycloak/ })).toHaveAttribute("href", keycloak.url);
+    // Without "open projects by domain" the web UI's link is its published port.
+    expect(screen.getByRole("link", { name: /:20003/ })).toHaveAttribute("href", "http://localhost:20003");
     expect(screen.getByText("KEYCLOAK_URL")).toBeInTheDocument();
     // A variable Envoryx sets itself isn't claimed as the addon's.
     expect(screen.getByText("Not injected").nextElementSibling).toHaveTextContent("DB_HOST");

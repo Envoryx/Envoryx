@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { IfPlanAllows } from "@/features/plan/PlanCard";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useExtraServices, useKeptData, usePlanServices, usePortHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
+import { useExtraServices, useKeptData, usePlanServices, usePortHost, serviceLink, type PortHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
 import { api } from "@/api/client";
 import type { ExternalRedis, ExtraServiceInfo, KeptDataInfo, PHPConfig, Project, RabbitMQCredentials, SearchCredentials, UpdateProjectRequest } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
@@ -39,9 +39,9 @@ function phpExtensionUpdate(project: Project, kind: ExtraKind): UpdateProjectReq
 }
 
 /** A service's web interface: through the proxy when it has an address there, else at its host port. */
-function WebUILink({ info, host, local }: { info: ExtraServiceInfo; host: string; local: boolean }) {
+function WebUILink({ info, portHost }: { info: ExtraServiceInfo; portHost: PortHost }) {
   const { t } = useTranslation();
-  const url = info.webUiUrl || (info.webUiPort && !local ? `http://${host}:${info.webUiPort}` : "");
+  const url = serviceLink(info.webUiUrl, info.webUiPort, portHost);
   if (!url) return <span className="text-xs text-subtle">{info.webUiPort ? t("only on the server itself") : t("no port")}</span>;
   return (
     <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">
@@ -55,7 +55,8 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
   const update = useUpdateProject(project.id);
   // Credentials need operate; every change goes through PATCH /projects/{id}, which needs admin.
   const can = projectAccess(project);
-  const { host, local } = usePortHost();
+  const portHost = usePortHost();
+  const { host, local } = portHost;
   const runtimes = useRuntimes();
   const versions = runtimes.data?.runtimes.find((r) => r.key === info.kind)?.versions ?? [];
   const [version, setVersion] = useState(info.version);
@@ -116,7 +117,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
             <>
               <dt className="text-muted">{t("Inbox")}</dt>
               <dd>
-                <WebUILink info={info} host={host} local={local} />
+                <WebUILink info={info} portHost={portHost} />
               </dd>
             </>
           )}
@@ -124,7 +125,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
             <>
               <dt className="text-muted">{t("Management UI")}</dt>
               <dd>
-                <WebUILink info={info} host={host} local={local} />
+                <WebUILink info={info} portHost={portHost} />
               </dd>
               <dt className="text-muted">{t("User")}</dt>
               <dd className="font-mono text-xs">{info.username}</dd>
@@ -134,7 +135,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
             <>
               <dt className="text-muted">OpenSearch Dashboards</dt>
               <dd className="flex flex-wrap items-center gap-2">
-                <WebUILink info={info} host={host} local={local} />
+                <WebUILink info={info} portHost={portHost} />
                 <span className="inline-flex items-center gap-1.5 text-xs">
                   <StatusDot tone={containerStateTone(info.dashboards.state)} />
                   {containerStateLabel(info.dashboards.state, t)}
@@ -159,7 +160,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
             <>
               <dt className="text-muted">{t("Dashboard")}</dt>
               <dd>
-                <WebUILink info={info} host={host} local={local} />
+                <WebUILink info={info} portHost={portHost} />
               </dd>
             </>
           )}

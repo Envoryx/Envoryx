@@ -323,6 +323,31 @@ func appServesDirectly(p store.Project) bool {
 	return ok
 }
 
+// DirectPort is the host port a browser opens the project at without the proxy. The web
+// container's port stays unpublished while an application server serves the project, so
+// it is that server's host port then (0 while it has none).
+func DirectPort(p store.Project) int {
+	if cfg, ok := nodeServesApp(p); ok {
+		return cfg.HostPort
+	}
+	if cfg, ok := pythonServesApp(p); ok {
+		return cfg.HostPort
+	}
+	if cfg, ok := goServesApp(p); ok {
+		return cfg.HostPort
+	}
+	if cfg, ok := rubyServesApp(p); ok {
+		return cfg.HostPort
+	}
+	if cfg, ok := javaServesApp(p); ok {
+		return cfg.HostPort
+	}
+	if cfg, ok := dotnetServesApp(p); ok {
+		return cfg.HostPort
+	}
+	return p.HTTPPort
+}
+
 // Serves classifies what the project's primary hostname serves: "php", "python", "go",
 // "ruby", "java", "dotnet", "node" or "static".
 func Serves(p store.Project) string {

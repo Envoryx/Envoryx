@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import { useDatabases, useExtraServices, usePortHost, useSettings, useUpdateProject, usePlanAllows } from "@/api/hooks";
+import { useDatabases, useExtraServices, usePortHost, serviceLink, useSettings, useUpdateProject, usePlanAllows } from "@/api/hooks";
 import { OperationHint } from "@/components/OperationsTray";
 import { settingsHref } from "@/features/settings/links";
 import { appKindOf, type DatabaseInfo, type ExtraServiceInfo, type NodeConfig, type Operation, type PHPConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type JavaConfig } from "@/api/types";
@@ -31,7 +31,7 @@ export function IdeTab({ project: p }: { project: Project }) {
   const host = s?.publicHost || window.location.hostname;
   // The published ports may only listen on the server itself; SSH is at the host anyway.
   const portHost = usePortHost();
-  const webUI = (e: ExtraServiceInfo) => e.webUiUrl || (e.webUiPort && !portHost.local ? `http://${portHost.host}:${e.webUiPort}` : "");
+  const webUI = (e: ExtraServiceInfo) => serviceLink(e.webUiUrl, e.webUiPort, portHost);
   const projectsHost = hostPathOf(s, s?.projectsDir);
   const hostDir = projectsHost ? `${projectsHost}/${p.path}` : "<projects share>/" + p.path;
   const php = p.services.find((x) => x.kind === "php" && x.enabled);

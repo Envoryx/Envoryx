@@ -133,7 +133,7 @@ func TestToolsCoverTheProjectLifecycle(t *testing.T) {
 		Services                        []struct{ Kind string }
 	}
 	e.call("create_project", map[string]any{"name": "Test API", "phpVersion": "8.4", "database": "mariadb", "redis": true, "env": map[string]string{"APP_ENV": "local"}}, &p)
-	if p.Slug != "test-api" || p.State != "running" || p.URL != "https://test-api.test" || p.DirectURL != "http://nas.lan:20000" {
+	if p.Slug != "test-api" || p.State != "running" || p.URL != "http://nas.lan:20000" || p.DirectURL != "http://nas.lan:20000" {
 		t.Fatalf("created project: %+v", p)
 	}
 	kinds := map[string]bool{}
@@ -154,10 +154,18 @@ func TestToolsCoverTheProjectLifecycle(t *testing.T) {
 	}
 
 	// Resolve by slug and by name.
-	var got struct{ ID string }
+	var got struct{ ID, URL string }
 	e.call("get_project", map[string]any{"project": "test-api"}, &got)
 	if got.ID != p.ID {
 		t.Fatalf("resolve by slug: %s != %s", got.ID, p.ID)
+	}
+	// With "open projects by domain" the link is the domain.
+	if err := e.st.Settings.Set(context.Background(), project.SettingDomainLinks, "true"); err != nil {
+		t.Fatal(err)
+	}
+	e.call("get_project", map[string]any{"project": "test-api"}, &got)
+	if got.URL != "https://test-api.test" {
+		t.Fatalf("domain link: %q", got.URL)
 	}
 	e.call("get_project", map[string]any{"project": "test api"}, &got)
 	if got.ID != p.ID {
@@ -534,7 +542,7 @@ func TestNodeOnlyProjectOverMCP(t *testing.T) {
 	if kinds["php"] || !kinds["node"] || !kinds["web"] || len(kinds) != 2 {
 		t.Fatalf("services: %v", kinds)
 	}
-	if p.State != "running" || p.Serves != "node" || p.URL != "https://front.test" || p.DevURL != "https://front-dev.test" {
+	if p.State != "running" || p.Serves != "node" || p.URL != "http://nas.lan:20001" || p.DevURL != "http://nas.lan:20001" {
 		t.Fatalf("project: %+v", p)
 	}
 	stored, err := e.st.Projects.Get(ctx, p.ID)
@@ -581,7 +589,7 @@ func TestNodeOnlyProjectOverMCP(t *testing.T) {
 	if res := e.call("create_project", map[string]any{"name": "Shop", "phpVersion": "8.4", "nodeVersion": "24", "nodeDevServer": true}, &shop); res.IsError {
 		t.Fatal(text(res))
 	}
-	if shop.Serves != "php" || shop.URL != "https://shop.test" || shop.DevURL != "https://shop-dev.test" || !strings.HasPrefix(shop.DirectURL, "http://nas.lan:2000") {
+	if shop.Serves != "php" || shop.URL != shop.DirectURL || !strings.HasPrefix(shop.DevURL, "http://nas.lan:2000") || !strings.HasPrefix(shop.DirectURL, "http://nas.lan:2000") {
 		t.Fatalf("php+node project: %+v", shop)
 	}
 	var static struct{ Serves, DevURL string }

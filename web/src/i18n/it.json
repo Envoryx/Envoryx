@@ -3774,5 +3774,8 @@
   "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses under the base domain until it ends or you revoke it; for a domain of its own, send the link with that domain in it. Not its addons, terminal or files.": "Per persone senza account Envoryx, come un cliente che revisiona il sito: il link apre gli indirizzi del progetto sotto il dominio base finché non scade o lo revochi; per un dominio proprio, invia il link con quel dominio. Non i suoi addon, il terminale o i file.",
   "the log history is kept as the hoster set it": "la cronologia dei log resta come l'ha impostata l'hoster",
   "the resource history is kept as the hoster set it": "la cronologia delle risorse resta come l'ha impostata l'hoster",
-  "{{host}} can't be a server's address (link-local, multicast or unspecified)": "{{host}} non può essere l'indirizzo di un server (link-local, multicast o non specificato)"
+  "{{host}} can't be a server's address (link-local, multicast or unspecified)": "{{host}} non può essere l'indirizzo di un server (link-local, multicast o non specificato)",
+  "Open projects by their domain": "Apri i progetti tramite il loro dominio",
+  "Project ports listen on the server itself only, so links always use the domain.": "Le porte dei progetti sono in ascolto solo sul server stesso, quindi i link usano sempre il dominio.",
+  "Links in Envoryx use https://<project>.{{base}} instead of http://<IP>:<port>. That needs DNS for the base domain (see below); the ports work without any setup.": "I link in Envoryx usano https://<progetto>.{{base}} invece di http://<IP>:<porta>. Serve un DNS per il dominio di base (vedi sotto); le porte funzionano senza alcuna configurazione."
 }

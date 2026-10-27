@@ -23,7 +23,10 @@ import (
 const (
 	SettingBaseDomain = "base_domain"
 	SettingForceHTTPS = "force_https"
-	DefaultBaseDomain = "test"
+	// SettingDomainLinks makes Envoryx's links to projects use their domains behind the
+	// proxy instead of the published ports.
+	SettingDomainLinks = "domain_links"
+	DefaultBaseDomain  = "test"
 	// UIHostLabel is the host label of Envoryx's own UI under the base domain (envoryx.test).
 	UIHostLabel = "envoryx"
 )
@@ -99,6 +102,51 @@ func (m *Manager) SetForceHTTPS(ctx context.Context, on bool) error {
 		m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"forceHttps": on})
 	}
 	return nil
+}
+
+// DomainLinks reports whether Envoryx's links open projects by their domains behind the
+// proxy. Those need DNS for the base domain; the published ports (http://<host>:<port>)
+// work without any setup, so they are the links until an admin chooses domains. On an
+// instance a hoster manages, domains are the default, and with ports on the server
+// itself (ENVORYX_HOST_PORTS=local) they are the only address a browser can reach.
+func (m *Manager) DomainLinks(ctx context.Context) bool {
+	if m.LocalPorts() {
+		return true
+	}
+	if v, err := m.store.Settings.Get(ctx, SettingDomainLinks); err == nil && v != "" {
+		on, _ := strconv.ParseBool(v)
+		return on
+	}
+	return m.Managed()
+}
+
+// SetDomainLinks stores the choice.
+func (m *Manager) SetDomainLinks(ctx context.Context, on bool) error {
+	changed, err := m.changeSetting(ctx, SettingDomainLinks, strconv.FormatBool(on))
+	if err != nil {
+		return err
+	}
+	if changed {
+		m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"domainLinks": on})
+	}
+	return nil
+}
+
+// LinkURL is the address Envoryx shows for a project: its domain or its published port,
+// as DomainLinks says, the other one when the chosen one is unknown. Containers keep
+// ProjectURL, which doesn't depend on this choice.
+func (m *Manager) LinkURL(ctx context.Context, proj store.Project) string {
+	if m.DomainLinks(ctx) {
+		return m.ProjectURL(proj)
+	}
+	p, err := m.planner()
+	if err != nil {
+		return ""
+	}
+	if u := p.linkDirectURL(proj); u != "" {
+		return u
+	}
+	return p.ProjectURL(proj)
 }
 
 // DefaultHostname is the derived host name of a project.

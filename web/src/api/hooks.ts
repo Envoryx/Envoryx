@@ -123,10 +123,22 @@ export function usePublicHost(): string {
  * address bar, or 127.0.0.1 when they only listen on the server itself (local), which
  * a browser elsewhere can't reach.
  */
-export function usePortHost(): { host: string; local: boolean } {
+export type PortHost = { host: string; local: boolean; domainLinks: boolean };
+
+export function usePortHost(): PortHost {
   const q = useQuery({ queryKey: keys.settings, queryFn: api.settings, staleTime: 60 * 1000 });
-  if (q.data?.proxy?.localPorts) return { host: "127.0.0.1", local: true };
-  return { host: q.data?.publicHost || window.location.hostname, local: false };
+  if (q.data?.proxy?.localPorts) return { host: "127.0.0.1", local: true, domainLinks: true };
+  return { host: q.data?.publicHost || window.location.hostname, local: false, domainLinks: !!q.data?.domainLinks };
+}
+
+/**
+ * The link to a service's web interface: its address behind the proxy or its published
+ * port, as the "open projects by domain" setting says, the other one when the chosen
+ * one is missing. A port only open on the server itself is no address for a browser.
+ */
+export function serviceLink(proxyUrl: string | undefined, port: number | undefined, ph: PortHost, path = ""): string {
+  const direct = port && !ph.local ? projectUrl(port, ph.host) + path : "";
+  return ph.domainLinks ? proxyUrl || direct : direct || proxyUrl || "";
 }
 
 /** Set-up checks with fixes; refreshed every minute while the page is open. */
@@ -158,13 +170,14 @@ export function useProjectLinks(): (project: Pick<Project, "httpPort" | "hostnam
   const q = useQuery({ queryKey: keys.settings, queryFn: api.settings, staleTime: 60 * 1000 });
   const publicHost = q.data?.publicHost ?? "";
   const proxy = q.data?.proxy;
+  const domainLinks = !!q.data?.domainLinks || !!proxy?.localPorts;
   return (project) => {
     const serves = project.serves ?? servesOf(project);
     const app = serves === "node" || serves === "python" || serves === "go" || serves === "ruby" || serves === "java" || serves === "dotnet" ? ((project.services.find((s) => s.kind === serves && s.enabled)?.config ?? {}) as NodeConfig | PythonConfig | GoConfig | RubyConfig | JavaConfig | DotnetConfig) : undefined;
     // Ports only open on the server itself are no address for a browser.
     const direct = proxy?.localPorts ? "" : projectUrl(app ? (app.hostPort ?? 0) : project.httpPort, publicHost);
     const host = project.hostnames?.[0];
-    if (!proxy?.enabled || !host) return { url: direct, direct };
+    if (!proxy?.enabled || !host || (!domainLinks && direct)) return { url: direct, direct };
     if (proxy.tls && proxy.httpsPort > 0) {
       return { url: `https://${host}${proxy.httpsPort === 443 ? "" : `:${proxy.httpsPort}`}`, direct };
     }
@@ -180,11 +193,12 @@ export function useDevServerLink(): (project: Pick<Project, "devHostname" | "ser
   const q = useQuery({ queryKey: keys.settings, queryFn: api.settings, staleTime: 60 * 1000 });
   const publicHost = q.data?.publicHost ?? "";
   const proxy = q.data?.proxy;
+  const domainLinks = !!q.data?.domainLinks || !!proxy?.localPorts;
   return (project) => {
     const svc = project.services.find((s) => s.kind === "node" && s.enabled);
     const cfg = (svc?.config ?? {}) as NodeConfig;
     if (!cfg.devServer) return "";
-    if (proxy?.enabled && project.devHostname) {
+    if (proxy?.enabled && project.devHostname && (domainLinks || !cfg.hostPort)) {
       if (proxy.tls && proxy.httpsPort > 0) return `https://${project.devHostname}${proxy.httpsPort === 443 ? "" : `:${proxy.httpsPort}`}`;
       if (proxy.httpPort > 0) return `http://${project.devHostname}${proxy.httpPort === 80 ? "" : `:${proxy.httpPort}`}`;
     }

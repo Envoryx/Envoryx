@@ -1653,6 +1653,7 @@ export interface UpdateSettingsRequest {
   twoFactorRequired?: TwoFactorRequirement;
   baseDomain?: string;
   forceHttps?: boolean;
+  domainLinks?: boolean;
   projectsFollowEnvoryx?: boolean;
   newProjectsPrivate?: boolean;
   sharedIdeBackends?: boolean;
@@ -1722,6 +1723,8 @@ export interface Settings {
   ssh?: SSHInfo;
   baseDomain: string;
   forceHttps: boolean;
+  /** Links open projects by their domains behind the proxy instead of their published ports. */
+  domainLinks?: boolean;
   /** Project containers stop with the Envoryx container and resume when it comes back. */
   projectsFollowEnvoryx?: boolean;
   newProjectsPrivate?: boolean;
