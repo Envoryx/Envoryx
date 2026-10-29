@@ -10,6 +10,16 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Changed
+- An instance whose base domain the hoster fixes no longer shows home server advice:
+  Settings → Domains & HTTPS says the hoster set up the base domain and its DNS instead of
+  pointing at Pi-hole, AdGuard and the hosts file, leaves out the DNS guide and the Let's
+  Encrypt form, and drops the local CA once the hoster's certificate is there (folded
+  away until then). With the ports on the server itself, the *Host for project links*
+  field goes too. The diagnostics' wildcard DNS check is fine when the names resolve,
+  instead of "unverified ... set a host for project links", and points at the hoster
+  when they don't.
+
 ## [0.46.3] - 2026-10-28
 
 ### Fixed

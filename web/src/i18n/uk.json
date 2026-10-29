@@ -3844,5 +3844,12 @@
   "Open projects by their domain": "Відкривати проєкти за їхнім доменом",
   "Project ports listen on the server itself only, so links always use the domain.": "Порти проєктів слухають лише на самому сервері, тому посилання завжди використовують домен.",
   "Links in Envoryx use https://<project>.{{base}} instead of http://<IP>:<port>. That needs DNS for the base domain (see below); the ports work without any setup.": "Посилання в Envoryx використовують https://<проєкт>.{{base}} замість http://<IP>:<порт>. Для цього базовому домену потрібен DNS (див. нижче); порти працюють без жодного налаштування.",
-  "If the server's IP address changes, update it in the settings, or give the server a fixed address in your router.": "Якщо IP-адреса сервера зміниться, оновіть її в налаштуваннях або призначте серверу постійну адресу в роутері."
+  "If the server's IP address changes, update it in the settings, or give the server a fixed address in your router.": "Якщо IP-адреса сервера зміниться, оновіть її в налаштуваннях або призначте серверу постійну адресу в роутері.",
+  "*.{{domain}} → {{addresses}}, set up by your hoster (DNS: {{dns}})": "*.{{domain}} → {{addresses}}, налаштовано вашим хостером (DNS: {{dns}})",
+  "*.{{domain}} does not resolve (DNS: {{dns}}). Your hoster sets up the DNS of this base domain.": "*.{{domain}} не розпізнається (DNS: {{dns}}). DNS цього базового домену налаштовує ваш хостер.",
+  "Tell your hoster: there is nothing to set up for it on this instance.": "Повідомте хостера: на цьому екземплярі для цього нічого налаштовувати не потрібно.",
+  "Developer machine": "Комп'ютер розробника",
+  "Your hoster set up the base domain and its DNS. Projects open at <slug>.{{base}}, the Envoryx UI at envoryx.{{base}}.": "Ваш хостер налаштував базовий домен і його DNS. Проєкти відкриваються за адресою <slug>.{{base}}, інтерфейс Envoryx за адресою envoryx.{{base}}.",
+  "The embedded reverse proxy opens every project under its own host name, with your hoster's certificate.": "Вбудований зворотний проксі відкриває кожен проєкт під власним іменем хоста, із сертифікатом вашого хостера.",
+  "Your hoster provides a public certificate for the base domain shortly. Until it arrives, projects use this CA.": "Ваш хостер незабаром надасть публічний сертифікат для базового домену. До того часу проєкти використовують цей CA."
 }

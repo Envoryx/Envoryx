@@ -3146,6 +3146,14 @@ the local CA. A certificate that doesn't fit its key or doesn't cover the
 domain is refused, the previous one stays, and the manager hears why. This
 needs Envoryx 0.42 or newer.
 
+With a base domain the plan fixes, the instance leaves out what only a home
+server needs: Settings → Domains & HTTPS says the hoster set up the base domain
+and its DNS instead of showing the DNS guide, and drops the local CA once the
+hoster's certificate is there (before that it stays folded away) and the Let's
+Encrypt form. With the ports on the server itself the *Host for project links*
+field goes too. The diagnostics' wildcard DNS check only asks whether the names
+resolve, and if they don't, sends the customer to the hoster.
+
 ### Backups for the hoster
 
 A plan can name an offsite target of the hoster (`offsite` above). Every

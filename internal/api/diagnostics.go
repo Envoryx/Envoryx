@@ -314,6 +314,19 @@ func (a *API) checkDNS(ctx context.Context) []Check {
 	defer cancel()
 	addrs, err := net.DefaultResolver.LookupHost(ctx, name)
 	resolver := systemResolvers()
+	// A base domain the hoster fixes has its DNS at the hoster too. From inside the
+	// container the proxy's public address often can't be reached (NAT), and the customer
+	// has nothing to set up, so resolving is all this check asks.
+	if _, hoster := a.d.Projects.Plan().Locked("baseDomain"); hoster {
+		if err != nil {
+			c.Status = checkWarning
+			c.Detail = fmt.Sprintf("*.%s does not resolve (DNS: %s). Your hoster sets up the DNS of this base domain.", base, resolver)
+			c.Hint = "Tell your hoster: there is nothing to set up for it on this instance."
+			return []Check{c}
+		}
+		c.Status, c.Detail = checkOK, fmt.Sprintf("*.%s → %s, set up by your hoster (DNS: %s)", base, strings.Join(addrs, ", "), resolver)
+		return []Check{c}
+	}
 	if err != nil {
 		c.Status = checkInfo
 		c.Detail = fmt.Sprintf("*.%s does not resolve from inside the Envoryx container (its DNS: %s). Your devices may use a different DNS server - the check from this browser above is what counts.", base, resolver)

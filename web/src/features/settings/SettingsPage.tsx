@@ -102,6 +102,8 @@ function PublicHostForm({ current, envHost, xdebugHost }: { current: string; env
   const [xhost, setXhost] = useState(xdebugHost);
   const hostLocked = useSettingLocked("publicHost");
   const xhostLocked = useSettingLocked("xdebugClientHost");
+  // With the ports on the server itself the links are always domains: no host to set.
+  const localPorts = !!useSettings().data?.proxy?.localPorts;
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   useEffect(() => setHost(current), [current]);
   useEffect(() => setXhost(xdebugHost), [xdebugHost]);
@@ -121,21 +123,23 @@ function PublicHostForm({ current, envHost, xdebugHost }: { current: string; env
   return (
     <Card>
       <CardHeader
-        title={t("Project links & developer machine")}
-        description={t("Project ports are published on the Docker host. If Envoryx itself is reached under a different address (own container IP, reverse proxy), set the host that browsers should use for project links.")}
+        title={localPorts ? t("Developer machine") : t("Project links & developer machine")}
+        description={localPorts ? undefined : t("Project ports are published on the Docker host. If Envoryx itself is reached under a different address (own container IP, reverse proxy), set the host that browsers should use for project links.")}
       />
       <form onSubmit={submit} className="space-y-4 p-5">
         <PublicHostNotice />
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-        <Field label={t("Host for project links")} htmlFor="public-host" hint={
-            envHost
-              ? t("Leave empty to use ENVORYX_PUBLIC_HOST ({{host}}). Host name or IP only, no port.", { host: envHost })
-              : t("Leave empty to use the browser address bar (currently {{host}}). Host name or IP only, no port.", { host: window.location.hostname })
-          }
-        >
-          <Input id="public-host" value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.168.1.10" spellCheck={false} disabled={hostLocked} />
-          {hostLocked && <LockedHint />}
-        </Field>
+        {!localPorts && (
+          <Field label={t("Host for project links")} htmlFor="public-host" hint={
+              envHost
+                ? t("Leave empty to use ENVORYX_PUBLIC_HOST ({{host}}). Host name or IP only, no port.", { host: envHost })
+                : t("Leave empty to use the browser address bar (currently {{host}}). Host name or IP only, no port.", { host: window.location.hostname })
+            }
+          >
+            <Input id="public-host" value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.168.1.10" spellCheck={false} disabled={hostLocked} />
+            {hostLocked && <LockedHint />}
+          </Field>
+        )}
         <Field label={t("Developer machine for Xdebug")} htmlFor="xdebug-host" hint={t("Fallback IP/host Xdebug connects back to when the request does not reveal it. Projects can override it.")}>
           <Input id="xdebug-host" value={xhost} onChange={(e) => setXhost(e.target.value)} placeholder="192.168.1.20" spellCheck={false} disabled={xhostLocked} />
           {xhostLocked && <LockedHint />}

@@ -279,3 +279,24 @@ func TestSuspendedInstanceAnswersOnlyWhoAndWhy(t *testing.T) {
 		t.Fatalf("plan after lifting: %s", r.raw)
 	}
 }
+
+// A base domain the hoster fixes has its DNS at the hoster: the DNS check only asks
+// whether it resolves and never sends the customer to set a host for project links.
+func TestDiagnosticsDNSWithTheHostersBaseDomain(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	a.setPlan(`{"name":"Hosted","settings":{"baseDomain":"kunde.invalid"}}`)
+	r := a.do(http.MethodGet, "/api/v1/system/diagnostics", nil, false)
+	for _, c := range r.body["checks"].([]any) {
+		m := c.(map[string]any)
+		if m["id"] != "network.dns" {
+			continue
+		}
+		detail, _ := m["detail"].(string)
+		if m["status"] != "warning" || !strings.Contains(detail, "Your hoster sets up the DNS") || strings.Contains(m["hint"].(string), "Host for project links") {
+			t.Fatalf("dns check: %v", m)
+		}
+		return
+	}
+	t.Fatal("no network.dns check")
+}
