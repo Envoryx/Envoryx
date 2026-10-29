@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.46.4] - 2026-10-29
+
 ### Changed
 - An instance whose base domain the hoster fixes no longer shows home server advice:
   Settings → Domains & HTTPS says the hoster set up the base domain and its DNS instead of
@@ -2952,7 +2954,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.46.3...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.46.4...HEAD
+[0.46.4]: https://github.com/envoryx/envoryx/compare/v0.46.3...v0.46.4
 [0.46.3]: https://github.com/envoryx/envoryx/compare/v0.46.2...v0.46.3
 [0.46.2]: https://github.com/envoryx/envoryx/compare/v0.46.1...v0.46.2
 [0.46.1]: https://github.com/envoryx/envoryx/compare/v0.46.0...v0.46.1
