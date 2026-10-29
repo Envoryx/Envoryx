@@ -59,14 +59,33 @@ describe("DomainsCard", () => {
       ...authedRoutes,
       "GET /settings/tls/acme": () => ({ body: acme }),
       "GET /settings/tls": () => ({ body: { ...tls, hosterCertificate: true, ca: { ...tls.ca, custom } } }),
-      "GET /settings": () => ({ body: { ...settings, baseDomain: "kunde.envbay.dev" } }),
+      "GET /settings": () => ({ body: { ...settings, baseDomain: "kunde.envbay.dev", lockedSettings: ["baseDomain"] } }),
     });
     renderApp(<DomainsCard />);
     expect(await screen.findByText("Certificate from your hoster")).toBeInTheDocument();
+    // The hoster runs the DNS and the certificate: no DNS guide, no local CA to install.
+    expect(screen.getByText(/Your hoster set up the base domain and its DNS/)).toBeInTheDocument();
+    expect(screen.queryByText(/Pi-hole/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Local certificate authority")).not.toBeInTheDocument();
+    expect(screen.queryByText(/DNS for \*\./)).not.toBeInTheDocument();
     expect(screen.getByText("kunde.envbay.dev, *.kunde.envbay.dev")).toBeInTheDocument();
     expect(screen.queryByText("Custom certificate")).not.toBeInTheDocument();
     expect(screen.queryByText(/Let's Encrypt \(public certificate/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Install certificate" })).not.toBeInTheDocument();
+  });
+
+  it("folds the local CA away and leaves out Let's Encrypt until the hoster's certificate arrives", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /settings/tls/acme": () => ({ body: acme }),
+      "GET /settings/tls": () => ({ body: tls }),
+      "GET /settings": () => ({ body: { ...settings, baseDomain: "kunde.envbay.dev", lockedSettings: ["baseDomain"] } }),
+    });
+    renderApp(<DomainsCard />);
+    expect(await screen.findByText(/Your hoster provides a public certificate/)).toBeInTheDocument();
+    expect(screen.getByText("Local certificate authority").closest("details")).not.toHaveAttribute("open");
+    expect(screen.queryByText(/Let's Encrypt \(public certificate/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Pi-hole/)).not.toBeInTheDocument();
   });
 
   it("tells macvlan users to point DNS at the container address", async () => {

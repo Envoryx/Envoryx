@@ -3778,5 +3778,12 @@
   "Open projects by their domain": "Apri i progetti tramite il loro dominio",
   "Project ports listen on the server itself only, so links always use the domain.": "Le porte dei progetti sono in ascolto solo sul server stesso, quindi i link usano sempre il dominio.",
   "Links in Envoryx use https://<project>.{{base}} instead of http://<IP>:<port>. That needs DNS for the base domain (see below); the ports work without any setup.": "I link in Envoryx usano https://<progetto>.{{base}} invece di http://<IP>:<porta>. Serve un DNS per il dominio di base (vedi sotto); le porte funzionano senza alcuna configurazione.",
-  "If the server's IP address changes, update it in the settings, or give the server a fixed address in your router.": "Se l'indirizzo IP del server cambia, aggiornalo nelle impostazioni, oppure assegna al server un indirizzo fisso nel router."
+  "If the server's IP address changes, update it in the settings, or give the server a fixed address in your router.": "Se l'indirizzo IP del server cambia, aggiornalo nelle impostazioni, oppure assegna al server un indirizzo fisso nel router.",
+  "*.{{domain}} → {{addresses}}, set up by your hoster (DNS: {{dns}})": "*.{{domain}} → {{addresses}}, configurato dal tuo hoster (DNS: {{dns}})",
+  "*.{{domain}} does not resolve (DNS: {{dns}}). Your hoster sets up the DNS of this base domain.": "*.{{domain}} non viene risolto (DNS: {{dns}}). Il DNS di questo dominio di base lo configura il tuo hoster.",
+  "Tell your hoster: there is nothing to set up for it on this instance.": "Avvisa il tuo hoster: su questa istanza non c'è nulla da configurare per questo.",
+  "Developer machine": "Macchina di sviluppo",
+  "Your hoster set up the base domain and its DNS. Projects open at <slug>.{{base}}, the Envoryx UI at envoryx.{{base}}.": "Il tuo hoster ha configurato il dominio di base e il suo DNS. I progetti si aprono su <slug>.{{base}}, l'interfaccia di Envoryx su envoryx.{{base}}.",
+  "The embedded reverse proxy opens every project under its own host name, with your hoster's certificate.": "Il reverse proxy integrato apre ogni progetto con il proprio nome host, con il certificato del tuo hoster.",
+  "Your hoster provides a public certificate for the base domain shortly. Until it arrives, projects use this CA.": "Il tuo hoster fornirà a breve un certificato pubblico per il dominio di base. Fino ad allora i progetti usano questa CA."
 }

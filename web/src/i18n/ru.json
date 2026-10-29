@@ -3844,5 +3844,12 @@
   "Open projects by their domain": "Открывать проекты по их домену",
   "Project ports listen on the server itself only, so links always use the domain.": "Порты проектов слушают только на самом сервере, поэтому ссылки всегда используют домен.",
   "Links in Envoryx use https://<project>.{{base}} instead of http://<IP>:<port>. That needs DNS for the base domain (see below); the ports work without any setup.": "Ссылки в Envoryx используют https://<проект>.{{base}} вместо http://<IP>:<порт>. Для этого базовому домену нужен DNS (см. ниже); порты работают без какой-либо настройки.",
-  "If the server's IP address changes, update it in the settings, or give the server a fixed address in your router.": "Если IP-адрес сервера изменится, обновите его в настройках или назначьте серверу постоянный адрес в роутере."
+  "If the server's IP address changes, update it in the settings, or give the server a fixed address in your router.": "Если IP-адрес сервера изменится, обновите его в настройках или назначьте серверу постоянный адрес в роутере.",
+  "*.{{domain}} → {{addresses}}, set up by your hoster (DNS: {{dns}})": "*.{{domain}} → {{addresses}}, настроено вашим хостером (DNS: {{dns}})",
+  "*.{{domain}} does not resolve (DNS: {{dns}}). Your hoster sets up the DNS of this base domain.": "*.{{domain}} не разрешается (DNS: {{dns}}). DNS этого базового домена настраивает ваш хостер.",
+  "Tell your hoster: there is nothing to set up for it on this instance.": "Сообщите хостеру: на этом экземпляре для этого ничего настраивать не нужно.",
+  "Developer machine": "Компьютер разработчика",
+  "Your hoster set up the base domain and its DNS. Projects open at <slug>.{{base}}, the Envoryx UI at envoryx.{{base}}.": "Ваш хостер настроил базовый домен и его DNS. Проекты открываются по адресу <slug>.{{base}}, интерфейс Envoryx по адресу envoryx.{{base}}.",
+  "The embedded reverse proxy opens every project under its own host name, with your hoster's certificate.": "Встроенный обратный прокси открывает каждый проект под собственным именем хоста, с сертификатом вашего хостера.",
+  "Your hoster provides a public certificate for the base domain shortly. Until it arrives, projects use this CA.": "Ваш хостер вскоре предоставит публичный сертификат для базового домена. До тех пор проекты используют этот CA."
 }

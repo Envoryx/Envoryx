@@ -82,7 +82,15 @@ function BaseDomainForm({ baseDomain, forceHttps, domainLinks, localPorts, tlsAv
   return (
     <form onSubmit={submit} className="space-y-4">
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-      <Field label={t("Base domain")} htmlFor="base-domain" hint={t("Projects are reachable at <slug>.{{base}}, the Envoryx UI at envoryx.{{base}}. Point *.{{base}} at this host in your DNS (Pi-hole, AdGuard, dnsmasq) or add entries to your hosts file.", { base: base.trim() || "test" })}>
+      <Field
+        label={t("Base domain")}
+        htmlFor="base-domain"
+        hint={
+          baseLocked
+            ? t("Your hoster set up the base domain and its DNS. Projects open at <slug>.{{base}}, the Envoryx UI at envoryx.{{base}}.", { base: baseDomain })
+            : t("Projects are reachable at <slug>.{{base}}, the Envoryx UI at envoryx.{{base}}. Point *.{{base}} at this host in your DNS (Pi-hole, AdGuard, dnsmasq) or add entries to your hosts file.", { base: base.trim() || "test" })
+        }
+      >
         <Input id="base-domain" value={base} onChange={(e) => setBase(e.target.value)} placeholder="test" spellCheck={false} autoCapitalize="none" disabled={baseLocked} />
         {baseLocked && <LockedHint />}
       </Field>
@@ -238,50 +246,81 @@ const trustSteps: { os: string; steps: string }[] = [
   { os: "Firefox", steps: "Uses its own store: Settings → Privacy & Security → Certificates → View Certificates → Authorities → Import (or set security.enterprise_roots.enabled to true)." },
 ];
 
+/** The local CA's details, its download and how to trust it. */
+function LocalCA({ tls }: { tls: TLSInfo }) {
+  const { t } = useTranslation();
+  if (!tls.ca) return null;
+  return (
+    <>
+      <dl className="mt-3 grid gap-x-6 gap-y-1 text-xs sm:grid-cols-[8rem_1fr]">
+        <dt className="text-muted">{t("Subject")}</dt>
+        <dd>{tls.ca.caSubject}</dd>
+        <dt className="text-muted">SHA-256</dt>
+        <dd className="break-all font-mono">{tls.ca.caFingerprint}</dd>
+        <dt className="text-muted">{t("Valid until")}</dt>
+        <dd>{formatDateTime(tls.ca.caNotAfter)}</dd>
+      </dl>
+      <a href={api.tls.caUrl} download="envoryx-ca.crt" className="mt-3 inline-flex h-9 items-center gap-2 rounded-md bg-accent-600 px-3.5 text-sm font-medium text-white shadow-sm hover:bg-accent-500">
+        <Download className="size-4" aria-hidden /> {t("Download envoryx-ca.crt")}
+      </a>
+      <details className="mt-3 text-sm">
+        <summary className="cursor-pointer text-muted hover:text-fg">{t("How to trust the CA")}</summary>
+        <ul className="mt-2 space-y-1.5 text-xs text-muted">
+          {trustSteps.map((step) => (
+            <li key={step.os}>
+              <span className="font-medium text-fg">{step.os}:</span> {t(step.steps)}
+            </li>
+          ))}
+        </ul>
+      </details>
+    </>
+  );
+}
+
 export function DomainsCard() {
   const { t } = useTranslation();
   const settings = useSettings();
   const tls = useTLSInfo();
+  // The hoster fixes the base domain and runs its DNS and certificate: no DNS guide, no
+  // local CA to install, no Let's Encrypt of one's own for it.
+  const hosterDomain = useSettingLocked("baseDomain");
   if (settings.isPending || tls.isPending) return <Card><CardHeader title={t("Domains & HTTPS")} /><Spinner /></Card>;
   if (settings.isError || tls.isError) return <Card><CardHeader title={t("Domains & HTTPS")} /><div className="p-5"><Alert tone="red">{errorText(settings.error ?? tls.error, t)}</Alert></div></Card>;
   const info = tls.data;
   const tlsAvailable = info.enabled && info.proxy.httpsPort > 0;
   return (
     <Card>
-      <CardHeader title={t("Domains & HTTPS")} description={t("The embedded reverse proxy opens every project under its own host name and issues certificates from a local certificate authority.")} />
+      <CardHeader
+        title={t("Domains & HTTPS")}
+        description={
+          info.hosterCertificate
+            ? t("The embedded reverse proxy opens every project under its own host name, with your hoster's certificate.")
+            : t("The embedded reverse proxy opens every project under its own host name and issues certificates from a local certificate authority.")
+        }
+      />
       <div className="space-y-6 p-5">
         <ProxyStatus tls={info} />
         <BaseDomainForm baseDomain={settings.data.baseDomain} forceHttps={settings.data.forceHttps} domainLinks={!!settings.data.domainLinks} localPorts={!!info.proxy.localPorts} tlsAvailable={tlsAvailable} />
-        {info.proxy.enabled && !info.hosterCertificate && <DnsGuide baseDomain={settings.data.baseDomain} target={dnsTarget(info.proxy.address, settings.data.publicHost, window.location.hostname)} />}
+        {info.proxy.enabled && !info.hosterCertificate && !hosterDomain && <DnsGuide baseDomain={settings.data.baseDomain} target={dnsTarget(info.proxy.address, settings.data.publicHost, window.location.hostname)} />}
         {info.enabled && info.ca && (
           <>
-            <div className="border-t border-default pt-5">
-              <h3 className="text-sm font-semibold">{t("Local certificate authority")}</h3>
-              <p className="mt-1 text-sm text-muted">
-                {t("Install the CA once on each device that should open projects over HTTPS without warnings. Only the public certificate leaves Envoryx; the key stays in /config/ca.")}
-              </p>
-              <dl className="mt-3 grid gap-x-6 gap-y-1 text-xs sm:grid-cols-[8rem_1fr]">
-                <dt className="text-muted">{t("Subject")}</dt>
-                <dd>{info.ca.caSubject}</dd>
-                <dt className="text-muted">SHA-256</dt>
-                <dd className="break-all font-mono">{info.ca.caFingerprint}</dd>
-                <dt className="text-muted">{t("Valid until")}</dt>
-                <dd>{formatDateTime(info.ca.caNotAfter)}</dd>
-              </dl>
-              <a href={api.tls.caUrl} download="envoryx-ca.crt" className="mt-3 inline-flex h-9 items-center gap-2 rounded-md bg-accent-600 px-3.5 text-sm font-medium text-white shadow-sm hover:bg-accent-500">
-                <Download className="size-4" aria-hidden /> {t("Download envoryx-ca.crt")}
-              </a>
-              <details className="mt-3 text-sm">
-                <summary className="cursor-pointer text-muted hover:text-fg">{t("How to trust the CA")}</summary>
-                <ul className="mt-2 space-y-1.5 text-xs text-muted">
-                  {trustSteps.map((step) => (
-                    <li key={step.os}>
-                      <span className="font-medium text-fg">{step.os}:</span> {t(step.steps)}
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            </div>
+            {!hosterDomain ? (
+              <div className="border-t border-default pt-5">
+                <h3 className="text-sm font-semibold">{t("Local certificate authority")}</h3>
+                <p className="mt-1 text-sm text-muted">
+                  {t("Install the CA once on each device that should open projects over HTTPS without warnings. Only the public certificate leaves Envoryx; the key stays in /config/ca.")}
+                </p>
+                <LocalCA tls={info} />
+              </div>
+            ) : (
+              !info.hosterCertificate && (
+                <details className="border-t border-default pt-5">
+                  <summary className="cursor-pointer text-sm font-semibold">{t("Local certificate authority")}</summary>
+                  <p className="mt-1 text-sm text-muted">{t("Your hoster provides a public certificate for the base domain shortly. Until it arrives, projects use this CA.")}</p>
+                  <LocalCA tls={info} />
+                </details>
+              )
+            )}
             {info.hosterCertificate ? (
               <div className="border-t border-default pt-5">
                 <h3 className="text-sm font-semibold">{t("Certificate from your hoster")}</h3>
@@ -291,12 +330,14 @@ export function DomainsCard() {
               </div>
             ) : (
               <>
-                <div className="border-t border-default pt-5">
-                  <h3 className="text-sm font-semibold">{t("Let's Encrypt (public certificate, no CA installation)")}</h3>
-                  <div className="mt-3">
-                    <AcmeForm baseDomain={settings.data.baseDomain} />
+                {!hosterDomain && (
+                  <div className="border-t border-default pt-5">
+                    <h3 className="text-sm font-semibold">{t("Let's Encrypt (public certificate, no CA installation)")}</h3>
+                    <div className="mt-3">
+                      <AcmeForm baseDomain={settings.data.baseDomain} />
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className="border-t border-default pt-5">
                   <h3 className="text-sm font-semibold">{t("Custom certificate")}</h3>
                   <div className="mt-3">

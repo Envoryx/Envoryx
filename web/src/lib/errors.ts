@@ -179,6 +179,8 @@ const templates: (string | [string, string])[] = [
   "Published on host ports {{http}} (HTTP) and {{https}} (HTTPS)",
   "*.{{domain}} does not resolve from inside the Envoryx container (its DNS: {{dns}}). Your devices may use a different DNS server - the check from this browser above is what counts.",
   "*.{{domain}} → {{addresses}}, answered by this Envoryx's proxy (DNS: {{dns}})",
+  "*.{{domain}} → {{addresses}}, set up by your hoster (DNS: {{dns}})",
+  "*.{{domain}} does not resolve (DNS: {{dns}}). Your hoster sets up the DNS of this base domain.",
   "*.{{domain}} → {{address}} (DNS: {{dns}})",
   "*.{{domain}} resolves to {{addresses}}, but the proxy is at {{proxy}} (DNS: {{dns}}).",
   "*.{{domain}} resolves to {{addresses}}, but another server answers there, not this Envoryx (DNS: {{dns}}).",
