@@ -10,6 +10,11 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- The releases are also on Docker Hub as `envoryx/envoryx`, the same images as on
+  `ghcr.io/envoryx/envoryx` (same digests, so updates check their build provenance there
+  too). ghcr.io stays the default.
+
 ## [0.46.5] - 2026-10-31
 
 ### Added
