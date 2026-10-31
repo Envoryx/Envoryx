@@ -157,6 +157,8 @@ const settingLabels: Record<string, string> = {
   sharedIdeBackends: "Shared IDE backends",
   sharedPackageCache: "Shared package cache",
   xdebugClientHost: "Xdebug client host",
+  sshHost: "SSH host",
+  sshPort: "SSH port",
   folderViewFolder: "FolderView3 folder",
   metricsRetentionDays: "Resource history",
   newProjectsPrivate: "New projects signed-in only",

@@ -54,7 +54,8 @@ export function IdeTab({ project: p }: { project: Project }) {
   const jvCfg = (p.services.find((x) => x.kind === "java" && x.enabled)?.config ?? {}) as unknown as Partial<JavaConfig>;
   const hostname = p.hostnames[0] ?? `${p.slug}.test`;
   const ssh = s?.ssh;
-  const sshHost = s?.proxy?.address || host;
+  // A hoster's own SSH entry wins; else SSH is where the projects are.
+  const sshHost = ssh?.host || s?.proxy?.address || host;
   // An SSH tunnel to a container of the project by its name there: how a client on the
   // developer's machine gets in where the published ports only listen on the server.
   const tunnel = (alias: string, port: number) => (ssh?.enabled && ssh.port > 0 ? `ssh -N -L ${port}:${alias}:${port} -p ${ssh.port} ${p.slug}@${sshHost}` : "");

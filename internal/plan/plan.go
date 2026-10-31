@@ -137,7 +137,7 @@ type ContainerLimits struct {
 var ServiceNames = []string{"mariadb", "mysql", "postgresql", "mongodb", "redis", "memcached", "rabbitmq", "meilisearch", "typesense", "opensearch", "ollama", "mailpit", "storage"}
 
 // LockableSettings are the instance settings a plan can fix.
-var LockableSettings = []string{"publicHost", "baseDomain", "forceHttps", "projectsFollowEnvoryx", "sharedIdeBackends", "sharedPackageCache", "xdebugClientHost", "folderViewFolder", "metricsRetentionDays", "newProjectsPrivate", "twoFactorRequired", "logHistory", "imageUpdates"}
+var LockableSettings = []string{"publicHost", "baseDomain", "forceHttps", "projectsFollowEnvoryx", "sharedIdeBackends", "sharedPackageCache", "xdebugClientHost", "sshHost", "sshPort", "folderViewFolder", "metricsRetentionDays", "newProjectsPrivate", "twoFactorRequired", "logHistory", "imageUpdates"}
 
 // ErrQuota is returned when an action would go beyond the plan.
 var ErrQuota = errors.New("not included in the plan")

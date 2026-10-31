@@ -427,6 +427,39 @@ func ResolvePublicHost(ctx context.Context, settings *store.Settings, env string
 	return env
 }
 
+// SettingSSHHost is the settings-table key for the host the SSH examples name.
+const SettingSSHHost = "ssh_host"
+
+// sshHost returns the host the SSH examples name: the stored setting, then
+// ENVORYX_SSH_PUBLIC_HOST, then "" (the projects' address). Like publicHost, a cleared
+// setting gives way to the environment again.
+func (a *API) sshHost(ctx context.Context) string {
+	if v, err := a.d.Store.Settings.Get(ctx, SettingSSHHost); err == nil && v != "" {
+		return v
+	}
+	return a.d.Config.SSHPublicHost
+}
+
+// storedSSHPort is the sshPort setting alone, 0 when not set.
+func (a *API) storedSSHPort(ctx context.Context) int {
+	n, _ := strconv.Atoi(a.setting(ctx, SettingSSHPort))
+	return n
+}
+
+// SettingSSHPort is the settings-table key for the port the SSH examples name.
+const SettingSSHPort = "ssh_port"
+
+// sshPort returns the port the SSH examples name when it isn't the published one: the
+// stored setting, then ENVORYX_SSH_PUBLIC_PORT, then 0.
+func (a *API) sshPort(ctx context.Context) int {
+	if v, err := a.d.Store.Settings.Get(ctx, SettingSSHPort); err == nil && v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return a.d.Config.SSHPublicPort
+}
+
 type updateSettingsRequest struct {
 	PublicHost *string `json:"publicHost"`
 	BaseDomain *string `json:"baseDomain"`
@@ -444,6 +477,11 @@ type updateSettingsRequest struct {
 	SharedPackageCache *bool `json:"sharedPackageCache"`
 	// XdebugClientHost is the developer machine Xdebug connects back to.
 	XdebugClientHost *string `json:"xdebugClientHost"`
+	// SSHHost is the host the SSH examples name, where SSH isn't reached at the address
+	// of the web interface.
+	SSHHost *string `json:"sshHost"`
+	// SSHPort is the port the SSH examples name, 0 for the published one.
+	SSHPort *int `json:"sshPort"`
 	// FolderViewFolder is the FolderView3 folder the containers are labelled for.
 	FolderViewFolder *string `json:"folderViewFolder"`
 	// SSHAuthorizedKeys replaces the public keys accepted by the SSH server.
@@ -665,6 +703,34 @@ func (a *API) applySettings(ctx context.Context, req updateSettingsRequest) (map
 			changes["publicHost"] = host
 		}
 	}
+	if req.SSHHost != nil {
+		host := strings.TrimSpace(*req.SSHHost)
+		if host != "" && !config.ValidHost(host) {
+			return changes, fmt.Errorf("%w: the SSH host must be a host name or IP address without scheme or port", validate.ErrInvalid)
+		}
+		if cur, err := a.d.Store.Settings.Get(ctx, SettingSSHHost); err != nil || cur != host {
+			if err := a.d.Store.Settings.Set(ctx, SettingSSHHost, host); err != nil {
+				return changes, err
+			}
+			changes["sshHost"] = host
+		}
+	}
+	if req.SSHPort != nil {
+		port := *req.SSHPort
+		if port < 0 || port > 65535 {
+			return changes, fmt.Errorf("%w: the SSH port must be from 1 to 65535, or 0 for the published one", validate.ErrInvalid)
+		}
+		v := ""
+		if port > 0 {
+			v = strconv.Itoa(port)
+		}
+		if cur, err := a.d.Store.Settings.Get(ctx, SettingSSHPort); err != nil || cur != v {
+			if err := a.d.Store.Settings.Set(ctx, SettingSSHPort, v); err != nil {
+				return changes, err
+			}
+			changes["sshPort"] = port
+		}
+	}
 	if req.BaseDomain != nil {
 		if err := a.d.Projects.SetBaseDomain(ctx, *req.BaseDomain); err != nil {
 			return changes, err
@@ -807,7 +873,7 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 			"forceHttps":       a.d.Projects.ForceHTTPS(r.Context()),
 			"domainLinks":      a.d.Projects.DomainLinks(r.Context()),
 			"xdebugClientHost": a.d.Projects.XdebugClientHost(r.Context()),
-			"ssh":              a.sshDTO(),
+			"ssh":              a.sshDTO(r.Context()),
 			"proxy":            a.proxyDTO(),
 			"version":          a.d.Version,
 			"projectsDir":      c.ProjectsDir,
@@ -841,7 +907,11 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 		"unraid":            strings.Contains(strings.ToLower(a.d.Projects.HostKernel(r.Context())), "unraid"),
 		"sshAuthorizedKeys": a.setting(r.Context(), sshd.SettingAuthorizedKeys),
 		"twoFactorRequired": a.twoFactorRequirement(r),
-		"ssh":               a.sshDTO(),
+		"ssh":               a.sshDTO(r.Context()),
+		"sshHost":           a.setting(r.Context(), SettingSSHHost),
+		"sshHostEnv":        c.SSHPublicHost,
+		"sshPort":           a.storedSSHPort(r.Context()),
+		"sshPortEnv":        c.SSHPublicPort,
 		"proxy":             a.proxyDTO(),
 		"version":           a.d.Version,
 		"schemaVersion":     schema,
@@ -1020,11 +1090,17 @@ func (a *API) setting(ctx context.Context, key string) string {
 	return v
 }
 
-func (a *API) sshDTO() SSHInfo {
+func (a *API) sshDTO(ctx context.Context) SSHInfo {
 	if a.d.SSH == nil {
 		return SSHInfo{}
 	}
-	return *a.d.SSH
+	info := *a.d.SSH
+	info.Host = a.sshHost(ctx)
+	// A port of the hoster's forwarding counts even where Envoryx sees none published.
+	if port := a.sshPort(ctx); port > 0 && info.Enabled {
+		info.Port = port
+	}
+	return info
 }
 
 // validateAuthorizedKeys checks every non-empty, non-comment line parses as a public key.

@@ -3785,5 +3785,18 @@
   "Developer machine": "Máquina de desenvolvimento",
   "Your hoster set up the base domain and its DNS. Projects open at <slug>.{{base}}, the Envoryx UI at envoryx.{{base}}.": "O seu fornecedor de alojamento configurou o domínio base e o respetivo DNS. Os projetos abrem em <slug>.{{base}}, a interface do Envoryx em envoryx.{{base}}.",
   "The embedded reverse proxy opens every project under its own host name, with your hoster's certificate.": "O proxy reverso integrado abre cada projeto com o seu próprio nome de anfitrião, com o certificado do seu fornecedor de alojamento.",
-  "Your hoster provides a public certificate for the base domain shortly. Until it arrives, projects use this CA.": "O seu fornecedor de alojamento disponibilizará em breve um certificado público para o domínio base. Até lá, os projetos usam esta CA."
+  "Your hoster provides a public certificate for the base domain shortly. Until it arrives, projects use this CA.": "O seu fornecedor de alojamento disponibilizará em breve um certificado público para o domínio base. Até lá, os projetos usam esta CA.",
+  "SSH address": "Endereço SSH",
+  "Only needed when SSH is reached at another address than this web interface, e.g. a separate SSH entry of your hoster.": "Só é necessário se o SSH for acessado num endereço diferente desta interface web, p. ex. uma entrada SSH própria do seu provedor.",
+  "SSH host": "Host SSH",
+  "SSH port": "Porta SSH",
+  "Leave empty to use ENVORYX_SSH_PUBLIC_HOST ({{host}}). Host name or IP only, no port.": "Deixe vazio para usar ENVORYX_SSH_PUBLIC_HOST ({{host}}). Apenas nome de host ou IP, sem porta.",
+  "Leave empty to use the address of the projects. Host name or IP only, no port.": "Deixe vazio para usar o endereço dos projetos. Apenas nome de host ou IP, sem porta.",
+  "Leave empty to use ENVORYX_SSH_PUBLIC_PORT ({{port}}).": "Deixe vazio para usar ENVORYX_SSH_PUBLIC_PORT ({{port}}).",
+  "Leave empty to use the port published on the Docker host.": "Deixe vazio para usar a porta publicada no host Docker.",
+  "The SSH port must be from 1 to 65535, or empty for the published one.": "A porta SSH deve estar entre 1 e 65535, ou vazia para a publicada.",
+  "Saved. The SSH examples now use this address.": "Salvo. Os exemplos de SSH agora usam este endereço.",
+  "Host {{host}}, port {{port}}, fingerprint {{fingerprint}}": "Host {{host}}, porta {{port}}, impressão digital {{fingerprint}}",
+  "the SSH host must be a host name or IP address without scheme or port": "O host SSH deve ser um nome de host ou endereço IP sem esquema nem porta",
+  "the SSH port must be from 1 to 65535, or 0 for the published one": "A porta SSH deve estar entre 1 e 65535, ou 0 para a publicada"
 }

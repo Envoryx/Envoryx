@@ -3851,5 +3851,18 @@
   "Developer machine": "Комп'ютер розробника",
   "Your hoster set up the base domain and its DNS. Projects open at <slug>.{{base}}, the Envoryx UI at envoryx.{{base}}.": "Ваш хостер налаштував базовий домен і його DNS. Проєкти відкриваються за адресою <slug>.{{base}}, інтерфейс Envoryx за адресою envoryx.{{base}}.",
   "The embedded reverse proxy opens every project under its own host name, with your hoster's certificate.": "Вбудований зворотний проксі відкриває кожен проєкт під власним іменем хоста, із сертифікатом вашого хостера.",
-  "Your hoster provides a public certificate for the base domain shortly. Until it arrives, projects use this CA.": "Ваш хостер незабаром надасть публічний сертифікат для базового домену. До того часу проєкти використовують цей CA."
+  "Your hoster provides a public certificate for the base domain shortly. Until it arrives, projects use this CA.": "Ваш хостер незабаром надасть публічний сертифікат для базового домену. До того часу проєкти використовують цей CA.",
+  "SSH address": "Адреса SSH",
+  "Only needed when SSH is reached at another address than this web interface, e.g. a separate SSH entry of your hoster.": "Потрібно, лише якщо SSH доступний за іншою адресою, ніж цей вебінтерфейс, наприклад через окремий вхід SSH вашого хостера.",
+  "SSH host": "Хост SSH",
+  "SSH port": "Порт SSH",
+  "Leave empty to use ENVORYX_SSH_PUBLIC_HOST ({{host}}). Host name or IP only, no port.": "Залиште порожнім, щоб використати ENVORYX_SSH_PUBLIC_HOST ({{host}}). Лише ім'я хоста або IP, без порту.",
+  "Leave empty to use the address of the projects. Host name or IP only, no port.": "Залиште порожнім, щоб використати адресу проєктів. Лише ім'я хоста або IP, без порту.",
+  "Leave empty to use ENVORYX_SSH_PUBLIC_PORT ({{port}}).": "Залиште порожнім, щоб використати ENVORYX_SSH_PUBLIC_PORT ({{port}}).",
+  "Leave empty to use the port published on the Docker host.": "Залиште порожнім, щоб використати порт, опублікований на Docker-хості.",
+  "The SSH port must be from 1 to 65535, or empty for the published one.": "Порт SSH має бути від 1 до 65535 або порожнім для опублікованого.",
+  "Saved. The SSH examples now use this address.": "Збережено. Приклади SSH тепер використовують цю адресу.",
+  "Host {{host}}, port {{port}}, fingerprint {{fingerprint}}": "Хост {{host}}, порт {{port}}, відбиток {{fingerprint}}",
+  "the SSH host must be a host name or IP address without scheme or port": "Хост SSH має бути ім'ям хоста або IP-адресою без схеми та порту",
+  "the SSH port must be from 1 to 65535, or 0 for the published one": "Порт SSH має бути від 1 до 65535 або 0 для опублікованого"
 }

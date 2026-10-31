@@ -1649,6 +1649,9 @@ export interface NotifyInfo {
 export interface UpdateSettingsRequest {
   publicHost?: string;
   xdebugClientHost?: string;
+  sshHost?: string;
+  /** 0 for the published port. */
+  sshPort?: number;
   sshAuthorizedKeys?: string;
   twoFactorRequired?: TwoFactorRequirement;
   baseDomain?: string;
@@ -1705,6 +1708,8 @@ export interface SSHInfo {
   fingerprint: string;
   /** Same key as MD5, the form JetBrains IDEs show. */
   fingerprintMd5?: string;
+  /** Where to connect when it isn't the projects' address (sshHost or ENVORYX_SSH_PUBLIC_HOST). */
+  host?: string;
 }
 
 export interface Settings {
@@ -1721,6 +1726,14 @@ export interface Settings {
   /** Whom a second factor is required of (admins only). */
   twoFactorRequired?: TwoFactorRequirement;
   ssh?: SSHInfo;
+  /** The stored SSH host setting; ssh.host is what applies. */
+  sshHost?: string;
+  /** ENVORYX_SSH_PUBLIC_HOST: what an empty sshHost falls back to. */
+  sshHostEnv?: string;
+  /** The stored SSH port setting, 0 for none; ssh.port is what applies. */
+  sshPort?: number;
+  /** ENVORYX_SSH_PUBLIC_PORT, 0 for none. */
+  sshPortEnv?: number;
   baseDomain: string;
   forceHttps: boolean;
   /** Links open projects by their domains behind the proxy instead of their published ports. */
