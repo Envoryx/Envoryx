@@ -3,7 +3,9 @@ package project
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -37,7 +39,7 @@ func (m *Manager) followAddress(ctx context.Context, p store.Project, oldURL, ne
 		return err == nil
 	}
 	if exists("craft") && exists("vendor/craftcms/cms") {
-		if changed, err := followCraftEnv(filepath.Join(dir, ".env"), oldURL); err != nil {
+		if changed, err := followCraftEnv(dir, oldURL); err != nil {
 			m.log.Warn("point Craft's PRIMARY_SITE_URL at the new address", "project", p.Slug, "err", err)
 		} else if changed {
 			step(ctx, "Pointing PRIMARY_SITE_URL in .env at the new address")
@@ -55,10 +57,11 @@ var craftSiteURLLine = regexp.MustCompile(`(?m)^PRIMARY_SITE_URL=(["']?)([^"'\r\
 
 // followCraftEnv replaces a PRIMARY_SITE_URL that holds the old address (or a path below
 // it) with the reference to ENVORYX_URL, which follows every later rename too. Any other
-// value was set on purpose and stays.
-func followCraftEnv(path, oldURL string) (bool, error) {
-	b, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
+// value was set on purpose and stays. The .env in the project directory dir belongs to the
+// project and may be a link out of it, so it's read and written through an os.Root of dir.
+func followCraftEnv(dir, oldURL string) (bool, error) {
+	b, err := readProjectFile(dir, ".env", maxProjectFile)
+	if errors.Is(err, fs.ErrNotExist) {
 		return false, nil
 	}
 	if err != nil {
@@ -77,11 +80,16 @@ func followCraftEnv(path, oldURL string) (bool, error) {
 	if !changed || bytes.Equal(out, b) {
 		return false, nil
 	}
-	info, err := os.Stat(path)
+	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return false, err
 	}
-	return true, os.WriteFile(path, out, info.Mode().Perm())
+	defer root.Close()
+	info, err := root.Stat(".env")
+	if err != nil {
+		return false, err
+	}
+	return true, root.WriteFile(".env", out, info.Mode().Perm())
 }
 
 // followShopwareDomains rewrites the sales channel domains on the old address to the new
@@ -135,12 +143,29 @@ func (m *Manager) followShopwareDomains(ctx context.Context, p store.Project, di
 		return err
 	}
 	// Stopped: Shopware builds the cache again on the first request after the start.
-	entries, err := os.ReadDir(filepath.Join(dir, "var", "cache"))
+	return clearShopwareCache(dir)
+}
+
+// clearShopwareCache empties var/cache in the project directory dir. It belongs to the
+// project and may be a link out of it, so it's emptied through an os.Root of dir; a
+// cache that isn't there (or leads out) is left alone.
+func clearShopwareCache(dir string) error {
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil
+	}
+	defer root.Close()
+	cache, err := root.OpenRoot(filepath.Join("var", "cache"))
+	if err != nil {
+		return nil
+	}
+	defer cache.Close()
+	entries, err := fs.ReadDir(cache.FS(), ".")
 	if err != nil {
 		return nil
 	}
 	for _, e := range entries {
-		if err := removeAll(filepath.Join(dir, "var", "cache", e.Name())); err != nil {
+		if err := cache.RemoveAll(e.Name()); err != nil {
 			return fmt.Errorf("clear var/cache: %w", err)
 		}
 	}

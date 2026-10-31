@@ -64,3 +64,23 @@ func openProjectFile(root *os.Root, rel string) (*os.File, os.FileInfo, error) {
 	}
 	return f, info, nil
 }
+
+// writeProjectFile writes content to rel below a project's directory dir for Envoryx
+// itself, creating the missing directories, and hands the file to uid:gid. Like
+// readProjectFile it goes through an os.Root of dir, so a link in the project can't make
+// it write anywhere else.
+func writeProjectFile(dir, rel string, content []byte, uid, gid int) error {
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	if err := root.MkdirAll(filepath.Dir(rel), 0o755); err != nil {
+		return err
+	}
+	if err := root.WriteFile(rel, content, 0o644); err != nil {
+		return err
+	}
+	_ = root.Chown(rel, uid, gid)
+	return nil
+}
