@@ -106,6 +106,18 @@ describe("IdeTab", () => {
     expect(screen.getByText("MD5:a4:14")).toBeInTheDocument();
   });
 
+  it("names the hoster's own SSH entry where one is set", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /settings": () => ({ body: { ...settings, ssh: { ...settings.ssh, host: "ssh.c1.example.net", port: 2201 } } }),
+      [`GET /projects/${id}/extras`]: () => ({ body: { services: [] } }),
+    });
+    renderApp(<IdeTab project={makeProject()} />);
+    expect(await screen.findByText("ssh -p 2201 acme-shop@ssh.c1.example.net")).toBeInTheDocument();
+    expect(screen.getAllByText("ssh.c1.example.net").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/acme-shop@192\.168\.1\.10/)).not.toBeInTheDocument();
+  });
+
   it("leaves out the SFTP card while the SSH port is not published", async () => {
     mockApi({
       ...authedRoutes,

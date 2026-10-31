@@ -429,16 +429,19 @@ func systemResolvers() string {
 	return strings.Join(out, ", ")
 }
 
-func (a *API) checkSSH(context.Context) []Check {
+func (a *API) checkSSH(ctx context.Context) []Check {
 	c := Check{ID: "network.ssh", Category: catNetwork, Title: "SSH for IDEs", Docs: "ide-integration-phpstorm-vs-code"}
+	ssh := a.sshDTO(ctx)
 	switch {
-	case a.d.SSH == nil || !a.d.SSH.Enabled:
+	case !ssh.Enabled:
 		c.Status, c.Detail = checkInfo, "Disabled."
-	case a.d.SSH.Port == 0:
+	case ssh.Port == 0:
 		c.Status, c.Detail = checkInfo, "The SSH server runs, but its port is not published on the host; IDEs on other machines cannot connect."
 		c.Hint = "Map port 2222 on the Envoryx container to use remote interpreters and SFTP."
+	case ssh.Host != "":
+		c.Status, c.Detail = checkOK, fmt.Sprintf("Host %s, port %d, fingerprint %s", ssh.Host, ssh.Port, ssh.Fingerprint)
 	default:
-		c.Status, c.Detail = checkOK, fmt.Sprintf("Port %d, fingerprint %s", a.d.SSH.Port, a.d.SSH.Fingerprint)
+		c.Status, c.Detail = checkOK, fmt.Sprintf("Port %d, fingerprint %s", ssh.Port, ssh.Fingerprint)
 	}
 	return []Check{c}
 }

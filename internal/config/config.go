@@ -94,6 +94,13 @@ type Config struct {
 	// e.g. when the Envoryx container has its own macvlan IP). Empty means whatever is in
 	// the browser's address bar.
 	PublicHost string
+	// SSHPublicHost is the host name or IP the SSH examples name, where the SSH port isn't
+	// reached at the same address as the web interface (a hoster's separate SSH entry).
+	// Empty means the address of the projects (Envoryx's own IP or the public host).
+	SSHPublicHost string
+	// SSHPublicPort is the port the SSH examples name when it differs from the published
+	// one (a hoster's port forwarding); 0 means the published port.
+	SSHPublicPort int
 
 	// FleetURL is the fleet manager of the instance's hoster, FleetToken the one-time
 	// token it enrolls with (see internal/fleet). Empty: not managed by a fleet.
@@ -133,6 +140,8 @@ func Load() (Config, error) {
 		PUID:                   envInt("PUID", 1000),
 		PGID:                   envInt("PGID", 1000),
 		PublicHost:             env("ENVORYX_PUBLIC_HOST", ""),
+		SSHPublicHost:          env("ENVORYX_SSH_PUBLIC_HOST", ""),
+		SSHPublicPort:          envInt("ENVORYX_SSH_PUBLIC_PORT", 0),
 		ProxyHTTP:              envAllowEmpty("ENVORYX_PROXY_HTTP", ":80"),
 		ProxyHTTPS:             envAllowEmpty("ENVORYX_PROXY_HTTPS", ":443"),
 		SSHListen:              envAllowEmpty("ENVORYX_SSH", ":2222"),
@@ -204,6 +213,12 @@ func (c Config) validate() error {
 	}
 	if c.PublicHost != "" && !validHost(c.PublicHost) {
 		errs = append(errs, fmt.Errorf("ENVORYX_PUBLIC_HOST %q must be a host name or IP without scheme or port", c.PublicHost))
+	}
+	if c.SSHPublicHost != "" && !validHost(c.SSHPublicHost) {
+		errs = append(errs, fmt.Errorf("ENVORYX_SSH_PUBLIC_HOST %q must be a host name or IP without scheme or port", c.SSHPublicHost))
+	}
+	if c.SSHPublicPort < 0 || c.SSHPublicPort > 65535 {
+		errs = append(errs, fmt.Errorf("ENVORYX_SSH_PUBLIC_PORT %d must be a port from 1 to 65535", c.SSHPublicPort))
 	}
 	if (c.AdminUser == "") != (c.AdminPassword == "") {
 		errs = append(errs, errors.New("ENVORYX_ADMIN_USER and ENVORYX_ADMIN_PASSWORD must be set together"))

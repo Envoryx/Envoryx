@@ -100,6 +100,9 @@ type SSHInfo struct {
 	Fingerprint string `json:"fingerprint"`
 	// FingerprintMD5 is the legacy form JetBrains IDEs show when they ask to trust the key.
 	FingerprintMD5 string `json:"fingerprintMd5"`
+	// Host is the address to connect to when it isn't the one of the projects: the
+	// sshHost setting or ENVORYX_SSH_PUBLIC_HOST. Empty means the projects' address.
+	Host string `json:"host,omitempty"`
 }
 
 // API holds handlers.

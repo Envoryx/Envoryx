@@ -186,6 +186,7 @@ const templates: (string | [string, string])[] = [
   "*.{{domain}} resolves to {{addresses}}, but another server answers there, not this Envoryx (DNS: {{dns}}).",
   "*.{{domain}} resolves to {{addresses}} (DNS: {{dns}}), unverified: Envoryx could not reach its proxy there, and without a host for project links it has no address to compare.",
   "Port {{port}}, fingerprint {{fingerprint}}",
+  "Host {{host}}, port {{port}}, fingerprint {{fingerprint}}",
   "{{version}} - update check disabled",
   "{{version}} - the release check has not succeeded yet: {{error}}",
   "{{version}} is the newest release",

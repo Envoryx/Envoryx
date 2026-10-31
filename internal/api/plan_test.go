@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/envoryx/envoryx/internal/api"
 	"github.com/envoryx/envoryx/internal/plan"
 )
 
@@ -77,6 +78,24 @@ func TestPlanEndpointAndQuotas(t *testing.T) {
 		if r := a.do(http.MethodPost, path, key, true); errCode(r) == "plan_limit" {
 			t.Fatalf("%s: %d %s", path, r.status, r.raw)
 		}
+	}
+}
+
+// A hoster's plan can fix the SSH address the examples name.
+func TestPlanFixesTheSSHAddress(t *testing.T) {
+	a := newAppWith(t, func(d *api.Deps) { d.SSH = &api.SSHInfo{Enabled: true, Port: 2222, Fingerprint: "SHA256:test"} })
+	a.setupAndLogin()
+	a.setPlan(`{"settings":{"sshHost":"ssh.c1.example.net","sshPort":2201}}`)
+	if a.planSettingsErr != nil {
+		t.Fatal(a.planSettingsErr)
+	}
+	r := a.do(http.MethodGet, "/api/v1/settings", nil, false)
+	s, _ := r.body["ssh"].(map[string]any)
+	if s["host"] != "ssh.c1.example.net" || s["port"] != float64(2201) {
+		t.Fatalf("settings: %s", r.raw)
+	}
+	if r := a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"sshHost": "mine.example.net"}, true); errCode(r) != "plan_limit" {
+		t.Fatalf("change the fixed SSH host: %d %s", r.status, r.raw)
 	}
 }
 

@@ -74,6 +74,7 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
 | `ENVORYX_PROXY_HTTP` | `:80` | Listen address of the embedded proxy inside the container; empty disables it |
 | `ENVORYX_PROXY_HTTPS` | `:443` | HTTPS listener of the proxy (local CA); empty disables HTTPS |
 | `ENVORYX_SSH` | `:2222` | Embedded SSH server for IDE remote interpreters; empty disables it |
+| `ENVORYX_SSH_PUBLIC_HOST` / `ENVORYX_SSH_PUBLIC_PORT` | - | Host and port the IDE section names for SSH, where SSH is reached at another address than the web interface (a hoster's separate SSH entry, port forwarding); also editable in *Settings → SSH access*, where empty fields fall back to these variables. See [SSH at its own address](#ssh-at-its-own-address) |
 | `ENVORYX_ADMIN_USER` / `ENVORYX_ADMIN_PASSWORD` | - | Create the first admin non-interactively |
 | `ENVORYX_SECRET_KEY` | - | Key that encrypts the stored secrets (base64 of 32 bytes or 64 hex digits, e.g. `openssl rand -base64 32`); without it Envoryx keeps one in `/config/secret.key`, see [Secret key](#secret-key) |
 | `ENVORYX_SECRET_KEY_OLD` | - | The previous key, for one start after changing `ENVORYX_SECRET_KEY` |
@@ -2752,6 +2753,18 @@ SSH sessions are refused for it.
 The project must be running for sessions to open. Commands are logged to
 the audit log (`ssh.exec`), failed logins are rate limited per IP.
 
+### SSH at its own address
+
+The IDE section names the host of the projects for SSH (the container's own IP,
+the host for project links or the browser's address) and the port published for
+2222. Where SSH comes in elsewhere, for example a hoster's own entry
+`ssh.customer.example.net` in front of the node the instance runs on, or a port
+forwarding to another port, set *Settings → SSH access → SSH address* (or
+`ENVORYX_SSH_PUBLIC_HOST` and `ENVORYX_SSH_PUBLIC_PORT`). The IDE section, the
+`ssh` and tunnel commands, the Gateway steps and the diagnostics then use it.
+Empty fields fall back to the variables, and without them everything stays as
+before. A hoster's plan can fix both as `sshHost` and `sshPort`.
+
 ### Tunnels to the project's services
 
 The same SSH login forwards a port to any container of the project by the name the
@@ -3061,7 +3074,7 @@ management).
 - **settings**: instance settings the hoster fixes, by their name in
   `PATCH /api/v1/settings`: `publicHost`, `baseDomain`, `forceHttps`,
   `projectsFollowEnvoryx`, `sharedIdeBackends`, `sharedPackageCache`,
-  `xdebugClientHost`, `folderViewFolder`, `metricsRetentionDays`,
+  `xdebugClientHost`, `sshHost`, `sshPort` (from 0.46.5), `folderViewFolder`, `metricsRetentionDays`,
   `newProjectsPrivate`, `twoFactorRequired` (`off`, `admins`, `all`),
   `logHistory` (`{"enabled": true, "retentionDays": 14, "maxMb": 500}`) and
   `imageUpdates` (`{"autoRestart": true, "hour": 4}`). They are

@@ -38,6 +38,8 @@ var settingKeys = []settingKey{
 	{name: "shared-ide-backends", field: "sharedIdeBackends", kind: "bool", help: "one set of JetBrains backends for all projects"},
 	{name: "shared-package-cache", field: "sharedPackageCache", kind: "bool", help: "one package cache for all projects"},
 	{name: "xdebug-client-host", field: "xdebugClientHost", kind: "string", help: "the developer machine Xdebug connects back to"},
+	{name: "ssh-host", field: "sshHost", kind: "string", help: "host the SSH examples name, where SSH has its own address"},
+	{name: "ssh-port", field: "sshPort", kind: "int", help: "port the SSH examples name, 0 for the published one"},
 	{name: "folderview-folder", field: "folderViewFolder", kind: "string", help: "FolderView3 folder for the containers (Unraid)"},
 	{name: "log-history", field: "logHistory", nested: "enabled", kind: "bool", help: "keep the containers' output"},
 	{name: "log-history-days", field: "logHistory", nested: "retentionDays", kind: "int", help: "days of output to keep"},

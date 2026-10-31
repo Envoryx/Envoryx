@@ -76,6 +76,12 @@ type testApp struct {
 
 func newApp(t *testing.T) *testApp {
 	t.Helper()
+	return newAppWith(t, nil)
+}
+
+// newAppWith is newApp with a hook that changes the API's dependencies before it starts.
+func newAppWith(t *testing.T, change func(*api.Deps)) *testApp {
+	t.Helper()
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	sqlDB, err := db.Open(context.Background(), ":memory:", log)
 	if err != nil {
@@ -140,9 +146,13 @@ func newApp(t *testing.T) *testApp {
 	manager.SetPlan(app.plans)
 	sessions.SetPlan(app.plans)
 	app.offsite.Allowed = func() bool { return app.plans.Get().Allows(plan.FeatureOffsite) }
-	a := api.New(api.Deps{Config: cfg, Version: "test", Store: st, Auth: sessions, Audit: auditLog, Engine: engine, Projects: manager, Updates: update.Disabled("test"),
+	deps := api.Deps{Config: cfg, Version: "test", Store: st, Auth: sessions, Audit: auditLog, Engine: engine, Projects: manager, Updates: update.Disabled("test"),
 		Catalog: runtime.Default(), Stats: stats.New(engine, time.Second, log), HostPath: resolver, Certs: certs, ACME: acmeMgr, Notify: notifier, Proxy: proxyInfo, MCP: mcpSrv.Handler(), Log: log, StartedAt: time.Now(),
-		Instance: backups, DB: sqlDB, Restart: func() { app.restarts++ }, Offsite: app.offsite})
+		Instance: backups, DB: sqlDB, Restart: func() { app.restarts++ }, Offsite: app.offsite}
+	if change != nil {
+		change(&deps)
+	}
+	a := api.New(deps)
 	app.plans.OnChange(func(*plan.Plan) {
 		app.planSettingsErr = a.ApplyPlanSettings(context.Background())
 	})
@@ -1271,6 +1281,58 @@ func TestPublicHostSetting(t *testing.T) {
 	r = a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"publicHost": ""}, true)
 	if r.status != http.StatusOK || r.body["publicHost"] != "" {
 		t.Fatalf("clearing must work: %d %s", r.status, r.raw)
+	}
+}
+
+// The SSH examples name the hoster's own SSH entry where one is set: the setting, else
+// ENVORYX_SSH_PUBLIC_HOST and ENVORYX_SSH_PUBLIC_PORT; a cleared setting gives way to them.
+func TestSSHAddressSetting(t *testing.T) {
+	a := newAppWith(t, func(d *api.Deps) {
+		d.SSH = &api.SSHInfo{Enabled: true, Port: 2222, Fingerprint: "SHA256:test"}
+		d.Config.SSHPublicHost = "ssh.env.example.net"
+	})
+	a.setupAndLogin()
+	ssh := func() map[string]any {
+		t.Helper()
+		r := a.do(http.MethodGet, "/api/v1/settings", nil, false)
+		s, _ := r.body["ssh"].(map[string]any)
+		return s
+	}
+	if s := ssh(); s["host"] != "ssh.env.example.net" || s["port"] != float64(2222) {
+		t.Fatalf("from the environment: %v", s)
+	}
+	for _, bad := range []map[string]any{{"sshHost": "ssh://ssh.example.net"}, {"sshHost": "ssh.example.net:22"}, {"sshPort": 70000}, {"sshPort": -1}} {
+		if r := a.do(http.MethodPatch, "/api/v1/settings", bad, true); r.status != http.StatusUnprocessableEntity {
+			t.Fatalf("%v must be refused: %d %s", bad, r.status, r.raw)
+		}
+	}
+	r := a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"sshHost": "ssh.c1.example.net", "sshPort": 2201}, true)
+	if r.status != http.StatusOK || r.body["sshHost"] != "ssh.c1.example.net" || r.body["sshPort"] != float64(2201) {
+		t.Fatalf("set: %d %s", r.status, r.raw)
+	}
+	if s := ssh(); s["host"] != "ssh.c1.example.net" || s["port"] != float64(2201) {
+		t.Fatalf("the setting must win: %v", s)
+	}
+	r = a.do(http.MethodGet, "/api/v1/system/diagnostics", nil, false)
+	if !strings.Contains(string(r.raw), "Host ssh.c1.example.net, port 2201") {
+		t.Fatalf("diagnostics must name the SSH address: %s", r.raw)
+	}
+	if r := a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"sshHost": "", "sshPort": 0}, true); r.status != http.StatusOK {
+		t.Fatalf("clear: %d %s", r.status, r.raw)
+	}
+	if s := ssh(); s["host"] != "ssh.env.example.net" || s["port"] != float64(2222) {
+		t.Fatalf("cleared: %v", s)
+	}
+}
+
+// Without an SSH address nothing changes: no host, the published port.
+func TestSSHAddressDefaults(t *testing.T) {
+	a := newAppWith(t, func(d *api.Deps) { d.SSH = &api.SSHInfo{Enabled: true, Port: 2222, Fingerprint: "SHA256:test"} })
+	a.setupAndLogin()
+	r := a.do(http.MethodGet, "/api/v1/settings", nil, false)
+	s, _ := r.body["ssh"].(map[string]any)
+	if _, ok := s["host"]; ok || s["port"] != float64(2222) || r.body["sshHost"] != "" || r.body["sshPort"] != float64(0) {
+		t.Fatalf("defaults: %s", r.raw)
 	}
 }
 

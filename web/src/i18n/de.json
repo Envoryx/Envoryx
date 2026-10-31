@@ -3785,5 +3785,18 @@
   "Developer machine": "Entwicklerrechner",
   "Your hoster set up the base domain and its DNS. Projects open at <slug>.{{base}}, the Envoryx UI at envoryx.{{base}}.": "Dein Hoster hat die Basis-Domain und ihr DNS eingerichtet. Projekte öffnen sich unter <slug>.{{base}}, die Envoryx-Oberfläche unter envoryx.{{base}}.",
   "The embedded reverse proxy opens every project under its own host name, with your hoster's certificate.": "Der eingebettete Reverse-Proxy macht jedes Projekt unter einem eigenen Hostnamen erreichbar, mit dem Zertifikat deines Hosters.",
-  "Your hoster provides a public certificate for the base domain shortly. Until it arrives, projects use this CA.": "Dein Hoster stellt in Kürze ein öffentliches Zertifikat für die Basis-Domain bereit. Bis es da ist, nutzen die Projekte diese CA."
+  "Your hoster provides a public certificate for the base domain shortly. Until it arrives, projects use this CA.": "Dein Hoster stellt in Kürze ein öffentliches Zertifikat für die Basis-Domain bereit. Bis es da ist, nutzen die Projekte diese CA.",
+  "SSH address": "SSH-Adresse",
+  "Only needed when SSH is reached at another address than this web interface, e.g. a separate SSH entry of your hoster.": "Nur nötig, wenn SSH unter einer anderen Adresse erreichbar ist als diese Oberfläche, z. B. über einen eigenen SSH-Eingang deines Hosters.",
+  "SSH host": "SSH-Host",
+  "SSH port": "SSH-Port",
+  "Leave empty to use ENVORYX_SSH_PUBLIC_HOST ({{host}}). Host name or IP only, no port.": "Leer lassen, um ENVORYX_SSH_PUBLIC_HOST ({{host}}) zu verwenden. Nur Hostname oder IP, ohne Port.",
+  "Leave empty to use the address of the projects. Host name or IP only, no port.": "Leer lassen, um die Adresse der Projekte zu verwenden. Nur Hostname oder IP, ohne Port.",
+  "Leave empty to use ENVORYX_SSH_PUBLIC_PORT ({{port}}).": "Leer lassen, um ENVORYX_SSH_PUBLIC_PORT ({{port}}) zu verwenden.",
+  "Leave empty to use the port published on the Docker host.": "Leer lassen, um den auf dem Docker-Host veröffentlichten Port zu verwenden.",
+  "The SSH port must be from 1 to 65535, or empty for the published one.": "Der SSH-Port muss zwischen 1 und 65535 liegen oder leer sein für den veröffentlichten.",
+  "Saved. The SSH examples now use this address.": "Gespeichert. Die SSH-Beispiele verwenden jetzt diese Adresse.",
+  "Host {{host}}, port {{port}}, fingerprint {{fingerprint}}": "Host {{host}}, Port {{port}}, Fingerprint {{fingerprint}}",
+  "the SSH host must be a host name or IP address without scheme or port": "Der SSH-Host muss ein Hostname oder eine IP-Adresse ohne Schema und Port sein",
+  "the SSH port must be from 1 to 65535, or 0 for the published one": "Der SSH-Port muss zwischen 1 und 65535 liegen, oder 0 für den veröffentlichten"
 }

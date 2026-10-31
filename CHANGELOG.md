@@ -10,6 +10,15 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- An SSH address of its own: *Settings → SSH access → SSH address* (or
+  `ENVORYX_SSH_PUBLIC_HOST` and `ENVORYX_SSH_PUBLIC_PORT`) sets the host and port the IDE
+  section names for SSH, for a hoster whose SSH entry isn't the address of the web
+  interface (`ssh.customer.example.net`, a node behind an edge, a forwarded port). The
+  remote interpreter rows, the `ssh` and tunnel commands, the Gateway steps, the .NET
+  `launch.json` and the diagnostics use it. A plan can fix it as `sshHost` and `sshPort`
+  (fleet 0.6.5). Without a value nothing changes.
+
 ## [0.46.4] - 2026-10-29
 
 ### Changed

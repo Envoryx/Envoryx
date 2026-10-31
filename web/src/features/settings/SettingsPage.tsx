@@ -152,6 +152,57 @@ function PublicHostForm({ current, envHost, xdebugHost }: { current: string; env
   );
 }
 
+/** The host and port the SSH examples name, for a hoster whose SSH entry has an address of its own. */
+export function SshHostForm({ current, envHost, currentPort, envPort }: { current: string; envHost: string; currentPort: number; envPort: number }) {
+  const { t } = useTranslation();
+  const update = useUpdateSettings();
+  const [host, setHost] = useState(current);
+  const [port, setPort] = useState(currentPort ? String(currentPort) : "");
+  const hostLocked = useSettingLocked("sshHost");
+  const portLocked = useSettingLocked("sshPort");
+  const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
+  useEffect(() => setHost(current), [current]);
+  useEffect(() => setPort(currentPort ? String(currentPort) : ""), [currentPort]);
+  const portValue = port.trim() === "" ? 0 : Number(port);
+  const unchanged = host.trim() === current && portValue === currentPort;
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    if (!Number.isInteger(portValue) || portValue < 0 || portValue > 65535) {
+      setMsg({ tone: "red", text: t("The SSH port must be from 1 to 65535, or empty for the published one.") });
+      return;
+    }
+    update.mutate(
+      { sshHost: host.trim(), sshPort: portValue },
+      {
+        onSuccess: () => setMsg({ tone: "green", text: t("Saved. The SSH examples now use this address.") }),
+        onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
+      },
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader title={t("SSH address")} description={t("Only needed when SSH is reached at another address than this web interface, e.g. a separate SSH entry of your hoster.")} />
+      <form onSubmit={submit} className="space-y-4 p-5">
+        {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
+        <Field label={t("SSH host")} htmlFor="ssh-host" hint={envHost ? t("Leave empty to use ENVORYX_SSH_PUBLIC_HOST ({{host}}). Host name or IP only, no port.", { host: envHost }) : t("Leave empty to use the address of the projects. Host name or IP only, no port.")}>
+          <Input id="ssh-host" value={host} onChange={(e) => setHost(e.target.value)} placeholder="ssh.example.com" spellCheck={false} disabled={hostLocked} />
+          {hostLocked && <LockedHint />}
+        </Field>
+        <Field label={t("SSH port")} htmlFor="ssh-port" hint={envPort ? t("Leave empty to use ENVORYX_SSH_PUBLIC_PORT ({{port}}).", { port: envPort }) : t("Leave empty to use the port published on the Docker host.")}>
+          <Input id="ssh-port" type="number" min={1} max={65535} value={port} onChange={(e) => setPort(e.target.value)} placeholder="2222" disabled={portLocked} />
+          {portLocked && <LockedHint />}
+        </Field>
+        <Button type="submit" variant="primary" loading={update.isPending} disabled={(hostLocked && portLocked) || unchanged} icon={<Save className="size-4" />}>
+          {t("Save")}
+        </Button>
+      </form>
+    </Card>
+  );
+}
+
 /** The instance's SSH keys; read-only for the hoster's support, as the keys are a way in. */
 function SshCard({ keys, ssh, readOnly }: { keys: string; ssh: { enabled: boolean; port: number; fingerprint: string } | undefined; readOnly: boolean }) {
   const { t } = useTranslation();
@@ -427,7 +478,12 @@ export function SettingsPage() {
               <OidcCard readOnly={support} />
             </>
           )}
-          {tab === "ssh" && s.data && <SshCard keys={s.data.sshAuthorizedKeys ?? ""} ssh={s.data.ssh} readOnly={support} />}
+          {tab === "ssh" && s.data && (
+            <>
+              {s.data.ssh?.enabled && <SshHostForm current={s.data.sshHost ?? ""} envHost={s.data.sshHostEnv ?? ""} currentPort={s.data.sshPort ?? 0} envPort={s.data.sshPortEnv ?? 0} />}
+              <SshCard keys={s.data.sshAuthorizedKeys ?? ""} ssh={s.data.ssh} readOnly={support} />
+            </>
+          )}
           {tab === "deploykey" && <DeployKeyCard />}
           {tab === "secretkey" && <SecretKeyCard readOnly={support} />}
           {tab === "backups" && (
