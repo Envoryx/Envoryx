@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/envoryx/envoryx/main/docs/assets/envoryx-logo.png" alt="Envoryx - build deeper" width="480">
-</p>
+![Envoryx - build deeper](https://raw.githubusercontent.com/envoryx/envoryx/main/docs/assets/envoryx-logo.png)
 
 **Development environments on your own server, set up from a web UI.** For Linux Docker
 hosts and Unraid, x86_64 and arm64.
