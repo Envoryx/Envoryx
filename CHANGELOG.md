@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.46.6] - 2026-11-01
+
 ### Added
 - The releases are also on Docker Hub as `envoryx/envoryx`, the same images as on
   `ghcr.io/envoryx/envoryx` (same digests, so updates check their build provenance there
@@ -2980,7 +2982,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.46.5...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.46.6...HEAD
+[0.46.6]: https://github.com/envoryx/envoryx/compare/v0.46.5...v0.46.6
 [0.46.5]: https://github.com/envoryx/envoryx/compare/v0.46.4...v0.46.5
 [0.46.4]: https://github.com/envoryx/envoryx/compare/v0.46.3...v0.46.4
 [0.46.3]: https://github.com/envoryx/envoryx/compare/v0.46.2...v0.46.3
