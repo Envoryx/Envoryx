@@ -575,7 +575,7 @@ func (s *Service) sendMail(ctx context.Context, cfg Config, e Event, at time.Tim
 		body = "Project: " + e.Project + "\n\n" + body
 	}
 	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n%s\r\n",
-		cfg.From, cfg.To, subject, at.Format(time.RFC1123Z), strings.ReplaceAll(body, "\n", "\r\n"))
+		headerValue(cfg.From), headerValue(cfg.To), headerValue(subject), at.Format(time.RFC1123Z), strings.ReplaceAll(body, "\n", "\r\n"))
 	if _, err := io.WriteString(w, msg); err != nil {
 		return err
 	}
@@ -583,4 +583,10 @@ func (s *Service) sendMail(ctx context.Context, cfg Config, e Event, at time.Tim
 		return err
 	}
 	return c.Quit()
+}
+
+// headerValue keeps a value on its header line: a line break in a title (an error
+// message, a name) would start a header of its own.
+func headerValue(s string) string {
+	return strings.Join(strings.Fields(s), " ")
 }

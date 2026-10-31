@@ -22,7 +22,7 @@ func TestFollowCraftEnv(t *testing.T) {
 		if err := os.WriteFile(path, []byte(tc.in), 0o640); err != nil {
 			t.Fatal(err)
 		}
-		changed, err := followCraftEnv(path, "https://blog.test")
+		changed, err := followCraftEnv(dir, "https://blog.test")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -37,8 +37,64 @@ func TestFollowCraftEnv(t *testing.T) {
 			t.Fatalf("%q: got %q (changed %v), want %q", tc.in, got, changed, tc.want)
 		}
 	}
-	if changed, err := followCraftEnv(filepath.Join(dir, "missing"), "https://blog.test"); err != nil || changed {
+	if changed, err := followCraftEnv(t.TempDir(), "https://blog.test"); err != nil || changed {
 		t.Fatalf("missing .env: %v %v", changed, err)
+	}
+}
+
+// A .env that is a link out of the project is neither read nor written.
+func TestFollowCraftEnvStaysInTheProject(t *testing.T) {
+	dir, outside := t.TempDir(), t.TempDir()
+	target := filepath.Join(outside, "secret.env")
+	const in = "PRIMARY_SITE_URL=https://blog.test\n"
+	if err := os.WriteFile(target, []byte(in), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, filepath.Join(dir, ".env")); err != nil {
+		t.Fatal(err)
+	}
+	if changed, err := followCraftEnv(dir, "https://blog.test"); err == nil || changed {
+		t.Fatalf("a .env leading out was followed: %v %v", changed, err)
+	}
+	if got, _ := os.ReadFile(target); string(got) != in {
+		t.Fatalf("the file outside changed to %q", got)
+	}
+}
+
+// Clearing Shopware's cache empties var/cache, but never what a var/cache leading out of
+// the project points at.
+func TestClearShopwareCache(t *testing.T) {
+	dir := t.TempDir()
+	cache := filepath.Join(dir, "var", "cache")
+	if err := os.MkdirAll(filepath.Join(cache, "prod_abc", "twig"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cache, "prod_abc", "twig", "x.php"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := clearShopwareCache(dir); err != nil {
+		t.Fatal(err)
+	}
+	if entries, err := os.ReadDir(cache); err != nil || len(entries) != 0 {
+		t.Fatalf("var/cache holds %v (%v)", entries, err)
+	}
+
+	outside := t.TempDir()
+	keep := filepath.Join(outside, "envoryx.db")
+	if err := os.WriteFile(keep, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(cache); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, cache); err != nil {
+		t.Fatal(err)
+	}
+	if err := clearShopwareCache(dir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(keep); err != nil {
+		t.Fatalf("a file outside the project was removed: %v", err)
 	}
 }
 

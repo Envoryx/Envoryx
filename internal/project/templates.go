@@ -1505,18 +1505,15 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 			if err != nil {
 				return err
 			}
-			path, err := validate.ResolveUnder(dir, rel)
-			if err != nil {
+			if _, err := validate.ResolveUnder(dir, rel); err != nil {
 				return err
 			}
+			// The steps before ran the template's own code, which may have left a link out
+			// of the project where the file goes: it's written through an os.Root of dir.
 			// chownTree below hands a directory made here to the project owner.
-			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			if err := writeProjectFile(dir, filepath.FromSlash(rel), []byte(content), paths.PUID, paths.PGID); err != nil {
 				return fmt.Errorf("write %s: %w", rel, err)
 			}
-			if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-				return fmt.Errorf("write %s: %w", rel, err)
-			}
-			_ = os.Chown(path, paths.PUID, paths.PGID)
 		}
 	}
 	chownTree(dir, paths.PUID, paths.PGID)

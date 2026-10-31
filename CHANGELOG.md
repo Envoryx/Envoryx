@@ -15,6 +15,16 @@ release). `:main` follows the development branch.
   `ghcr.io/envoryx/envoryx` (same digests, so updates check their build provenance there
   too). ghcr.io stays the default.
 
+### Security
+- Renaming a stopped Shopware project emptied `var/cache` by following it, so a
+  `var/cache` that was a link out of the project (planted in the project or brought by
+  its repository) made Envoryx delete what it pointed at, such as its own `/config`. The
+  cache is now emptied through the project directory only, and a link out is left alone.
+- Renaming a Craft CMS project and applying a template wrote `.env` and the template's
+  files through links in the project as well. Both stay inside the project now.
+- A line break in a notification's title started a header of its own in the e-mail.
+- CI ran with the default token permissions; it now only reads the repository.
+
 ## [0.46.5] - 2026-10-31
 
 ### Added

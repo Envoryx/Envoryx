@@ -360,3 +360,10 @@ func TestDeliveriesStayOffLocalAddresses(t *testing.T) {
 		t.Errorf("private address on a hosted instance: %v", err)
 	}
 }
+
+// A line break in a title stays on the subject line instead of starting a header.
+func TestHeaderValue(t *testing.T) {
+	if got := headerValue("Creating shop failed\r\nBcc: x@example.com"); got != "Creating shop failed Bcc: x@example.com" {
+		t.Fatalf("got %q", got)
+	}
+}

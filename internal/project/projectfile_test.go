@@ -132,3 +132,24 @@ func TestExtractArchiveStaysOutOfPlantedLinks(t *testing.T) {
 		t.Fatalf("restored into the directory elsewhere: %v", entries)
 	}
 }
+
+// A template's file is written below the project, also where the template's own steps
+// left a link out of it, and never through that link.
+func TestWriteProjectFileFollowsNoLinksOut(t *testing.T) {
+	dir, outside := t.TempDir(), t.TempDir()
+	if err := writeProjectFile(dir, filepath.Join("config", "app.php"), []byte("ok"), os.Getuid(), os.Getgid()); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(filepath.Join(dir, "config", "app.php")); err != nil || string(got) != "ok" {
+		t.Fatalf("written %q (%v)", got, err)
+	}
+	if err := os.Symlink(outside, filepath.Join(dir, "etc")); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeProjectFile(dir, filepath.Join("etc", "x.conf"), []byte("evil"), os.Getuid(), os.Getgid()); err == nil {
+		t.Fatal("a file was written through a link out of the project")
+	}
+	if _, err := os.Stat(filepath.Join(outside, "x.conf")); !os.IsNotExist(err) {
+		t.Fatalf("the file landed outside: %v", err)
+	}
+}
