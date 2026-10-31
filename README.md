@@ -11,6 +11,16 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/envoryx/envoryx/actions/workflows/ci.yml"><img src="https://github.com/envoryx/envoryx/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/envoryx/envoryx/actions/workflows/codeql.yml"><img src="https://github.com/envoryx/envoryx/actions/workflows/codeql.yml/badge.svg?branch=main" alt="CodeQL"></a>
+  <a href="https://github.com/envoryx/envoryx/releases/latest"><img src="https://img.shields.io/github/v/release/envoryx/envoryx?sort=semver" alt="Release"></a>
+  <a href="https://github.com/envoryx/envoryx/pkgs/container/envoryx"><img src="https://img.shields.io/badge/image-ghcr.io%2Fenvoryx%2Fenvoryx-blue?logo=docker&amp;logoColor=white" alt="Docker image: ghcr.io/envoryx/envoryx"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--only-blue" alt="License: AGPL-3.0-only"></a>
+  <img src="https://img.shields.io/badge/platform-Linux%20%7C%20Unraid-blue" alt="Platforms: Linux, Unraid">
+  <img src="https://img.shields.io/badge/arch-amd64%20%7C%20arm64-blue" alt="Architectures: amd64, arm64">
+</p>
+
+<p align="center">
   <a href="https://envoryx.dev/docs/">Documentation</a> ·
   <a href="https://envoryx.dev/docs/getting-started/installation/">Installation</a> ·
   <a href="CHANGELOG.md">Changelog</a> ·
