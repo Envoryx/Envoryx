@@ -91,3 +91,12 @@ jobs:
           subject-name: ghcr.io/envoryx/envoryx
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
+
+  # Releases also go to Docker Hub, as a copy of the image just pushed.
+  dockerhub:
+    needs: build
+    if: github.ref_type == 'tag'
+    uses: ./.github/workflows/dockerhub.yml
+    with:
+      version: ${{ github.ref_name }}
+    secrets: inherit

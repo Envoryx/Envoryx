@@ -1,0 +1,61 @@
+name: Docker Hub
+
+# Copies a release from ghcr.io to Docker Hub (docker.io/envoryx/envoryx). The copy keeps
+# the image's digest, so the build provenance GitHub signed for it checks out there too.
+# ghcr.io stays the source: this runs after its push, and a failure here leaves it alone.
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+  # Copies a release that was built before, such as one from before this workflow.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The release to copy, like v0.46.5
+        required: true
+      latest:
+        description: Point :latest and :X.Y at it (only for the newest release)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Copy the release
+        env:
+          VERSION: ${{ inputs.version }}
+          # A call from the release workflow is always the newest release.
+          LATEST: ${{ github.event_name != 'workflow_dispatch' || inputs.latest }}
+          REPO: docker.io/${{ vars.DOCKERHUB_USERNAME }}/envoryx
+        run: |
+          v="${VERSION#v}"
+          if ! [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::$VERSION is no release version (X.Y.Z)"
+            exit 1
+          fi
+          tags=(--tag "$REPO:$v")
+          if [ "$LATEST" = true ]; then
+            tags+=(--tag "$REPO:${v%.*}" --tag "$REPO:latest")
+          fi
+          docker buildx imagetools create "${tags[@]}" "ghcr.io/envoryx/envoryx:$v"
+          src="$(docker buildx imagetools inspect "ghcr.io/envoryx/envoryx:$v" --format '{{json .Manifest.Digest}}')"
+          dst="$(docker buildx imagetools inspect "$REPO:$v" --format '{{json .Manifest.Digest}}')"
+          if [ "$src" != "$dst" ]; then
+            echo "::error::the copy has the digest $dst, ghcr.io has $src"
+            exit 1
+          fi
+          echo "Copied $v ($src) to $REPO"
