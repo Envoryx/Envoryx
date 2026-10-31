@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.46.5] - 2026-10-31
+
 ### Added
 - An SSH address of its own: *Settings → SSH access → SSH address* (or
   `ENVORYX_SSH_PUBLIC_HOST` and `ENVORYX_SSH_PUBLIC_PORT`) sets the host and port the IDE
@@ -2963,7 +2965,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.46.4...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.46.5...HEAD
+[0.46.5]: https://github.com/envoryx/envoryx/compare/v0.46.4...v0.46.5
 [0.46.4]: https://github.com/envoryx/envoryx/compare/v0.46.3...v0.46.4
 [0.46.3]: https://github.com/envoryx/envoryx/compare/v0.46.2...v0.46.3
 [0.46.2]: https://github.com/envoryx/envoryx/compare/v0.46.1...v0.46.2
