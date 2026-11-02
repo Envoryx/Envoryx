@@ -11,7 +11,7 @@ Sources:
 Rules:
   - a cycle is listed when php:<cycle>-fpm exists (stable) or php:<cycle>-rc-fpm exists (preview)
   - eol = the cycle's EOL date is in the past
-  - default = newest stable, non-EOL cycle
+  - default = newest stable, non-EOL cycle (Python: the newest one out for six months)
   - cycles older than MIN_VERSION are dropped
 
 Exit code 0 always; prints "changed=true|false" for the workflow.
@@ -19,7 +19,7 @@ Exit code 0 always; prints "changed=true|false" for the workflow.
 import json
 import sys
 import urllib.request
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 PRODUCTS = {
@@ -28,7 +28,10 @@ PRODUCTS = {
     "node": {"file": "node_versions.json", "eol_api": "https://endoflife.date/api/nodejs.json", "hub": "node", "min": (18,),
              "stable": "{c}-bookworm-slim", "preview": None, "base_stable": "{c}-bookworm-slim", "base_preview": None, "label": "node"},
     "python": {"file": "python_versions.json", "eol_api": "https://endoflife.date/api/python.json", "hub": "python", "min": (3, 10),
-               "stable": "{c}-slim-bookworm", "preview": "{c}-rc-slim-bookworm", "base_stable": "{c}-slim-bookworm", "base_preview": "{c}-rc-slim-bookworm", "label": None},
+               "stable": "{c}-slim-bookworm", "preview": "{c}-rc-slim-bookworm", "base_stable": "{c}-slim-bookworm", "base_preview": "{c}-rc-slim-bookworm", "label": None,
+               # A new Python takes months until the packages with compiled parts ship
+               # wheels for it, so new projects get it as the default only after that.
+               "settle_days": 180},
     # Go supports its two newest releases (older ones stay, marked eol, like the other
     # runtimes); release candidates have no cycle tag to follow.
     "go": {"file": "go_versions.json", "eol_api": "https://endoflife.date/api/go.json", "hub": "golang", "min": (1, 26),
@@ -103,7 +106,8 @@ def main() -> int:
             is_lts = isinstance(lts, str) and lts <= today  # a future date means "LTS later"
             if PRODUCT["label"] == "node" and is_eol and not isinstance(lts, str):
                 continue  # odd "current" releases that reached EOL are of no use
-            versions.append({"version": cycle, "base": PRODUCT["base_stable"].format(c=cycle), "eol": is_eol, "preview": False, "lts": is_lts})
+            versions.append({"version": cycle, "base": PRODUCT["base_stable"].format(c=cycle), "eol": is_eol, "preview": False, "lts": is_lts,
+                             "released": c.get("releaseDate")})
         elif PRODUCT["preview"] and tag_exists(PRODUCT["preview"].format(c=cycle)):
             versions.append({"version": cycle, "base": PRODUCT["base_preview"].format(c=cycle), "eol": False, "preview": True, "lts": False})
 
@@ -128,7 +132,13 @@ def main() -> int:
         print("changed=false")
         return 0
 
-    out = {"image": current["image"], "default": stable[0]["version"], "versions": []}
+    default = stable[0]
+    if PRODUCT.get("settle_days"):
+        # A cycle without a release date is the probed next one, which is brand new.
+        settled_by = (date.today() - timedelta(days=PRODUCT["settle_days"])).isoformat()
+        default = next((v for v in stable if v.get("released") and v["released"] <= settled_by), default)
+
+    out = {"image": current["image"], "default": default["version"], "versions": []}
     # Hand-maintained (see php_versions.json): kept as they are for versions that stay.
     missing = {v["version"]: v["missingExtensions"] for v in current["versions"] if v.get("missingExtensions")}
     for v in versions:
