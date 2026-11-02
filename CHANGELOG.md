@@ -10,6 +10,12 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Fixed
+- A new MongoDB showed as healthy a few seconds too early: on its first start the image
+  runs a setup server on 127.0.0.1, which the health check answered to. A database
+  created or listed in the gap after it shut down failed with "connection refused". The
+  check now asks over the container's own address, where only the real server listens.
+
 ## [0.46.6] - 2026-11-01
 
 ### Added

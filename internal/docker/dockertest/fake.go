@@ -133,7 +133,10 @@ type Fake struct {
 	// Execs records every exec call as "name: argv...".
 	Execs []string
 	// Logs maps container names to their log lines returned by StreamLogs.
-	Logs         map[string][]docker.LogLine
+	Logs map[string][]docker.LogLine
+	// logResets counts the SetLogs per name, so a follow notices replaced output even
+	// when it is as long as what it had seen.
+	logResets    map[string]int
 	terminals    []TerminalRecord
 	lastTerminal *FakeTerminal
 
@@ -1030,6 +1033,7 @@ func (f *Fake) StreamLogs(ctx context.Context, id string, opts docker.LogOptions
 	}
 	name := c.Spec.Name
 	lines := append([]docker.LogLine(nil), f.Logs[name]...)
+	resets := f.logResets[name]
 	f.mu.Unlock()
 	keep := func(l docker.LogLine) bool {
 		return (opts.Since.IsZero() || !l.Time.Before(opts.Since)) && (opts.Until.IsZero() || !l.Time.After(opts.Until))
@@ -1070,8 +1074,9 @@ func (f *Fake) StreamLogs(ctx context.Context, id string, opts docker.LogOptions
 			return nil
 		}
 		all := f.Logs[name]
-		if len(all) < sent {
-			sent = 0 // SetLogs replaced the output, as a recreated container starts over
+		if f.logResets[name] != resets {
+			// SetLogs replaced the output, as a recreated container starts over.
+			resets, sent = f.logResets[name], 0
 		}
 		more := append([]docker.LogLine(nil), all[sent:]...)
 		sent = len(all)
@@ -1093,6 +1098,10 @@ func (f *Fake) SetLogs(name string, lines ...docker.LogLine) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.Logs[name] = lines
+	if f.logResets == nil {
+		f.logResets = map[string]int{}
+	}
+	f.logResets[name]++
 }
 
 // AppendLogs adds output to a container (by name); a following StreamLogs picks it up.

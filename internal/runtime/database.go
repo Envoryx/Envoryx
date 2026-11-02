@@ -351,7 +351,10 @@ func init() {
 		ContainerEnv: func(c DatabaseConfig) []string {
 			return []string{"MONGO_INITDB_ROOT_USERNAME=" + c.Username, "MONGO_INITDB_ROOT_PASSWORD=" + c.Password, "MONGO_INITDB_DATABASE=" + c.Database}
 		},
-		Health: []string{"mongosh", "--quiet", "--norc", "--eval", "db.adminCommand('ping').ok ? quit(0) : quit(1)"},
+		// The setup server of the first start listens on 127.0.0.1 too, unlike the other
+		// images' ones, and answers a ping there. The real server listens on every
+		// interface, so the check asks over the container's own address.
+		Health: []string{"mongosh", "--quiet", "--norc", "--nodb", "--eval", "try { quit(Mongo(os.hostname() + ':27017').getDB('admin').runCommand({ping: 1}).ok ? 0 : 1) } catch (e) { quit(1) }"},
 		Client: func(c DatabaseConfig, js string) ([]string, []string) {
 			return []string{"mongosh", "--quiet", "--norc", "--nodb", "--eval", mongoClientPrelude + js}, []string{"ENVORYX_MONGO_URI=" + mongoURI(c, "127.0.0.1", "admin")}
 		},
