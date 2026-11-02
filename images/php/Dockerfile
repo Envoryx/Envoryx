@@ -39,12 +39,14 @@ ARG MISSING_EXTENSIONS=""
 RUN set -eux; \
     mkdir -p /etc/envoryx; : > /etc/envoryx/missing-extensions; \
     # PECL and GitHub time out now and then (pecl.php.net answered 504 on 2026-10-20 and failed
-    # most versions' builds), so a failed download is retried. A failed build isn't.
+    # most versions' builds), and so does snapshot.debian.org, where apt fetches the build
+    # libraries of 7.4 and 8.0 (503 on 2026-11-02). A failed download is retried, a failed
+    # build isn't.
     ipe() { \
         for try in 1 2 3; do \
             rc=0; install-php-extensions "$@" > /tmp/ipe.log 2>&1 || rc=$?; cat /tmp/ipe.log; \
             [ "${rc}" = 0 ] && return 0; \
-            grep -qiE 'download failed|cannot download|could not download|could not resolve host|connection timed out|gateway time-?out|HTTP/[0-9.]+ 50[234]' /tmp/ipe.log || return "${rc}"; \
+            grep -qiE 'download failed|cannot download|could not download|could not resolve host|connection timed out|gateway time-?out|HTTP/[0-9.]+ 50[234]|failed to fetch .* 50[234] ' /tmp/ipe.log || return "${rc}"; \
             [ "${try}" = 3 ] || { echo "Download failed, trying $* again in 30 s"; sleep 30; }; \
         done; \
         return "${rc}"; \
