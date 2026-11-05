@@ -10,6 +10,12 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.46.7] - 2026-11-06
+
+### Changed
+- New Node.js projects get Node 26 by default, now that it is an LTS release. Existing
+  projects keep their version.
+
 ### Fixed
 - A new MongoDB showed as healthy a few seconds too early: on its first start the image
   runs a setup server on 127.0.0.1, which the health check answered to. A database
@@ -2988,7 +2994,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.46.6...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.46.7...HEAD
+[0.46.7]: https://github.com/envoryx/envoryx/compare/v0.46.6...v0.46.7
 [0.46.6]: https://github.com/envoryx/envoryx/compare/v0.46.5...v0.46.6
 [0.46.5]: https://github.com/envoryx/envoryx/compare/v0.46.4...v0.46.5
 [0.46.4]: https://github.com/envoryx/envoryx/compare/v0.46.3...v0.46.4
