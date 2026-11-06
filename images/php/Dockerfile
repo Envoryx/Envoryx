@@ -27,6 +27,12 @@ LABEL org.opencontainers.image.title="Envoryx PHP ${PHP_VERSION}" \
 # Extensions that can be toggled per project (keep in sync with internal/runtime/catalog.go).
 ENV ENVORYX_PHP_EXTENSIONS="mysqli pdo_mysql pdo_pgsql mongodb gd intl zip bcmath opcache imagick redis memcached amqp xdebug"
 
+# PHP 7.4 and 8.0 run on Debian 11, whose security updates are gone from deb.debian.org
+# since its LTS ended; apt then fetched them from snapshot.debian.org, which answered 503
+# and 504 for hours (2026-11-02 and 2026-11-06). archive.debian.org has the same packages.
+RUN . /etc/os-release; \
+    if [ "${VERSION_CODENAME}" = bullseye ]; then sed -i 's#http://deb.debian.org#http://archive.debian.org#' /etc/apt/sources.list; fi
+
 ADD --chmod=0755 https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
 
 # The extensions this version's image may lack, from "missingExtensions" in
