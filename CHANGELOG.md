@@ -10,6 +10,12 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.46.8] - 2026-11-13
+
+### Security
+- Envoryx is built with Go 1.27.4, which fixes a vulnerability in Go's HTTP package
+  ([GO-2026-6859](https://pkg.go.dev/vuln/GO-2026-6859)).
+
 ## [0.46.7] - 2026-11-06
 
 ### Changed
@@ -2994,7 +3000,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.46.7...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.46.8...HEAD
+[0.46.8]: https://github.com/envoryx/envoryx/compare/v0.46.7...v0.46.8
 [0.46.7]: https://github.com/envoryx/envoryx/compare/v0.46.6...v0.46.7
 [0.46.6]: https://github.com/envoryx/envoryx/compare/v0.46.5...v0.46.6
 [0.46.5]: https://github.com/envoryx/envoryx/compare/v0.46.4...v0.46.5
