@@ -104,7 +104,7 @@ RUN set -eux; \
     printf '%s UTF-8\n' en_US.UTF-8 en_GB.UTF-8 de_DE.UTF-8 de_AT.UTF-8 de_CH.UTF-8 fr_FR.UTF-8 es_ES.UTF-8 it_IT.UTF-8 nl_NL.UTF-8 pt_BR.UTF-8 pl_PL.UTF-8 > /etc/locale.gen; \
     locale-gen; \
     . /etc/os-release; \
-    curl -fsSL -o /usr/share/keyrings/pgdg.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc; \
+    curl -fsSL --retry 5 --retry-all-errors -o /usr/share/keyrings/pgdg.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc; \
     echo "deb [signed-by=/usr/share/keyrings/pgdg.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" > /etc/apt/sources.list.d/pgdg.list; \
     if apt-get update && pg=$(apt-cache search --names-only '^postgresql-client-[0-9]+$' | sed 's/ .*//' | sort -t- -k3 -n | tail -n1) && [ -n "${pg}" ]; then \
         apt-get install -y --no-install-recommends "${pg}"; \
