@@ -12,16 +12,16 @@ require (
 	github.com/go-jose/go-jose/v4 v4.1.9
 	github.com/go-webauthn/webauthn v0.18.2
 	github.com/golang/snappy v1.0.0
-	github.com/moby/moby/api v1.56.1
-	github.com/moby/moby/client v0.6.2
+	github.com/moby/moby/api v1.57.0
+	github.com/moby/moby/client v0.6.3
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/pkg/sftp v1.13.12
 	github.com/sigstore/sigstore-go v1.4.0
 	go.yaml.in/yaml/v3 v3.0.6
-	golang.org/x/crypto v0.58.0
-	golang.org/x/oauth2 v0.37.0
-	golang.org/x/term v0.47.0
-	modernc.org/sqlite v1.61.1
+	golang.org/x/crypto v0.59.0
+	golang.org/x/oauth2 v0.38.0
+	golang.org/x/term v0.48.0
+	modernc.org/sqlite v1.62.0
 	rsc.io/qr v0.2.0
 )
 
@@ -104,17 +104,17 @@ require (
 	go.opentelemetry.io/otel/metric v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
 	golang.org/x/mod v0.42.0 // indirect
-	golang.org/x/net v0.61.0 // indirect
-	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20261012220534-4341edf3f941 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261005182115-fad411399dd8 // indirect
 	google.golang.org/grpc v1.84.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
-	modernc.org/libc v1.79.0 // indirect
+	modernc.org/libc v1.80.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
